@@ -1,0 +1,807 @@
+From a56a6ed9bbc0ad23d244a9e4d6b83a9f0e8cc8b5 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Mon, 14 Sep 2026 13:58:21 +0000
+Subject: [PATCH] The enum default sweep: a miss returned Hans
+
+An enum with no default= encodes defaultInt 0, and EnumOps pushes `value ?? defaultInt`
+- so a MISS RETURNS 0, NOT NULL. That is what made the skillcape emote breathe dragonfire
+at anyone in a plain cape on 2026-09-12, and the note then said it was worth a repo-wide
+sweep. This is that sweep.
+
+Id 0 is a real, plausible thing in every table where it matters:
+
+    seq.pack:0       swarm_walk
+    spotanim.pack:0  triple_firebreath_attack
+    npc.pack:0       hans
+    obj.pack:0       mcannonremains
+    loc.pack:0       mcannoncrate
+
+61 enums across 18 files output one of those types and had no default=. All 61 now have
+default=null. The 96 enums that output int, string, coord or boolean are untouched - a 0
+there is ordinary and usually intended, and flagging them would bury the ones that matter.
+
+TWO LIVE BUGS FALL OUT OF IT, and in both cases the guard was already written correctly.
+The enum was lying to it.
+
+  * slayer_superior. superiors.rs2 reads the task's superior and tests `if ($superior =
+    null | $killed = $superior) { return; }`. task_name.enum has 84 slayer tasks and
+    superiors.enum has 15, so on the other 69 the lookup missed and answered npc 0 - which
+    is Hans. With Bigger and Badder unlocked, every on-task kill on one of those 69 tasks
+    was one 1/200 roll away from `npc_add(npc_coord, hans, 200); npc_setmode(opplayer2)`
+    and "@red@A superior foe has appeared...". Hans, the Lumbridge greeter, attacking you
+    for two minutes.
+
+  * skillcape_grimy_herb. brew_potion.rs2 tests `if ($clean ! null)` on a Herblore cape
+    wearer's used item. Any non-herb used on a vial of water answered mcannonremains and
+    passed the guard.
+
+Both are fixed by the default alone; neither call site needed changing.
+
+Also fixed, found in the same read: npc_combat.rs2 tested `%magearena > ^mage_arena_complete`
+where mage_arena_bosses runs 0..5 and ^mage_arena_complete is 6. So the moment the demon
+died the whole Kolodion block was entered and fell PAST the "you have already proven
+yourself" test into the "you must now fight him as" messages - which then indexed
+mage_arena_boss_names at 6 and missed as well. States 7 and 8 were handled correctly; 6,
+the state every finisher sits in until they pray at the statue, was not. Now >=.
+
+RULE 17 in rs2check makes it permanent: an enum whose outputtype has a real id 0 must
+declare default=. And poh_mutate gains mutation 44 to prove the rule fires - because the
+first version of rule 17 used the HEADER regex, which requires a comma and therefore never
+matches a config block header, so it reported nothing at all when a default= was deleted.
+That is the second rule in this file to ship inert. Break the thing a new rule is meant to
+catch, every time.
+
+poh_furniture.enum and poh_tablets.enum are generated, so the default goes in genfurn.py
+and gentablets.py rather than the output - poh_battery check 38/43 catches the difference,
+which is how that was noticed.
+
+rs2check 0 ERROR / 0 CHECK over 1,663 scripts and 456 configs, poh_battery ALL PASS,
+poh_mutate 44/44 caught, rs2check --selftest PASS. Not compiled.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01J1qUhTcu63bJ3hCBBxy7nU
+---
+ .../area_gnome/configs/cocktail_guide.enum    |  1 +
+ .../areas/area_gnome/configs/cook_book.enum   |  1 +
+ .../area_mage_arena/configs/mage_arena.enum   |  1 +
+ .../macro events/configs/macro_events.enum    |  8 +++
+ .../game_castlewars/configs/castlewars.enum   |  2 +
+ .../minigames/game_trail/configs/sextant.enum |  1 +
+ .../game_trail/configs/trail_easy.enum        |  1 +
+ .../game_trail/configs/trail_hard.enum        |  1 +
+ .../game_trail/configs/trail_medium.enum      |  1 +
+ .../game_warriorsguild/configs/wguild.enum    | 11 ++++
+ .../quest_death/configs/death_dice_anim.enum  |  1 +
+ .../configs/priestperil.enum                  |  2 +
+ .../skill_combat/scripts/npc/npc_combat.rs2   |  7 ++-
+ .../configs/poh_furniture.enum                |  3 ++
+ .../configs/poh_tablets.enum                  |  3 ++
+ .../configs/decanting/decant_potion.enum      | 20 +++++++
+ scripts/skill_slayer/configs/superiors.enum   |  1 +
+ scripts/skillcapes/configs/skillcape.enum     |  6 +++
+ .../storage_items/configs/storage_items.enum  |  1 +
+ tools/genfurn.py                              |  5 +-
+ tools/gentablets.py                           |  6 ++-
+ tools/poh_mutate.py                           |  6 +++
+ tools/rs2check.py                             | 54 +++++++++++++++++++
+ 23 files changed, 139 insertions(+), 4 deletions(-)
+
+diff --git a/scripts/areas/area_gnome/configs/cocktail_guide.enum b/scripts/areas/area_gnome/configs/cocktail_guide.enum
+index ff18f214..30e6c811 100644
+--- a/scripts/areas/area_gnome/configs/cocktail_guide.enum
++++ b/scripts/areas/area_gnome/configs/cocktail_guide.enum
+@@ -12,6 +12,7 @@ val=7,Wizard Blizzard
+ [cocktail_guide_model]
+ inputtype=int
+ outputtype=namedobj
++default=null
+ val=1,blurberry_special
+ val=2,chocolate_saturday
+ val=3,drunk_dragon
+diff --git a/scripts/areas/area_gnome/configs/cook_book.enum b/scripts/areas/area_gnome/configs/cook_book.enum
+index 5cfb3dcc..5637e1be 100644
+--- a/scripts/areas/area_gnome/configs/cook_book.enum
++++ b/scripts/areas/area_gnome/configs/cook_book.enum
+@@ -18,6 +18,7 @@ val=13,Vegetable Batta
+ [cook_book_model]
+ inputtype=int
+ outputtype=namedobj
++default=null
+ val=1,chocolate_bomb
+ val=2,tangled_toads_legs
+ val=3,worm_hole
+diff --git a/scripts/areas/area_mage_arena/configs/mage_arena.enum b/scripts/areas/area_mage_arena/configs/mage_arena.enum
+index c54c15c3..d11d944d 100644
+--- a/scripts/areas/area_mage_arena/configs/mage_arena.enum
++++ b/scripts/areas/area_mage_arena/configs/mage_arena.enum
+@@ -1,6 +1,7 @@
+ [mage_arena_bosses]
+ inputtype=int
+ outputtype=npc
++default=null
+ val=0,kolhuman
+ val=1,kolhuman
+ val=2,kologre
+diff --git a/scripts/macro events/configs/macro_events.enum b/scripts/macro events/configs/macro_events.enum
+index df0bb5e4..ff95ed4f 100644
+--- a/scripts/macro events/configs/macro_events.enum	
++++ b/scripts/macro events/configs/macro_events.enum	
+@@ -1,6 +1,7 @@
+ [general_macro_events_members]
+ inputtype=int
+ outputtype=npc
++default=null
+ val=1,macro_swarm
+ val=2,macro_geni
+ val=3,macro_dwarf
+@@ -10,6 +11,7 @@ val=5,macro_triffidseed
+ [general_macro_events_free]
+ inputtype=int
+ outputtype=npc
++default=null
+ val=1,macro_swarm
+ val=2,macro_geni
+ val=3,macro_dwarf
+@@ -18,6 +20,7 @@ val=4,macro_mage
+ [macro_event_zombie_levels]
+ inputtype=int
+ outputtype=npc
++default=null
+ val=1,macro_zombie1
+ val=2,macro_zombie2
+ val=3,macro_zombie3
+@@ -28,6 +31,7 @@ val=6,macro_zombie6
+ [macro_event_rock_golem_levels]
+ inputtype=int
+ outputtype=npc
++default=null
+ val=1,macro_golemguardian_1
+ val=2,macro_golemguardian_2
+ val=3,macro_golemguardian_3
+@@ -38,6 +42,7 @@ val=6,macro_golemguardian_6
+ [macro_event_shade_levels]
+ inputtype=int
+ outputtype=npc
++default=null
+ val=1,macro_shade1
+ val=2,macro_shade2
+ val=3,macro_shade3
+@@ -48,6 +53,7 @@ val=6,macro_shade6
+ [macro_event_watchman_levels]
+ inputtype=int
+ outputtype=npc
++default=null
+ val=1,macro_watchman1
+ val=2,macro_watchman2
+ val=3,macro_watchman3
+@@ -58,6 +64,7 @@ val=6,macro_watchman6
+ [macro_event_dryad_levels]
+ inputtype=int
+ outputtype=npc
++default=null
+ val=1,macro_dryhadguardian_1
+ val=2,macro_dryhadguardian_2
+ val=3,macro_dryhadguardian_3
+@@ -68,6 +75,7 @@ val=6,macro_dryhadguardian_6
+ [macro_event_river_troll_levels]
+ inputtype=int
+ outputtype=npc
++default=null
+ val=1,macro_rivertrollguardian_1
+ val=2,macro_rivertrollguardian_2
+ val=3,macro_rivertrollguardian_3
+diff --git a/scripts/minigames/game_castlewars/configs/castlewars.enum b/scripts/minigames/game_castlewars/configs/castlewars.enum
+index d6989459..798d362a 100644
+--- a/scripts/minigames/game_castlewars/configs/castlewars.enum
++++ b/scripts/minigames/game_castlewars/configs/castlewars.enum
+@@ -1,6 +1,7 @@
+ [castlewars_tools]
+ inputtype=autoint
+ outputtype=obj
++default=null
+ val=castlewars_cloak_saradomin
+ val=castlewars_cloak_zamorak
+ val=castlewars_catapult_rock
+@@ -13,6 +14,7 @@ val=castlewars_barricade
+ [castlewars_catapult_obj]
+ inputtype=autoint
+ outputtype=obj
++default=null
+ val=castlewars_no0
+ val=castlewars_no1
+ val=castlewars_no2
+diff --git a/scripts/minigames/game_trail/configs/sextant.enum b/scripts/minigames/game_trail/configs/sextant.enum
+index 9b00587c..a97fd2be 100644
+--- a/scripts/minigames/game_trail/configs/sextant.enum
++++ b/scripts/minigames/game_trail/configs/sextant.enum
+@@ -1,6 +1,7 @@
+ [sextant_seq_enum]
+ inputtype=int
+ outputtype=seq
++default=null
+ val=0,trail_sextant_back01
+ val=1,trail_sextant_back02
+ val=2,trail_sextant_back03
+diff --git a/scripts/minigames/game_trail/configs/trail_easy.enum b/scripts/minigames/game_trail/configs/trail_easy.enum
+index 804fbd64..e749cd9b 100644
+--- a/scripts/minigames/game_trail/configs/trail_easy.enum
++++ b/scripts/minigames/game_trail/configs/trail_easy.enum
+@@ -1,6 +1,7 @@
+ [trail_easy_enum]
+ inputtype=int
+ outputtype=namedobj
++default=null
+ val=0,trail_clue_easy_map001
+ val=1,trail_clue_easy_map002
+ val=2,trail_clue_easy_map003
+diff --git a/scripts/minigames/game_trail/configs/trail_hard.enum b/scripts/minigames/game_trail/configs/trail_hard.enum
+index 212aee03..784ba89b 100644
+--- a/scripts/minigames/game_trail/configs/trail_hard.enum
++++ b/scripts/minigames/game_trail/configs/trail_hard.enum
+@@ -1,6 +1,7 @@
+ [trail_hard_enum]
+ inputtype=int
+ outputtype=namedobj
++default=null
+ val=0,trail_clue_hard_map001
+ val=1,trail_clue_hard_sextant001
+ val=2,trail_clue_hard_sextant002
+diff --git a/scripts/minigames/game_trail/configs/trail_medium.enum b/scripts/minigames/game_trail/configs/trail_medium.enum
+index ff5ed58a..4e9e9842 100644
+--- a/scripts/minigames/game_trail/configs/trail_medium.enum
++++ b/scripts/minigames/game_trail/configs/trail_medium.enum
+@@ -1,6 +1,7 @@
+ [trail_medium_enum]
+ inputtype=int
+ outputtype=namedobj
++default=null
+ val=0,trail_clue_medium_map001
+ val=1,trail_clue_medium_sextant001
+ val=2,trail_clue_medium_sextant002
+diff --git a/scripts/minigames/game_warriorsguild/configs/wguild.enum b/scripts/minigames/game_warriorsguild/configs/wguild.enum
+index 74a96fa1..4230f753 100644
+--- a/scripts/minigames/game_warriorsguild/configs/wguild.enum
++++ b/scripts/minigames/game_warriorsguild/configs/wguild.enum
+@@ -1,6 +1,7 @@
+ [wguild_defenders]
+ inputtype=int
+ outputtype=namedobj
++default=null
+ val=0,bronze_defender
+ val=1,iron_defender
+ val=2,steel_defender
+@@ -14,6 +15,7 @@ val=7,dragon_defender
+ [wguild_armour_helm]
+ inputtype=npc
+ outputtype=namedobj
++default=null
+ val=wguild_armour_bronze,bronze_full_helm
+ val=wguild_armour_iron,iron_full_helm
+ val=wguild_armour_steel,steel_full_helm
+@@ -25,6 +27,7 @@ val=wguild_armour_rune,rune_full_helm
+ [wguild_armour_body]
+ inputtype=npc
+ outputtype=namedobj
++default=null
+ val=wguild_armour_bronze,bronze_platebody
+ val=wguild_armour_iron,iron_platebody
+ val=wguild_armour_steel,steel_platebody
+@@ -36,6 +39,7 @@ val=wguild_armour_rune,rune_platebody
+ [wguild_armour_legs]
+ inputtype=npc
+ outputtype=namedobj
++default=null
+ val=wguild_armour_bronze,bronze_platelegs
+ val=wguild_armour_iron,iron_platelegs
+ val=wguild_armour_steel,steel_platelegs
+@@ -59,6 +63,7 @@ val=wguild_armour_rune,40
+ [wguild_armour_npc]
+ inputtype=int
+ outputtype=npc
++default=null
+ val=0,wguild_armour_bronze
+ val=1,wguild_armour_iron
+ val=2,wguild_armour_steel
+@@ -85,6 +90,7 @@ val=7,0_44_55_44_33
+ [wguild_dummy_hole_loc]
+ inputtype=int
+ outputtype=loc
++default=null
+ val=0,osrsloc_24302
+ val=1,osrsloc_24299
+ val=2,osrsloc_23965
+@@ -97,6 +103,7 @@ val=7,osrsloc_24298
+ [wguild_dummy_loc]
+ inputtype=int
+ outputtype=loc
++default=null
+ val=0,osrsloc_23958
+ val=1,osrsloc_23959
+ val=2,osrsloc_23960
+@@ -120,6 +127,7 @@ val=6,Defensive
+ [wguild_catapult_missile]
+ inputtype=int
+ outputtype=spotanim
++default=null
+ val=0,wguild_catapult_spikyball
+ val=1,wguild_catapult_anvil
+ val=2,wguild_catapult_blades
+@@ -128,6 +136,7 @@ val=3,wguild_catapult_magic
+ [wguild_catapult_block]
+ inputtype=int
+ outputtype=seq
++default=null
+ val=0,wguild_block_stab
+ val=1,wguild_block_crush
+ val=2,wguild_block_slash
+@@ -137,6 +146,7 @@ val=3,wguild_block_magic
+ [wguild_barrels]
+ inputtype=int
+ outputtype=namedobj
++default=null
+ val=1,wguild_barrels_1
+ val=2,wguild_barrels_2
+ val=3,wguild_barrels_3
+@@ -146,6 +156,7 @@ val=5,wguild_barrels_5
+ [wguild_kegfall]
+ inputtype=int
+ outputtype=spotanim
++default=null
+ val=1,wguild_kegfall_1
+ val=2,wguild_kegfall_2
+ val=3,wguild_kegfall_3
+diff --git a/scripts/quests/quest_death/configs/death_dice_anim.enum b/scripts/quests/quest_death/configs/death_dice_anim.enum
+index 43cb0f54..cfc7d0ac 100644
+--- a/scripts/quests/quest_death/configs/death_dice_anim.enum
++++ b/scripts/quests/quest_death/configs/death_dice_anim.enum
+@@ -1,6 +1,7 @@
+ [death_dice_anim]
+ inputtype=int
+ outputtype=seq
++default=null
+ val=1,dice_roll_1
+ val=2,dice_roll_2
+ val=3,dice_roll_3
+diff --git a/scripts/quests/quest_priestperil/configs/priestperil.enum b/scripts/quests/quest_priestperil/configs/priestperil.enum
+index 8feafe56..366596f7 100644
+--- a/scripts/quests/quest_priestperil/configs/priestperil.enum
++++ b/scripts/quests/quest_priestperil/configs/priestperil.enum
+@@ -23,6 +23,7 @@ val=7,Saradomin is the\nlight that shines\nthoughout\nour lives.
+ [monument_graves_models]
+ inputtype=int
+ outputtype=namedobj
++default=null
+ val=1,pipneedle_gold
+ val=2,pipfeather_gold
+ val=3,pipkey_iron
+@@ -34,6 +35,7 @@ val=7,pipcandle_gold
+ [monument_graves_objs]
+ inputtype=namedobj
+ outputtype=obj
++default=null
+ val=pipkey_iron,pipkey_gold
+ val=pipneedle_gold,needle
+ val=pipfeather_gold,feather
+diff --git a/scripts/skill_combat/scripts/npc/npc_combat.rs2 b/scripts/skill_combat/scripts/npc/npc_combat.rs2
+index 774472bc..d551e7f4 100644
+--- a/scripts/skill_combat/scripts/npc/npc_combat.rs2
++++ b/scripts/skill_combat/scripts/npc/npc_combat.rs2
+@@ -245,7 +245,12 @@ if(npc_type = ikov_firewarrior) { // can't attack with magic
+     return (false);
+ }
+ if (npc_category = kolodion & enum(int, npc, mage_arena_bosses, %magearena) ! npc_type) {
+-    if (%magearena > ^mage_arena_complete) {
++    // >= not >. mage_arena_bosses runs 0..5 and ^mage_arena_complete is 6, so the moment the demon
++    // dies this whole block was entered and fell past a > test into the "you must now fight him as"
++    // messages - which then indexed mage_arena_boss_names at 6 and missed as well. 7 and 8 (prayed
++    // at the statue, staff given) were handled correctly; only 6, the state every finisher sits in
++    // until they pray, was not.
++    if (%magearena >= ^mage_arena_complete) {
+         mes("You have already proven yourself against Kolodion.");
+         return(false);
+     }
+diff --git a/scripts/skill_construction/configs/poh_furniture.enum b/scripts/skill_construction/configs/poh_furniture.enum
+index fd8c7bc8..e27f33a1 100644
+--- a/scripts/skill_construction/configs/poh_furniture.enum
++++ b/scripts/skill_construction/configs/poh_furniture.enum
+@@ -1759,9 +1759,12 @@ val=285,122
+ // the inside of a house, a bagged plant for a tree, and the two-material centrepieces
+ // (5 limestone bricks and 5 soft clay for the imp statue). namedobj, not obj: inv_del wants
+ // a namedobj and namedobj widens to obj, so one table feeds inv_total and inv_del both.
++// default=null even though every piece has a row: a namedobj enum with no default answers
++// 0 on a miss, and obj 0 is mcannonremains. rs2check rule 17.
+ [poh_furn_mat1]
+ inputtype=int
+ outputtype=namedobj
++default=null
+ val=1,plank
+ val=2,oak_plank
+ val=3,oak_plank
+diff --git a/scripts/skill_construction/configs/poh_tablets.enum b/scripts/skill_construction/configs/poh_tablets.enum
+index 6eed72a2..019de8c2 100644
+--- a/scripts/skill_construction/configs/poh_tablets.enum
++++ b/scripts/skill_construction/configs/poh_tablets.enum
+@@ -12,9 +12,12 @@
+ // was expected"). namedobj passes everywhere obj does - if_setobject takes it fine - so this
+ // is the type that works in both places. The window draws it with if_setobject, which works
+ // the icon camera out from the obj config, so there is no zoom table here.
++// default=null because a namedobj enum with no default answers 0 on a miss, and obj 0 is
++// mcannonremains - rs2check rule 17.
+ [poh_tab_obj]
+ inputtype=int
+ outputtype=namedobj
++default=null
+ val=1,poh_tab_enchant_sapphire
+ val=2,poh_tab_enchant_emerald
+ val=3,poh_tab_enchant_ruby
+diff --git a/scripts/skill_herblore/configs/decanting/decant_potion.enum b/scripts/skill_herblore/configs/decanting/decant_potion.enum
+index 62e3e9b8..fc8a6697 100644
+--- a/scripts/skill_herblore/configs/decanting/decant_potion.enum
++++ b/scripts/skill_herblore/configs/decanting/decant_potion.enum
+@@ -1,6 +1,7 @@
+ [potion_1strength]
+ inputtype=int
+ outputtype=namedobj
++default=null
+ val=1,1dose1strength
+ val=2,2dose1strength
+ val=3,3dose1strength
+@@ -9,6 +10,7 @@ val=4,strength4
+ [potion_1attack]
+ inputtype=int
+ outputtype=namedobj
++default=null
+ val=1,1dose1attack
+ val=2,2dose1attack
+ val=3,3dose1attack
+@@ -17,6 +19,7 @@ val=4,4dose1attack
+ [potion_1restore]
+ inputtype=int
+ outputtype=namedobj
++default=null
+ val=1,1dosestatrestore
+ val=2,2dosestatrestore
+ val=3,3dosestatrestore
+@@ -25,6 +28,7 @@ val=4,4dosestatrestore
+ [potion_1defense]
+ inputtype=int
+ outputtype=namedobj
++default=null
+ val=1,1dose1defense
+ val=2,2dose1defense
+ val=3,3dose1defense
+@@ -33,6 +37,7 @@ val=4,4dose1defense
+ [potion_prayerrestore]
+ inputtype=int
+ outputtype=namedobj
++default=null
+ val=1,1doseprayerrestore
+ val=2,2doseprayerrestore
+ val=3,3doseprayerrestore
+@@ -41,6 +46,7 @@ val=4,4doseprayerrestore
+ [potion_2attack]
+ inputtype=int
+ outputtype=namedobj
++default=null
+ val=1,1dose2attack
+ val=2,2dose2attack
+ val=3,3dose2attack
+@@ -49,6 +55,7 @@ val=4,4dose2attack
+ [potion_fisherspotion]
+ inputtype=int
+ outputtype=namedobj
++default=null
+ val=1,1dosefisherspotion
+ val=2,2dosefisherspotion
+ val=3,3dosefisherspotion
+@@ -57,6 +64,7 @@ val=4,4dosefisherspotion
+ [potion_2strength]
+ inputtype=int
+ outputtype=namedobj
++default=null
+ val=1,1dose2strength
+ val=2,2dose2strength
+ val=3,3dose2strength
+@@ -65,6 +73,7 @@ val=4,4dose2strength
+ [potion_2defense]
+ inputtype=int
+ outputtype=namedobj
++default=null
+ val=1,1dose2defense
+ val=2,2dose2defense
+ val=3,3dose2defense
+@@ -73,6 +82,7 @@ val=4,4dose2defense
+ [potion_rangerspotion]
+ inputtype=int
+ outputtype=namedobj
++default=null
+ val=1,1doserangerspotion
+ val=2,2doserangerspotion
+ val=3,3doserangerspotion
+@@ -81,6 +91,7 @@ val=4,4doserangerspotion
+ [potion_antipoison]
+ inputtype=int
+ outputtype=namedobj
++default=null
+ val=1,1doseantipoison
+ val=2,2doseantipoison
+ val=3,3doseantipoison
+@@ -89,6 +100,7 @@ val=4,4doseantipoison
+ [potion_2antipoison]
+ inputtype=int
+ outputtype=namedobj
++default=null
+ val=1,1dose2antipoison
+ val=2,2dose2antipoison
+ val=3,3dose2antipoison
+@@ -97,6 +109,7 @@ val=4,4dose2antipoison
+ [potion_potionofzamorak]
+ inputtype=int
+ outputtype=namedobj
++default=null
+ val=1,1dosepotionofzamorak
+ val=2,2dosepotionofzamorak
+ val=3,3dosepotionofzamorak
+@@ -105,6 +118,7 @@ val=4,4dosepotionofzamorak
+ [potion_1antidragon]
+ inputtype=int
+ outputtype=namedobj
++default=null
+ val=1,1dose1antidragon
+ val=2,2dose1antidragon
+ val=3,3dose1antidragon
+@@ -113,6 +127,7 @@ val=4,4dose1antidragon
+ [potion_1agility]
+ inputtype=int
+ outputtype=namedobj
++default=null
+ val=1,1dose1agility
+ val=2,2dose1agility
+ val=3,3dose1agility
+@@ -121,6 +136,7 @@ val=4,4dose1agility
+ [potion_2restore]
+ inputtype=int
+ outputtype=namedobj
++default=null
+ val=1,1dose2restore
+ val=2,2dose2restore
+ val=3,3dose2restore
+@@ -129,6 +145,7 @@ val=4,4dose2restore
+ [potion_2energy]
+ inputtype=int
+ outputtype=namedobj
++default=null
+ val=1,1dose2energy
+ val=2,2dose2energy
+ val=3,3dose2energy
+@@ -137,6 +154,7 @@ val=4,4dose2energy
+ [potion_1energy]
+ inputtype=int
+ outputtype=namedobj
++default=null
+ val=1,1dose1energy
+ val=2,2dose1energy
+ val=3,3dose1energy
+@@ -145,6 +163,7 @@ val=4,4dose1energy
+ [potion_1magic]
+ inputtype=int
+ outputtype=namedobj
++default=null
+ val=1,1dose1magic
+ val=2,2dose1magic
+ val=3,3dose1magic
+@@ -153,6 +172,7 @@ val=4,4dose1magic
+ [potion_potionofsaradomin]
+ inputtype=int
+ outputtype=namedobj
++default=null
+ val=1,1dosepotionofsaradomin
+ val=2,2dosepotionofsaradomin
+ val=3,3dosepotionofsaradomin
+diff --git a/scripts/skill_slayer/configs/superiors.enum b/scripts/skill_slayer/configs/superiors.enum
+index e18157f8..0635ddd8 100644
+--- a/scripts/skill_slayer/configs/superiors.enum
++++ b/scripts/skill_slayer/configs/superiors.enum
+@@ -2,6 +2,7 @@
+ [slayer_superior]
+ inputtype=int
+ outputtype=npc
++default=null
+ val=^slayer_crawlinghand,superior_crushing_hand
+ val=^slayer_cavecrawler,superior_chasm_crawler
+ val=^slayer_banshee,superior_screaming_banshee
+diff --git a/scripts/skillcapes/configs/skillcape.enum b/scripts/skillcapes/configs/skillcape.enum
+index b377e8e0..1406948a 100644
+--- a/scripts/skillcapes/configs/skillcape.enum
++++ b/scripts/skillcapes/configs/skillcape.enum
+@@ -4,6 +4,7 @@
+ [skillcape_cape]
+ inputtype=stat
+ outputtype=namedobj
++default=null
+ val=attack,attack_cape
+ val=strength,strength_cape
+ val=ranged,ranging_cape
+@@ -29,6 +30,7 @@ val=farming,farming_cape
+ [skillcape_cape_t]
+ inputtype=stat
+ outputtype=namedobj
++default=null
+ val=attack,attack_cape_t
+ val=strength,strength_cape_t
+ val=ranged,ranging_cape_t
+@@ -54,6 +56,7 @@ val=farming,farming_cape_t
+ [skillcape_hood]
+ inputtype=stat
+ outputtype=namedobj
++default=null
+ val=attack,attack_hood
+ val=strength,strength_hood
+ val=ranged,ranging_hood
+@@ -79,6 +82,7 @@ val=farming,farming_hood
+ [skillcape_untrimmed]
+ inputtype=int
+ outputtype=namedobj
++default=null
+ val=0,attack_cape
+ val=1,strength_cape
+ val=2,ranging_cape
+@@ -106,6 +110,7 @@ val=22,hunter_cape
+ [skillcape_trimmed]
+ inputtype=int
+ outputtype=namedobj
++default=null
+ val=0,attack_cape_t
+ val=1,strength_cape_t
+ val=2,ranging_cape_t
+@@ -234,6 +239,7 @@ val=quest_point_cape,skillcape_quest_point
+ [skillcape_grimy_herb]
+ inputtype=obj
+ outputtype=namedobj
++default=null
+ val=unidentified_guam,guam_leaf
+ val=unidentified_marentill,marentill
+ val=unidentified_tarromin,tarromin
+diff --git a/scripts/storage_items/configs/storage_items.enum b/scripts/storage_items/configs/storage_items.enum
+index 25e87a93..b17f77b3 100644
+--- a/scripts/storage_items/configs/storage_items.enum
++++ b/scripts/storage_items/configs/storage_items.enum
+@@ -2,6 +2,7 @@
+ [herb_sack_herbs]
+ inputtype=int
+ outputtype=namedobj
++default=null
+ val=0,unidentified_guam
+ val=1,unidentified_marentill
+ val=2,unidentified_tarromin
+diff --git a/tools/genfurn.py b/tools/genfurn.py
+index ec216b68..07d27395 100644
+--- a/tools/genfurn.py
++++ b/tools/genfurn.py
+@@ -367,7 +367,10 @@ def emit_enum(fams, items, path):
+           ['// WHAT A PIECE COSTS. Two materials are enough for everything the game asks for: planks for',
+            '// the inside of a house, a bagged plant for a tree, and the two-material centrepieces',
+            '// (5 limestone bricks and 5 soft clay for the imp statue). namedobj, not obj: inv_del wants',
+-           '// a namedobj and namedobj widens to obj, so one table feeds inv_total and inv_del both.'])
++           '// a namedobj and namedobj widens to obj, so one table feeds inv_total and inv_del both.',
++           '// default=null even though every piece has a row: a namedobj enum with no default answers',
++           '// 0 on a miss, and obj 0 is mcannonremains. rs2check rule 17.'],
++          default='null')
+     table('poh_furn_mat1n', 'int', [(i['n'], i['mats'][0][1]) for i in items])
+     table('poh_furn_mat2', 'namedobj',
+           [(i['n'], i['mats'][1][0]) for i in items if len(i['mats']) > 1],
+diff --git a/tools/gentablets.py b/tools/gentablets.py
+index 5faae2ed..1ea5574a 100644
+--- a/tools/gentablets.py
++++ b/tools/gentablets.py
+@@ -177,14 +177,16 @@ def emit_enum(spec, rows, ids):
+     tabs = spec['tablets']
+     o = ENUM_HEAD.split('\n')
+ 
+-    def table(name, outtype, vals, why):
++    def table(name, outtype, vals, why, default=None):
+         out = ['// ' + l if l else '//' for l in why.split('\n')]
+         out += ['[%s]' % name, 'inputtype=int', 'outputtype=%s' % outtype]
++        if default is not None:
++            out += ['default=%s' % default]
+         out += ['val=%s,%s' % kv for kv in vals]
+         return out + ['']
+ 
+     o += table('poh_tab_obj', 'namedobj', [(n + 1, t['obj']) for n, t in enumerate(tabs)],
+-               'Which obj each tablet is. namedobj and not obj: inv_add takes a namedobj, and an enum\ntyped obj will not pass to it ("Type mismatch: inv,obj,int was given but inv,namedobj,int\nwas expected"). namedobj passes everywhere obj does - if_setobject takes it fine - so this\nis the type that works in both places. The window draws it with if_setobject, which works\nthe icon camera out from the obj config, so there is no zoom table here.')
++               'Which obj each tablet is. namedobj and not obj: inv_add takes a namedobj, and an enum\ntyped obj will not pass to it ("Type mismatch: inv,obj,int was given but inv,namedobj,int\nwas expected"). namedobj passes everywhere obj does - if_setobject takes it fine - so this\nis the type that works in both places. The window draws it with if_setobject, which works\nthe icon camera out from the obj config, so there is no zoom table here.\ndefault=null because a namedobj enum with no default answers 0 on a miss, and obj 0 is\nmcannonremains - rs2check rule 17.', default='null')
+     o += table('poh_tab_name', 'string',
+                [(n + 1, t.get('label', t['name'])) for n, t in enumerate(tabs)],
+                'The name as the WINDOW writes it, which is the obj\'s own name unless that name is wider\n'
+diff --git a/tools/poh_mutate.py b/tools/poh_mutate.py
+index d7cf3bba..e8f4f0f5 100644
+--- a/tools/poh_mutate.py
++++ b/tools/poh_mutate.py
+@@ -250,6 +250,12 @@ MUTS = [
+   '[poh_fam_first]\ninputtype=int\noutputtype=int\nval=1,1',
+   '[poh_fam_first]\ninputtype=int\noutputtype=int\nval=1,2',
+   '51 a family whose first piece is not its first piece'),
++ # Rule 17 shipped INERT the first time - it used the HEADER regex, which needs a comma, so it
++ # never matched a config block header and reported nothing at all when a default= was deleted.
++ # This mutation is here so that cannot happen twice.
++ ('scripts/skill_slayer/configs/superiors.enum',
++  'outputtype=npc\ndefault=null', 'outputtype=npc',
++  '17 an enum whose miss returns a real id 0 and has no default= (rs2check)'),
+ ]
+ 
+ def checker_for(why):
+diff --git a/tools/rs2check.py b/tools/rs2check.py
+index 72cf4d8b..9f179d03 100644
+--- a/tools/rs2check.py
++++ b/tools/rs2check.py
+@@ -584,6 +584,59 @@ def check_models():
+             report("ERROR", "pack/model.pack", n, 16, "%s is registered but no .ob2 exists" % nm)
+ 
+ 
++def check_enum_defaults():
++    """Rule 17: an enum whose outputtype has a REAL id 0 must declare default=.
++
++    EnumConfig only writes opcode 4 when a default= key is present, EnumType.defaultInt is 0, and
++    EnumOps pushes `value ?? defaultInt` - so a MISS RETURNS 0, NOT NULL. Id 0 is a real thing in
++    every one of these tables:
++
++        seq.pack:0      swarm_walk
++        spotanim.pack:0 triple_firebreath_attack
++        npc.pack:0      hans
++        obj.pack:0      mcannonremains
++        loc.pack:0      mcannoncrate
++
++    So a lookup that misses does not fail - it returns something plausible, and every `! null` guard
++    written against it passes. That is how the skillcape emote came to breathe dragonfire at anyone
++    in a plain cape (2026-09-12), and how `slayer_superior` was one 1/200 roll away from spawning
++    HANS as a superior slayer monster on any of the 69 tasks that have no superior (2026-09-14).
++
++    Only types where 0 is a real entry are flagged. An `int`- or `string`-typed enum returning 0 on
++    a miss is ordinary and frequently intended, and flagging those would put 96 findings in front of
++    the 61 that matter.
++    """
++    risky = ("namedobj", "npc", "obj", "seq", "loc", "spotanim", "component",
++             "interface", "synth", "category", "struct", "dbrow", "inv", "stat")
++    for path in walk({".enum"}):
++        cur = None
++        info = {}
++        order = []
++        for n, raw, _ in stripped_lines(text(path)):
++            # NOT the HEADER regex: that one requires a comma ("[opheld1,thing]"), and a config
++            # block header has none ("[superiors]"). Using it here made the whole rule a no-op -
++            # cur never got set, nothing was ever recorded, and deleting a default= to test it
++            # still printed 0 ERROR. Second time a rule in this file has shipped inert; test every
++            # new one by breaking the thing it is supposed to catch.
++            m = re.match(r"^\[([^\],]+)\]\s*$", raw.strip())
++            if m:
++                cur = m.group(1)
++                info[cur] = {"line": n, "default": False, "out": None}
++                order.append(cur)
++            elif cur:
++                t = raw.strip()
++                if t.startswith("default="):
++                    info[cur]["default"] = True
++                elif t.startswith("outputtype="):
++                    info[cur]["out"] = t.split("=", 1)[1].strip()
++        for k in order:
++            v = info[k]
++            if not v["default"] and v["out"] in risky:
++                report("ERROR", path, v["line"], 17,
++                       "[%s] outputs %s and has no default= - a miss returns id 0, which is a real %s"
++                       % (k, v["out"], v["out"]))
++
++
+ def check_duplicates(T):
+     for trig, places in sorted(T["triggers"].items()):
+         if len(places) > 1:
+@@ -663,6 +716,7 @@ def main(argv):
+     if not targets:
+         check_duplicates(T)
+         check_models()
++        check_enum_defaults()
+ 
+     errors = [f for f in findings if f[0] == "ERROR"]
+     checks = [f for f in findings if f[0] == "CHECK"]
+-- 
+2.43.0
+
