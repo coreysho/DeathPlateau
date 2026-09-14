@@ -4,9 +4,12 @@
 The bank's bottom button bar wants OSRS's own art. Every sprite here is lifted from the OSRS
 sprite index (idx8) of `caches/newest cache` and pasted, centred, into a 36x36 tile - 36 being
 both the size of OSRS's own button background (sprite 170) and the height of the row the buttons
-sit on. The packer (tools/pack/sprite/media.ts, via content/sprites/meta/bankbuttons.opt) slices
-the strip back into tiles on that 36x36 grid, so THE ORDER BELOW IS THE SPRITE INDEX and has to
-match content/tools/genbankbar.py's BG_OFF / BG_ON / ICON_* constants.
+sit on. There is a smaller 31x32 pair at 174/177 if the row ever needs more than twelve buttons:
+twelve 36px buttons are 432px against the 437 the bank window has between its side frames.
+
+The packer (tools/pack/sprite/media.ts, via content/sprites/meta/bankbuttons.opt) slices the strip
+back into tiles on that 36x36 grid, so THE ORDER BELOW IS THE SPRITE INDEX and has to match
+content/tools/genbankbar.py's BG_OFF / BG_ON / ICON_* constants.
 
 Magenta (0xFF00FF) is the packer's transparent colour, so any source pixel that happens to be
 exactly magenta is nudged to 0xFE00FE - invisible to the eye, and not a hole.
@@ -32,12 +35,12 @@ SHEET = [
     (179, 'button background, lit'),
     (2820, 'rearrange: swap'),
     (2821, 'rearrange: insert'),
-    (2823, 'withdraw as: item'),
+    (2823, 'withdraw as: item - UNUSED, the withdraw-as button is one toggle showing the note'),
     (2822, 'withdraw as: note'),
     (1043, 'search'),
     (1041, 'deposit inventory'),
     (1042, 'deposit worn items'),
-    (1342, 'padlock - unused, kept for placeholders'),
+    (1342, 'placeholders: the padlock'),
 ]
 
 
