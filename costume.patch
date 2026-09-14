@@ -1,0 +1,893 @@
+From f0e27ef9b37432d78921dee9ef6df3bad3703e3a Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Mon, 14 Sep 2026 18:19:14 +0000
+Subject: [PATCH] Costume storage, the wardrobe and the mounted glory
+
+Three of the ops the furniture round left unanswered.
+
+THE TREASURE CHEST is OSRS costume storage, done the way this repo already
+does storage: a perm inv and a chat menu, no new interface, exactly like the
+herb sack and the looting bag. Store takes one of each treasure trail reward
+you are carrying, Check lists what is in it by set, and Take out withdraws a
+whole set - which is how OSRS withdraws from costume storage, and also the
+only way to pick one of 72 items out of a chat menu. Capacity runs 18 / 36 /
+54 / 72 by tier.
+
+The 72 are derived, and re-derived by the battery on every run. Two rules
+decide membership: every god, gold-trimmed, trimmed and heraldic clue reward
+is in it, matched by name; and nothing in it is stocked by any shop, which is
+the half that covers the seventeen costume pieces no name pattern describes.
+A costume is something clues are the only source of. That second rule is what
+keeps this from drifting into a second bank one plausible item at a time.
+
+THE WARDROBE opens the character-design screen, and shares its close handler
+with the tutorial - there can only be one, a second is a build error. That
+handler set %tutorial unconditionally, so the first time a finished player
+opened a wardrobe their tutorial state would have been knocked back to 1. It
+now only advances a player who is still in the tutorial.
+
+THE MOUNTED GLORY gives the four amulet destinations without charges. Those
+were written inside a label that ends by eating a charge off whatever is in
+last_slot - from a loc trigger that is whatever the player is holding, so it
+would have quietly rewritten an inventory slot. The choice and the teleport
+are a proc now and the label eats the charge itself. The instance is freed on
+the way out, or it holds a slot until logout.
+
+It first went into poh_tablets.rs2, which is generated, and the next run
+deleted it. Check 43 caught that - the second time in two days.
+
+rs2check 0 ERROR / 0 CHECK; poh_battery ALL PASS (55 groups);
+poh_mutate 101/101 caught.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01J1qUhTcu63bJ3hCBBxy7nU
+---
+ pack/inv.pack                                 |   1 +
+ .../enchanted_jewellry/amulet_of_glory.rs2    |  25 +-
+ .../configs/construction.constant             |   7 +
+ .../configs/poh_costume.enum                  | 168 ++++++++++++++
+ .../configs/poh_costume.inv                   |   6 +
+ .../scripts/poh_costume.rs2                   | 218 ++++++++++++++++++
+ .../scripts/poh_furn_ops.rs2                  |  33 +++
+ .../skill_construction/scripts/poh_glory.rs2  |  33 +++
+ scripts/tutorial/scripts/tutorial.rs2         |  10 +-
+ tools/furnspec.json                           |  12 +-
+ tools/genfurn.py                              |   6 +
+ tools/poh_battery.py                          | 120 +++++++++-
+ tools/poh_mutate.py                           |  25 ++
+ 13 files changed, 653 insertions(+), 11 deletions(-)
+ create mode 100644 scripts/skill_construction/configs/poh_costume.enum
+ create mode 100644 scripts/skill_construction/configs/poh_costume.inv
+ create mode 100644 scripts/skill_construction/scripts/poh_costume.rs2
+ create mode 100644 scripts/skill_construction/scripts/poh_glory.rs2
+
+diff --git a/pack/inv.pack b/pack/inv.pack
+index 9bb07427..bec48d0f 100644
+--- a/pack/inv.pack
++++ b/pack/inv.pack
+@@ -407,3 +407,4 @@
+ 406=wguild_potions
+ 407=poh_garden_shop
+ 408=poh_stone_shop
++409=poh_costume_store
+diff --git a/scripts/general/scripts/enchanted_jewellry/amulet_of_glory.rs2 b/scripts/general/scripts/enchanted_jewellry/amulet_of_glory.rs2
+index 306f77ff..8974ffb3 100644
+--- a/scripts/general/scripts/enchanted_jewellry/amulet_of_glory.rs2
++++ b/scripts/general/scripts/enchanted_jewellry/amulet_of_glory.rs2
+@@ -4,9 +4,14 @@
+ [opheld4,amulet_of_glory_1] @amulet_of_glory_interface("You use your amulet's last charge.");
+ [opheld4,amulet_of_glory] mes("The amulet has lost its charge.");
+ 
+-[label,amulet_of_glory_interface](string $message)
+-def_obj $item = last_item;
+-def_int $slot = last_slot;
++// THE CHOICE AND THE TELEPORT ARE A PROC, and the charge is eaten by the caller. The mounted glory
++// in a quest hall (skill_construction/scripts/poh_costume.rs2's neighbour, poh_tablets.rs2) is the
++// same four destinations with nothing to charge, and it cannot call a label that ends by writing to
++// last_slot - that slot belongs to whatever the player happens to be holding.
++//
++// $message is printed immediately before the teleport: the charge count for an amulet, and
++// something else entirely for the one on the wall.
++[proc,glory_teleport](string $message)(boolean)
+ // https://youtu.be/Zv7Wh3TIDOc
+ mes("You rub the amulet...");
+ // Space after "to" is intentional. Based off of this screenshot: https://storage.googleapis.com/tannerdino/images/rstransport9.gif
+@@ -14,16 +19,16 @@ def_int $choice = ~p_choice5_header("Edgeville.", 1, "Karamja.", 2, "Draynor Vil
+ // https://i.imgur.com/HsKKBnr.png
+ if ($choice = 5) {
+     mes("You remain where you were.");
+-    return;
++    return(false);
+ }
+ if (~wilderness_level(coord) > 30) {
+     // osrs
+     mes("A mysterious force blocks your teleport.");
+     mes("You can't use this teleport after level 30 wilderness.");
+-    return;
++    return(false);
+ }
+ if (~pre_tele_checks(coord) = false) {
+-    return;
++    return(false);
+ }
+ mes($message);
+ switch_int($choice) {
+@@ -32,4 +37,12 @@ switch_int($choice) {
+     case 3 : ~player_teleport_normal(0_48_50_33_51);
+     case 4 : ~player_teleport_normal(0_51_49_29_27);
+ }
++return(true);
++
++[label,amulet_of_glory_interface](string $message)
++def_obj $item = last_item;
++def_int $slot = last_slot;
++if (~glory_teleport($message) = false) {
++    return;
++}
+ inv_setslot(inv, $slot, oc_param($item, next_obj_stage), 1);
+diff --git a/scripts/skill_construction/configs/construction.constant b/scripts/skill_construction/configs/construction.constant
+index 17909049..07f09e7c 100644
+--- a/scripts/skill_construction/configs/construction.constant
++++ b/scripts/skill_construction/configs/construction.constant
+@@ -10,6 +10,13 @@
+ // How many house locations there are. Anything that walks the list reads this rather than 6.
+ ^poh_location_count = 6
+ 
++// ---- the costume room's treasure chest (poh_costume.rs2, 2026-09-14) ----
++// How many treasure trail reward items the chest knows about, and how many sets they fall into.
++// Both are the length of the tables in poh_costume.enum, which are derived from the clue reward
++// tables - battery group 55 re-derives them and fails if either number drifts.
++^poh_costume_items = 72
++^poh_costume_sets = 16
++
+ // ---- the saved house layout (poh.rs2, 2026-09-11) ----
+ // The grid is ^poh_grid x ^poh_grid rooms on the ground floor. Eight is more than OSRS ever needs
+ // and still fits four rooms to a varp with the 8x8-zone instance slot to spare.
+diff --git a/scripts/skill_construction/configs/poh_costume.enum b/scripts/skill_construction/configs/poh_costume.enum
+new file mode 100644
+index 00000000..b4373438
+--- /dev/null
++++ b/scripts/skill_construction/configs/poh_costume.enum
+@@ -0,0 +1,168 @@
++// The costume room's treasure chest: OSRS's costume storage, for treasure trail reward items.
++//
++// THE LIST IS DERIVED, NOT REMEMBERED. Every obj below appears in one of the three clue reward
++// tables - scripts/minigames/game_trail/scripts/*/trail_clue_*_reward.rs2 - and every one of them
++// is a clue VARIANT rather than something a shop sells: the god, gold-trimmed, trimmed and
++// heraldic armour by name, plus the costume pieces clues are the only source of. Battery group 55
++// re-derives that set from the reward tables on every run, so a clue reward added later that
++// belongs in the chest cannot be quietly left out of it.
++//
++// The plain rune, adamant and black armour that clues also drop is deliberately NOT here, and
++// neither are the bows, dragonhide, studded leather, amulets, coins, runes or noted fish. The
++// chest is costume storage, not a second bank.
++//
++// 72 items in 16 sets. They are stored in SET ORDER and the first/last tables below are what make
++// a set addressable without an enum per set - the same idiom poh_fam_first/poh_fam_last uses for
++// the furniture families.
++
++[poh_costume_item]
++inputtype=int
++outputtype=namedobj
++default=null
++val=0,rune_full_helm_saradomin
++val=1,rune_platebody_saradomin
++val=2,rune_platelegs_saradomin
++val=3,rune_kiteshield_saradomin
++val=4,rune_full_helm_zamorak
++val=5,rune_platebody_zamorak
++val=6,rune_platelegs_zamorak
++val=7,rune_kiteshield_zamorak
++val=8,rune_full_helm_guthix
++val=9,rune_platebody_guthix
++val=10,rune_platelegs_guthix
++val=11,rune_kiteshield_guthix
++val=12,rune_full_helm_gold
++val=13,rune_platebody_gold
++val=14,rune_platelegs_gold
++val=15,rune_kiteshield_gold
++val=16,rune_full_helm_trim
++val=17,rune_platebody_trim
++val=18,rune_platelegs_trim
++val=19,rune_kiteshield_trim
++val=20,adamant_full_helm_gold
++val=21,adamant_platebody_gold
++val=22,adamant_platelegs_gold
++val=23,adamant_kiteshield_gold
++val=24,adamant_full_helm_trim
++val=25,adamant_platebody_trim
++val=26,adamant_platelegs_trim
++val=27,adamant_kiteshield_trim
++val=28,black_full_helm_gold
++val=29,black_platebody_gold
++val=30,black_platelegs_gold
++val=31,black_kiteshield_gold
++val=32,black_full_helm_trim
++val=33,black_platebody_trim
++val=34,black_platelegs_trim
++val=35,black_kiteshield_trim
++val=36,rune_heraldic_kiteshield1
++val=37,rune_heraldic_kiteshield2
++val=38,rune_heraldic_kiteshield3
++val=39,rune_heraldic_kiteshield4
++val=40,rune_heraldic_kiteshield5
++val=41,adamant_heraldic_kiteshield1
++val=42,adamant_heraldic_kiteshield2
++val=43,adamant_heraldic_kiteshield3
++val=44,adamant_heraldic_kiteshield4
++val=45,adamant_heraldic_kiteshield5
++val=46,black_heraldic_kiteshield1
++val=47,black_heraldic_kiteshield2
++val=48,black_heraldic_kiteshield3
++val=49,black_heraldic_kiteshield4
++val=50,black_heraldic_kiteshield5
++val=51,bluewizhat_trim
++val=52,bluewizhat_trim_gold
++val=53,wizards_robe_trim
++val=54,wizards_robe_trim_gold
++val=55,enchanted_hat
++val=56,enchanted_robetop
++val=57,enchanted_robelegs
++val=58,berret_black
++val=59,berret_blue
++val=60,berret_white
++val=61,cavalier_black
++val=62,cavalier_brown
++val=63,cavalier_dark
++val=64,headband_black
++val=65,headband_brown
++val=66,headband_red
++val=67,highwaymanmask
++val=68,piratehat
++val=69,robinhoodhat
++val=70,boots_ranger
++val=71,boots_wizard
++
++[poh_costume_set_name]
++inputtype=int
++outputtype=string
++default=null
++val=0,Rune (Saradomin)
++val=1,Rune (Zamorak)
++val=2,Rune (Guthix)
++val=3,Rune (gold-trimmed)
++val=4,Rune (trimmed)
++val=5,Adamant (gold-trimmed)
++val=6,Adamant (trimmed)
++val=7,Black (gold-trimmed)
++val=8,Black (trimmed)
++val=9,Heraldic rune shields
++val=10,Heraldic adamant shields
++val=11,Heraldic black shields
++val=12,Wizard robes
++val=13,Enchanted robes
++val=14,Hats and headwear
++val=15,Boots
++
++// The first and last index into poh_costume_item that belongs to each set.
++[poh_costume_set_first]
++inputtype=int
++outputtype=int
++default=null
++val=0,0
++val=1,4
++val=2,8
++val=3,12
++val=4,16
++val=5,20
++val=6,24
++val=7,28
++val=8,32
++val=9,36
++val=10,41
++val=11,46
++val=12,51
++val=13,55
++val=14,58
++val=15,70
++
++[poh_costume_set_last]
++inputtype=int
++outputtype=int
++default=null
++val=0,3
++val=1,7
++val=2,11
++val=3,15
++val=4,19
++val=5,23
++val=6,27
++val=7,31
++val=8,35
++val=9,40
++val=10,45
++val=11,50
++val=12,54
++val=13,57
++val=14,69
++val=15,71
++
++// How many items each tier of chest holds. OSRS gives a better chest more room; these are the
++// tunable numbers, like the room prices, and they run a quarter of the list per tier.
++[poh_costume_cap]
++inputtype=int
++outputtype=int
++default=null
++val=1,18
++val=2,36
++val=3,54
++val=4,72
+diff --git a/scripts/skill_construction/configs/poh_costume.inv b/scripts/skill_construction/configs/poh_costume.inv
+new file mode 100644
+index 00000000..4a601898
+--- /dev/null
++++ b/scripts/skill_construction/configs/poh_costume.inv
+@@ -0,0 +1,6 @@
++// The costume room's treasure chest. scope=perm - the whole point is that it is still there next
++// login - and one of each item, so size is exactly the length of poh_costume_item.
++[poh_costume_store]
++scope=perm
++size=72
++protect=no
+diff --git a/scripts/skill_construction/scripts/poh_costume.rs2 b/scripts/skill_construction/scripts/poh_costume.rs2
+new file mode 100644
+index 00000000..4446d772
+--- /dev/null
++++ b/scripts/skill_construction/scripts/poh_costume.rs2
+@@ -0,0 +1,218 @@
++// The two pieces of furniture that are about what you wear: the costume room's treasure chest and
++// the bedroom wardrobe.
++//
++// THE CHEST IS OSRS'S COSTUME STORAGE, done the way this repo already does storage - a perm inv and
++// a chat menu, no new interface. The herb sack, the seed box and the looting bag all work like this
++// (storage_items/scripts/storage_items.rs2), and it is the reason this is a small round rather than
++// an interface round.
++//
++//   Store    every treasure trail reward item you are carrying that the chest has room for, one of
++//            each, because a costume is one of each
++//   Check    what is in it, by set
++//   Take out a whole set at a time - which is how OSRS withdraws from costume storage, and also the
++//            only way to pick one of 72 items out of a chat menu without eleven pages of it
++//
++// The list of 72 and the 16 sets are in configs/poh_costume.enum, derived from the clue reward
++// tables. Battery group 55 re-derives them on every run.
++
++// =========================================================================== the chest
++
++// $item is the piece that was clicked - the generated trigger passes it, the same way the altar's
++// offer trigger does - and its tier is what decides the capacity.
++[proc,poh_costume_open](int $item)
++if (%poh_instance = null | instance_find(loc_coord) ! %poh_instance) {
++    mes("You can only use that in your own house.");
++    return;
++}
++def_int $cap = enum(int, int, poh_costume_cap, enum(int, int, poh_furn_tier, $item));
++if ($cap = null) {
++    return;
++}
++def_int $have = ~poh_costume_count;
++mes("The chest holds <tostring($have)> of <tostring($cap)> pieces.");
++def_int $pick = ~p_choice4("Store what I'm carrying.", 1, "See what's in it.", 2,
++                           "Take out a set.", 3, "Nothing.", 4);
++if ($pick = 1) {
++    ~poh_costume_store($cap);
++} else if ($pick = 2) {
++    ~poh_costume_check;
++} else if ($pick = 3) {
++    ~poh_costume_take;
++}
++
++[proc,poh_costume_count]()(int)
++def_int $i = 0;
++def_int $n = 0;
++while ($i < ^poh_costume_items) {
++    if (inv_total(poh_costume_store, enum(int, namedobj, poh_costume_item, $i)) > 0) {
++        $n = calc($n + 1);
++    }
++    $i = calc($i + 1);
++}
++return($n);
++
++// One of each: a second gold-trimmed platebody is not part of a costume, so it stays in your pack.
++// The capacity is checked per item rather than up front, so a nearly-full chest still takes what it
++// can instead of refusing the lot.
++[proc,poh_costume_store](int $cap)
++def_int $i = 0;
++def_int $moved = 0;
++def_int $full = 0;
++def_int $held = ~poh_costume_count;
++while ($i < ^poh_costume_items) {
++    def_namedobj $item = enum(int, namedobj, poh_costume_item, $i);
++    if (inv_total(inv, $item) > 0 & inv_total(poh_costume_store, $item) = 0) {
++        if ($held < $cap) {
++            inv_moveitem(inv, poh_costume_store, $item, 1);
++            $held = calc($held + 1);
++            $moved = calc($moved + 1);
++        } else {
++            $full = 1;
++        }
++    }
++    $i = calc($i + 1);
++}
++if ($moved = 0 & $full = 0) {
++    mes("You aren't carrying anything the chest will take.");
++    return;
++}
++if ($moved > 0) {
++    mes("You put <tostring($moved)> piece(s) into the chest.");
++}
++if ($full = 1) {
++    mes("The chest is full. A better one would hold more.");
++}
++
++[proc,poh_costume_check]
++def_int $s = 0;
++def_int $named = 0;
++while ($s < ^poh_costume_sets) {
++    def_int $in = ~poh_costume_set_count($s);
++    if ($in > 0) {
++        mes("<enum(int, string, poh_costume_set_name, $s)>: <tostring($in)> of <tostring(calc(enum(int, int, poh_costume_set_last, $s) - enum(int, int, poh_costume_set_first, $s) + 1))>.");
++        $named = calc($named + 1);
++    }
++    $s = calc($s + 1);
++}
++if ($named = 0) {
++    mes("The chest is empty.");
++}
++
++[proc,poh_costume_set_count](int $set)(int)
++def_int $i = enum(int, int, poh_costume_set_first, $set);
++def_int $last = enum(int, int, poh_costume_set_last, $set);
++def_int $n = 0;
++while ($i <= $last) {
++    if (inv_total(poh_costume_store, enum(int, namedobj, poh_costume_item, $i)) > 0) {
++        $n = calc($n + 1);
++    }
++    $i = calc($i + 1);
++}
++return($n);
++
++// Only the sets that are actually in there are offered, four at a time, so the menu is short in
++// practice even though there are sixteen of them. The page counter is a bounded loop: while (true)
++// has no precedent in this repo.
++[proc,poh_costume_take]
++def_int $from = 0;
++def_int $turns = 0;
++while ($turns < 8) {
++    $turns = calc($turns + 1);
++    def_int $a = ~poh_costume_nth($from, 0);
++    if ($a < 0) {
++        if ($from = 0) {
++            mes("The chest is empty.");
++        }
++        return;
++    }
++    def_int $b = ~poh_costume_nth($from, 1);
++    def_int $c = ~poh_costume_nth($from, 2);
++    def_int $d = ~poh_costume_nth($from, 3);
++    def_int $pick = ~p_choice5(
++        "<enum(int, string, poh_costume_set_name, $a)>", 1,
++        "<enum(int, string, poh_costume_set_name, max($b, 0))>", 2,
++        "<enum(int, string, poh_costume_set_name, max($c, 0))>", 3,
++        "<enum(int, string, poh_costume_set_name, max($d, 0))>", 4,
++        "More sets...", 5);
++    if ($pick = 1) {
++        ~poh_costume_withdraw($a);
++        return;
++    }
++    if ($pick = 2 & $b >= 0) {
++        ~poh_costume_withdraw($b);
++        return;
++    }
++    if ($pick = 3 & $c >= 0) {
++        ~poh_costume_withdraw($c);
++        return;
++    }
++    if ($pick = 4 & $d >= 0) {
++        ~poh_costume_withdraw($d);
++        return;
++    }
++    if ($pick ! 5) {
++        return;
++    }
++    if ($d < 0) {
++        $from = 0;
++    } else {
++        $from = calc($d + 1);
++    }
++}
++
++// The $skip-th set at or after $from that has anything in it, or -1 if there is no such set.
++[proc,poh_costume_nth](int $from, int $skip)(int)
++def_int $s = $from;
++def_int $seen = 0;
++while ($s < ^poh_costume_sets) {
++    if (~poh_costume_set_count($s) > 0) {
++        if ($seen = $skip) {
++            return($s);
++        }
++        $seen = calc($seen + 1);
++    }
++    $s = calc($s + 1);
++}
++return(-1);
++
++[proc,poh_costume_withdraw](int $set)
++def_int $i = enum(int, int, poh_costume_set_first, $set);
++def_int $last = enum(int, int, poh_costume_set_last, $set);
++def_int $moved = 0;
++def_int $left = 0;
++while ($i <= $last) {
++    def_namedobj $item = enum(int, namedobj, poh_costume_item, $i);
++    if (inv_total(poh_costume_store, $item) > 0) {
++        if (inv_freespace(inv) > 0) {
++            inv_moveitem(poh_costume_store, inv, $item, 1);
++            $moved = calc($moved + 1);
++        } else {
++            $left = 1;
++        }
++    }
++    $i = calc($i + 1);
++}
++if ($moved > 0) {
++    mes("You take the <enum(int, string, poh_costume_set_name, $set)> pieces out of the chest.");
++}
++if ($left = 1) {
++    mes("You can't carry any more; the rest is still in the chest.");
++}
++
++// =========================================================================== the wardrobe
++
++// OSRS opens the character-appearance screen. The engine gates that behind allowdesign, and the
++// screen already exists - the tutorial designs a character with it.
++//
++// THE CLOSE HANDLER IS SHARED WITH THE TUTORIAL and it used to set %tutorial unconditionally, so
++// opening this from a wardrobe would have knocked a finished player's tutorial state backwards.
++// tutorial.rs2's queue now only advances a player who is still in the tutorial; it always turns
++// allowdesign back off, which is the part this needs.
++[proc,poh_wardrobe]
++if (%poh_instance = null | instance_find(loc_coord) ! %poh_instance) {
++    mes("You can only use that in your own house.");
++    return;
++}
++mes("You open the wardrobe.");
++allowdesign(true);
++if_openmain(player_kit);
+diff --git a/scripts/skill_construction/scripts/poh_furn_ops.rs2 b/scripts/skill_construction/scripts/poh_furn_ops.rs2
+index 321d4b17..0f82afac 100644
+--- a/scripts/skill_construction/scripts/poh_furn_ops.rs2
++++ b/scripts/skill_construction/scripts/poh_furn_ops.rs2
+@@ -170,6 +170,27 @@ mes("Nobody comes. You have not hired a servant yet.");
+ mes("You ring the bell.");
+ mes("Nobody comes. You have not hired a servant yet.");
+ 
++[oploc1,poh_wardrobe_1]
++~poh_wardrobe;
++
++[oploc1,poh_wardrobe_2]
++~poh_wardrobe;
++
++[oploc1,poh_wardrobe_3]
++~poh_wardrobe;
++
++[oploc1,poh_wardrobe_4]
++~poh_wardrobe;
++
++[oploc1,poh_wardrobe_5]
++~poh_wardrobe;
++
++[oploc1,poh_wardrobe_6]
++~poh_wardrobe;
++
++[oploc1,poh_wardrobe_7]
++~poh_wardrobe;
++
+ [oploc1,poh_clock_1]
+ mes("You glance at the clock.");
+ mes("There is still plenty of the day left for building.");
+@@ -504,3 +525,15 @@ mes("The dragon heads snap at each other, then at you.");
+ 
+ [oploc1,loc_13487]
+ mes("The kalphite queen's head clicks its mandibles.");
++
++[oploc1,poh_treasure_oak_chest]
++~poh_costume_open(235);
++
++[oploc1,poh_treasure_teak_chest]
++~poh_costume_open(236);
++
++[oploc1,poh_treasure_mag_chest]
++~poh_costume_open(237);
++
++[oploc1,poh_treasure_magic_chest]
++~poh_costume_open(238);
+diff --git a/scripts/skill_construction/scripts/poh_glory.rs2 b/scripts/skill_construction/scripts/poh_glory.rs2
+new file mode 100644
+index 00000000..ebe5e39c
+--- /dev/null
++++ b/scripts/skill_construction/scripts/poh_glory.rs2
+@@ -0,0 +1,33 @@
++// The mounted Amulet of Glory, on a quest hall wall.
++//
++// This is NOT in poh_tablets.rs2, where it first went: that file is generated by tools/gentablets.py
++// and the next run deleted it. Battery check 43 - "re-running the generator changes nothing" - is
++// what caught it, which is the second time this round's worth of work has been saved by that check.
++//
++// OSRS lets you rub it for the same four destinations an Amulet of Glory gives, without charges, and
++// those four were already written in general/scripts/enchanted_jewellry/amulet_of_glory.rs2.
++//
++// THAT CODE USED TO BE A LABEL THAT ATE A CHARGE off whatever was in last_slot. Called from a loc
++// trigger, last_slot is whatever the player happens to be holding, so it would have quietly
++// rewritten an inventory slot. The choice and the teleport are ~glory_teleport now and the label
++// eats the charge itself.
++//
++// Only the amulet trophy carries op1=Rub - the Anti-Dragon Breath Shield and the Cape of Legends
++// beside it have no op1 at all, and a trigger on an op a loc does not carry never fires - so this is
++// one trigger rather than a family's worth, which is also why it is not in the generated file.
++//
++// The instance is freed on the way out: a teleport out of the house is still a way out of the house,
++// and an instance nobody is standing in holds a slot until logout.
++
++[oploc1,poh_trophy_amuletofglory_4]
++~poh_glory_rub;
++
++[proc,poh_glory_rub]
++if (%poh_instance = null | instance_find(loc_coord) ! %poh_instance) {
++    mes("You can only use that in your own house.");
++    return;
++}
++if (~glory_teleport("The amulet's magic carries you away.") = false) {
++    return;
++}
++~poh_free;
+diff --git a/scripts/tutorial/scripts/tutorial.rs2 b/scripts/tutorial/scripts/tutorial.rs2
+index 03abff38..84a40b19 100644
+--- a/scripts/tutorial/scripts/tutorial.rs2
++++ b/scripts/tutorial/scripts/tutorial.rs2
+@@ -136,8 +136,16 @@ if_close;
+ [if_close,player_kit]
+ queue(tutorial_designed_character, 0, 0);
+ 
++// The character-design screen is no longer only the tutorial's: the POH wardrobe opens it too
++// (skill_construction/scripts/poh_costume.rs2), and this is the only close handler there can be -
++// a second [if_close,player_kit] is a hard build error. It used to set %tutorial unconditionally,
++// which would have knocked a finished player's tutorial state all the way back to 1 the first time
++// they opened a wardrobe. Only a player who is still at the start of the tutorial advances now;
++// turning allowdesign back off is what every caller needs and still always happens.
+ [queue,tutorial_designed_character]
+-%tutorial = ^newbie_basics_instructor_designed_character;
++if (%tutorial = ^newbie_basics_instructor_start) {
++    %tutorial = ^newbie_basics_instructor_designed_character;
++}
+ allowdesign(false);
+ 
+ [tutorial,_]
+diff --git a/tools/furnspec.json b/tools/furnspec.json
+index b8563150..9279fa90 100644
+--- a/tools/furnspec.json
++++ b/tools/furnspec.json
+@@ -260,7 +260,10 @@
+    ],
+    "planks": 2,
+    "base": 11,
+-   "flatpack": true
++   "flatpack": true,
++   "op1": {
++    "kind": "wardrobe"
++   }
+   },
+   {
+    "key": "clock",
+@@ -1074,7 +1077,10 @@
+    ],
+    "planks": 4,
+    "base": 42,
+-   "flatpack": true
++   "flatpack": true,
++   "op1": {
++    "kind": "costume"
++   }
+   },
+   {
+    "key": "centrepiece",
+@@ -1933,4 +1939,4 @@
+   ],
+   "poh_exit_portal": "the level-1 centrepiece of both gardens"
+  }
+-}
++}
+\ No newline at end of file
+diff --git a/tools/genfurn.py b/tools/genfurn.py
+index 3124ddf6..f87cfa0a 100644
+--- a/tools/genfurn.py
++++ b/tools/genfurn.py
+@@ -971,6 +971,12 @@ def emit_ops(fams, items, byfam, path='scripts/skill_construction/scripts/poh_fu
+             body = ['anim(%s, 0);' % op['seq'], 'mes(%s);' % q(op['mes'])]
+         elif k == 'mes':
+             body = ['mes(%s);' % q(l) for l in op['lines']]
++        elif k == 'wardrobe':
++            body = ['~poh_wardrobe;']
++        elif k == 'costume':
++            # the piece is passed in so its tier can set the capacity, the same way the altar's
++            # offer trigger passes the piece it is standing on
++            body = ['~poh_costume_open(%d);' % i['n']]
+         elif k == 'study':
+             # The lectern window, and the only op1 whose body depends on WHICH piece it is: a
+             # lectern's tier is which of the seven it is, and that is what decides its tablet list.
+diff --git a/tools/poh_battery.py b/tools/poh_battery.py
+index 85909dcc..678d4098 100644
+--- a/tools/poh_battery.py
++++ b/tools/poh_battery.py
+@@ -913,7 +913,8 @@ print('39. what the furniture does: every trigger is on an op the loc really has
+ import json as _json
+ FSPEC = _json.load(open(os.path.join(C, 'tools/furnspec.json')))
+ KINDOP = {'sit': 'Sit-on', 'light': 'Light', 'altar': 'Pray', 'jingle': 'Play',
+-          'observe': 'Observe', 'talk': 'Talk-to', 'preen': 'Preen'}
++          'observe': 'Observe', 'talk': 'Talk-to', 'preen': 'Preen',
++          'wardrobe': 'Change-clothes', 'costume': 'Open'}
+ 
+ 
+ OPSRC = src['scripts/skill_construction/scripts/poh_furn_ops.rs2']
+@@ -2019,6 +2020,123 @@ check('poh_loc_exit' in ec and '^poh_exit' in ec,
+       'the exit reads the table and falls back to the constant if it answers null')
+ check(POHRS2.count('~poh_exit_coord') >= 2, 'both leaving and logging in use it')
+ 
++# ============================================================================ 55
++print('55. the costume chest, the wardrobe and the mounted glory')
++COST = read('scripts/skill_construction/configs/poh_costume.enum')
++citem = enumtable(COST, 'poh_costume_item')
++csetn = enumtable(COST, 'poh_costume_set_name')
++cfirst = enumtable(COST, 'poh_costume_set_first')
++clast = enumtable(COST, 'poh_costume_set_last')
++NITEM = int(re.search(r'^\^poh_costume_items\s*=\s*(\d+)', CONSTF, re.M).group(1))
++NSET = int(re.search(r'^\^poh_costume_sets\s*=\s*(\d+)', CONSTF, re.M).group(1))
++check(sorted(citem) == list(range(NITEM)), 'poh_costume_item is 0..%d with no gaps' % (NITEM - 1))
++check(sorted(csetn) == list(range(NSET)), 'poh_costume_set_name covers all %d sets' % NSET)
++check(len(set(citem.values())) == NITEM, 'no item is listed twice')
++check(all(o in OBJS for o in citem.values()), 'every one is in obj.pack: %s'
++      % ([o for o in citem.values() if o not in OBJS][:3] or 'all %d' % NITEM))
++
++# THE LIST IS DERIVED, AND THIS IS WHERE IT IS RE-DERIVED. Everything in the chest has to be a clue
++# reward, and every clue reward that is a god/trimmed/gold/heraldic VARIANT has to be in the chest -
++# otherwise a reward added to the tables later is quietly unstorable and nobody finds out.
++rewards = set()
++for f in sorted(os.listdir(os.path.join(C, 'scripts/minigames/game_trail/scripts'))):
++    d = os.path.join(C, 'scripts/minigames/game_trail/scripts', f)
++    if not os.path.isdir(d):
++        continue
++    for g in sorted(os.listdir(d)):
++        if not g.endswith('_reward.rs2'):
++            continue
++        txt = '\n'.join(l.split('//')[0] for l in
++                        open(os.path.join(d, g), newline='').read().replace('\r\n', '\n').split('\n'))
++        rewards |= set(re.findall(r'inv_add\(trail_rewardinv,\s*([a-z0-9_]+)', txt))
++check(len(rewards) > 100, 'the three clue reward tables were found and parsed (%d objs)' % len(rewards))
++notreward = [o for o in citem.values() if o not in rewards]
++check(not notreward, 'everything in the chest is a treasure trail reward: %s' % (notreward[:3] or 'all of them'))
++variant = {o for o in rewards if re.search(r'_(trim|gold|guthix|saradomin|zamorak)$|heraldic', o)}
++missing = sorted(variant - set(citem.values()))
++check(not missing, 'and every god/trimmed/gold/heraldic reward is in it: %s' % (missing or 'all %d' % len(variant)))
++# The other half of the rule, and the one that covers the seventeen costume pieces no name pattern
++# can describe: a costume is something clues are the ONLY source of. If a shop stocks it, it is
++# ordinary kit and the chest is not where it belongs - that is what keeps this from drifting into a
++# second bank one plausible-looking item at a time.
++stocked = set()
++for root, _, files in os.walk(os.path.join(C, 'scripts')):
++    for g in files:
++        if not g.endswith('.inv'):
++            continue
++        for line in open(os.path.join(root, g), newline='').read().replace('\r\n', '\n').split('\n'):
++            m = re.match(r'^stock\d*=([a-z0-9_]+)', line.strip())
++            if m:
++                stocked.add(m.group(1))
++check(len(stocked) > 500, 'the shop stock lists were found (%d objs)' % len(stocked))
++sold = sorted(o for o in citem.values() if o in stocked)
++check(not sold, 'and nothing in the chest is something a shop sells: %s' % (sold[:3] or 'none of the %d' % NITEM))
++
++# the set windows have to tile the item list exactly, or a set silently holds the wrong pieces
++spans = [(int(cfirst[i]), int(clast[i])) for i in range(NSET)]
++check(spans[0][0] == 0, 'the first set starts at item 0')
++check(spans[-1][1] == NITEM - 1, 'the last set ends at item %d' % (NITEM - 1))
++check(all(a <= b for a, b in spans), 'no set ends before it starts')
++check(all(spans[i + 1][0] == spans[i][1] + 1 for i in range(NSET - 1)),
++      'the sets are consecutive and leave no item out: %s' % spans[:3])
++
++INV = read('scripts/skill_construction/configs/poh_costume.inv')
++blk = INV.split('[poh_costume_store]', 1)[1]
++check('scope=perm' in blk, 'poh_costume_store is scope=perm - the whole point is that it survives logout')
++check('size=%d' % NITEM in blk, 'and it has exactly one slot per item (size=%d)' % NITEM)
++check('poh_costume_store' in {l.split('=', 1)[1] for l in read('pack/inv.pack').split('\n') if '=' in l},
++      'it is registered in inv.pack')
++ccap = enumtable(COST, 'poh_costume_cap')
++caps = [int(ccap[t]) for t in sorted(ccap)]
++check(sorted(ccap) == [1, 2, 3, 4], 'every chest tier has a capacity')
++check(caps == sorted(caps) and caps[-1] == NITEM,
++      'the capacities only go up and the best chest holds the lot: %s' % caps)
++
++COSTRS = read('scripts/skill_construction/scripts/poh_costume.rs2')
++# comments stripped: both these files TALK about the things they must not contain
++COSTCODE = '\n'.join(l.split('//')[0] for l in COSTRS.split('\n'))
++check('while (true)' not in COSTCODE, 'the set pager is a bounded loop')
++st = COSTRS.split('[proc,poh_costume_store]', 1)[1].split('\n[', 1)[0]
++check('inv_total(poh_costume_store, $item) = 0' in st,
++      'storing puts ONE of each in - a second gold-trimmed platebody is not part of a costume')
++check('$held < $cap' in st, 'and it stops at the capacity of the chest that was clicked')
++wd = COSTRS.split('[proc,poh_costume_withdraw]', 1)[1].split('\n[', 1)[0]
++check('inv_freespace(inv) > 0' in wd, 'withdrawing checks for room and leaves the rest in the chest')
++
++# the wardrobe, and the tutorial handler it has to share
++WARD = COSTRS.split('[proc,poh_wardrobe]', 1)[1].split('\n[', 1)[0]
++check('allowdesign(true)' in WARD and 'if_openmain(player_kit)' in WARD,
++      'the wardrobe opens the character-design screen')
++TUT = read('scripts/tutorial/scripts/tutorial.rs2')
++q = TUT.split('[queue,tutorial_designed_character]', 1)[1].split('\n[', 1)[0]
++check('if (%tutorial = ^newbie_basics_instructor_start)' in q,
++      'the shared close handler only advances a player who is still IN the tutorial - a wardrobe '
++      'must not reset a finished one')
++check('allowdesign(false)' in q and q.index('allowdesign(false)') > q.index('}'),
++      'and it always turns allowdesign back off, guarded or not')
++TUTCODE = '\n'.join(l.split('//')[0] for l in TUT.split('\n'))
++check(TUTCODE.count('[if_close,player_kit]') == 1,
++      'there is exactly one close handler in the repo - two is a build error')
++
++# the mounted glory
++GLORY = read('scripts/skill_construction/scripts/poh_glory.rs2')
++check('[oploc1,poh_trophy_amuletofglory_4]' in GLORY, 'the glory trigger is on the amulet trophy')
++TROPHY = blocks(read('scripts/skill_construction/configs/poh.loc'))
++check((TROPHY.get('poh_trophy_amuletofglory_4', {}).get('op1') or [''])[0] == 'Rub',
++      'which is the only one of the three trophies that carries op1=Rub')
++for n in ('poh_trophy_antidragonbreath_4', 'poh_trophy_legendscape_4'):
++    check(not (TROPHY.get(n, {}).get('op1') or []), '%s really has no op1' % n)
++for n in ('poh_trophy_antidragonbreath_4', 'poh_trophy_legendscape_4'):
++    check(n not in GLORY, '%s has no op1, so it gets no trigger' % n)
++check('~poh_free' in GLORY, 'and the instance is freed on the way out, or it holds a slot until logout')
++AOG = read('scripts/general/scripts/enchanted_jewellry/amulet_of_glory.rs2')
++check('[proc,glory_teleport]' in AOG, 'the choice and the teleport are a proc now')
++AOGCODE = '\n'.join(l.split('//')[0] for l in AOG.split('\n'))
++lab = AOGCODE.split('[label,amulet_of_glory_interface]', 1)[1].split('\n[', 1)[0]
++tel = AOGCODE.split('[proc,glory_teleport]', 1)[1].split('\n[', 1)[0]
++check('inv_setslot' in lab and 'inv_setslot' not in tel,
++      'the charge is eaten by the LABEL - a loc trigger has no last_slot worth writing to')
++
+ print()
+ print('ALL PASS' if fails == 0 else '%d FAILED' % fails)
+ sys.exit(1 if fails else 0)
+diff --git a/tools/poh_mutate.py b/tools/poh_mutate.py
+index 4a15f0e9..c109ca95 100644
+--- a/tools/poh_mutate.py
++++ b/tools/poh_mutate.py
+@@ -302,6 +302,31 @@ if (inv_total(inv, coins) < $cost) {
+   '15 an estate agent standing inside the portal'),
+  ('maps/m39_48.jm2', '0 45 27: 15296 10 0', '0 33 27: 15296 10 0',
+   '15 a portal placed inside a building'),
++ ('scripts/skill_construction/configs/poh_costume.enum',
++  'val=71,boots_wizard', 'val=71,rune_platebody',
++  '55 a chest item that is not a clue variant'),
++ ('scripts/skill_construction/configs/poh_costume.enum',
++  'val=4,rune_full_helm_zamorak', 'val=4,rune_full_helm_saradomin',
++  '55 the same piece listed twice'),
++ ('scripts/skill_construction/configs/poh_costume.enum',
++  '[poh_costume_set_first]\ninputtype=int\noutputtype=int\ndefault=null\nval=0,0\nval=1,4',
++  '[poh_costume_set_first]\ninputtype=int\noutputtype=int\ndefault=null\nval=0,0\nval=1,5',
++  '55 a set window that skips an item'),
++ ('scripts/skill_construction/configs/poh_costume.inv',
++  '[poh_costume_store]\nscope=perm', '[poh_costume_store]\nscope=temp',
++  '55 a costume chest that empties on logout'),
++ ('scripts/skill_construction/scripts/poh_costume.rs2',
++  'if (inv_total(inv, $item) > 0 & inv_total(poh_costume_store, $item) = 0) {',
++  'if (inv_total(inv, $item) > 0) {',
++  '55 a chest that takes more than one of a piece'),
++ ('scripts/tutorial/scripts/tutorial.rs2',
++  'if (%tutorial = ^newbie_basics_instructor_start) {\n    %tutorial = ^newbie_basics_instructor_designed_character;\n}',
++  '%tutorial = ^newbie_basics_instructor_designed_character;',
++  '55 a wardrobe that resets a finished tutorial'),
++ ('scripts/general/scripts/enchanted_jewellry/amulet_of_glory.rs2',
++  'if (~glory_teleport($message) = false) {\n    return;\n}\ninv_setslot',
++  'if (~glory_teleport($message) = false) {\n    return;\n}\n// inv_setslot',
++  '55 an amulet of glory that never loses a charge'),
+  ('maps/m45_54.jm2', '0 7 0: 15296 10 3', '0 7 1: 15296 10 3',
+   '15 the map and poh_loc_portal naming different tiles'),
+  ('scripts/skill_construction/configs/poh_locations.enum',
+-- 
+2.43.0
+

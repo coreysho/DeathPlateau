@@ -1,0 +1,593 @@
+From 06082a5ea506ab0746aa18501504a906e43b0480 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Mon, 14 Sep 2026 19:49:13 +0000
+Subject: [PATCH] The windows never resolved, and the sit played beside the
+ chair
+
+poh_dynamic_window shipped as a single loc whose model is a bare wall with a
+window-shaped HOLE in it, and whose description read "This should have
+resolved!". The templates place 116 of them per style, so every house has had
+116 holes in its walls since the map import.
+
+In OSRS it is a multiloc resolving to the window for your house style and the
+glazing you have fitted, and all 54 windows were already in poh.loc - named
+by town, which is what the cache calls the six styles. Matching town to style
+by wall material, rendered side by side rather than guessed: rimmington is the
+golden plank set that goes with village_wall, lumbridge the dark grey one that
+goes with brickwall, and the desert, viking, timber and Yanille sets are
+unmistakable.
+
+%poh_window is style * 9 + choice over a 6-bit varbit, because a multiloc has
+one multivar. A shell with no entry at the current value renders nothing and
+carries no ops, so all 54 are listed and group 57 checks each child is the
+window for the style its index claims - otherwise a stone house grows wooden
+windows.
+
+human_sitting_chair was always the right animation; four npcs carry it as a
+readyanim. The problem was where it played. An oploc1 click walks the player
+ADJACENT to the loc, so Sit-on left them standing beside an empty chair.
+~poh_furn_sit walks onto the tile and faces the way the chair faces first.
+377 still has no seated state, so it is a pose and not one the engine holds.
+
+Also the audit: the templates place 183 hotspots and the spec builds on 77.
+Of the other 106, thirteen are door hotspots that build mode already handles,
+56 are ordinary buildable work with the art already sitting in poh.loc, and 33
+need a dungeon or a second storey this build does not have.
+
+rs2check 0 ERROR / 0 CHECK; poh_battery ALL PASS (57 groups);
+poh_mutate 111/111 caught.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01J1qUhTcu63bJ3hCBBxy7nU
+---
+ pack/varbit.pack                              |   1 +
+ pack/varp.pack                                |   1 +
+ .../configs/construction.constant             |   6 ++
+ .../configs/construction.varbit               |   6 ++
+ .../configs/construction.varp                 |   9 ++
+ scripts/skill_construction/configs/poh.loc    |  73 ++++++++++++-
+ scripts/skill_construction/scripts/poh.rs2    |  13 +++
+ .../scripts/poh_furn_ops.rs2                  | 101 +++++++++---------
+ .../skill_construction/scripts/poh_portal.rs2 |   2 +
+ .../skill_construction/scripts/poh_test.rs2   |   1 +
+ tools/genfurn.py                              |  31 +++++-
+ tools/poh_battery.py                          |  61 +++++++++++
+ tools/poh_mutate.py                           |  17 +++
+ 13 files changed, 270 insertions(+), 52 deletions(-)
+ create mode 100644 scripts/skill_construction/configs/construction.varbit
+
+diff --git a/pack/varbit.pack b/pack/varbit.pack
+index e0556729..68f486c3 100644
+--- a/pack/varbit.pack
++++ b/pack/varbit.pack
+@@ -2111,3 +2111,4 @@
+ 2110=swansong_hatchet
+ 2111=swansong_ambush
+ 2112=swansong_colony
++2113=poh_window_state
+diff --git a/pack/varp.pack b/pack/varp.pack
+index d2d9c633..bca01d3e 100644
+--- a/pack/varp.pack
++++ b/pack/varp.pack
+@@ -1164,3 +1164,4 @@
+ 1164=bankquantity_x
+ 1165=bankplaceholders
+ 1166=poh_location
++1167=poh_window
+diff --git a/scripts/skill_construction/configs/construction.constant b/scripts/skill_construction/configs/construction.constant
+index 04c9b0cc..832fccb3 100644
+--- a/scripts/skill_construction/configs/construction.constant
++++ b/scripts/skill_construction/configs/construction.constant
+@@ -10,6 +10,12 @@
+ // How many house locations there are. Anything that walks the list reads this rather than 6.
+ ^poh_location_count = 6
+ 
++// ---- the windows (poh.rs2 ~poh_window_refresh, 2026-09-14) ----
++// How many window kinds there are per house style: shuttered, four decorative and four
++// stained-glass. %poh_window is style * this + the choice, and poh_dynamic_window has one child
++// for every one of the 6 * 9 combinations.
++^poh_window_kinds = 9
++
+ // ---- the costume room's treasure chest (poh_costume.rs2, 2026-09-14) ----
+ // How many treasure trail reward items the chest knows about, and how many sets they fall into.
+ // Both are the length of the tables in poh_costume.enum, which are derived from the clue reward
+diff --git a/scripts/skill_construction/configs/construction.varbit b/scripts/skill_construction/configs/construction.varbit
+new file mode 100644
+index 00000000..0635ef8d
+--- /dev/null
++++ b/scripts/skill_construction/configs/construction.varbit
+@@ -0,0 +1,6 @@
++// The window state, 0-53: house style * 9 + which of the nine window kinds is fitted.
++// Six bits, because 53 needs six. See construction.varp and ~poh_window_refresh.
++[poh_window_state]
++basevar=poh_window
++startbit=0
++endbit=5
+diff --git a/scripts/skill_construction/configs/construction.varp b/scripts/skill_construction/configs/construction.varp
+index 08908434..77b35ff4 100644
+--- a/scripts/skill_construction/configs/construction.varp
++++ b/scripts/skill_construction/configs/construction.varp
+@@ -30,6 +30,15 @@ scope=perm
+ [poh_location]
+ scope=perm
+ 
++// What every window in the house looks like: the house style times nine, plus which of the nine
++// window kinds is fitted. 0-53, and 0 - basic wood with plain shutters - is what a save written
++// before this field existed reads, which is the right answer for a house nobody has reglazed.
++//
++// It is ONE number because a multiloc has ONE multivar, and poh_dynamic_window has to resolve both
++// the style and the choice. ~poh_window_refresh is the only thing that writes it.
++[poh_window]
++scope=perm
++
+ [poh_grid_0]
+ scope=perm
+ 
+diff --git a/scripts/skill_construction/configs/poh.loc b/scripts/skill_construction/configs/poh.loc
+index 640bd65f..db1a2429 100644
+--- a/scripts/skill_construction/configs/poh.loc
++++ b/scripts/skill_construction/configs/poh.loc
+@@ -6849,8 +6849,75 @@ model=poh_decor_teak_zamorak
+ ambient=30
+ op5=Remove
+ 
++// EVERY WINDOW IN THE HOUSE, and there are 116 of them per style in the templates.
++//
++// It shipped as a single loc whose model is a bare wall with a window-shaped HOLE in it, and whose
++// description - "This should have resolved!" - says exactly what was wrong: in OSRS this is a
++// multiloc that resolves to the window belonging to your house style and the glazing you have
++// fitted, and nothing here resolved it. A hole in the wall is what that looks like in game.
++//
++// 54 children: six house styles times nine window kinds, style-major, which is what
++// %poh_window = style * 9 + choice encodes. One number because a multiloc has ONE multivar.
++//
++// A MULTILOC SHELL WITH NO ENTRY AT THE CURRENT VALUE RENDERS NOTHING AND CARRIES NO OPS, so all 54
++// are listed and nothing can land between them - battery group 57 checks the set is complete and
++// that each child is the window for the style its index claims.
+ [poh_dynamic_window]
+ name=Window
+-desc=This should have resolved!
+-model=poh_dynamic_window
+-active=yes
+\ No newline at end of file
++desc=A window.
++active=yes
++multivar=poh_window_state
++multiloc=0,poh_rimmington_window_shutters
++multiloc=1,poh_rimmington_window_bob
++multiloc=2,poh_rimmington_window_saradomin
++multiloc=3,poh_rimmington_window_guthix
++multiloc=4,poh_rimmington_window_zamorak
++multiloc=5,poh_rimmington_window_bob2
++multiloc=6,poh_rimmington_window_saradomin2
++multiloc=7,poh_rimmington_window_guthix2
++multiloc=8,poh_rimmington_window_zamorak2
++multiloc=9,poh_lumbridge_window_shutters
++multiloc=10,poh_lumbridge_window_bob
++multiloc=11,poh_lumbridge_window_saradomin
++multiloc=12,poh_lumbridge_window_guthix
++multiloc=13,poh_lumbridge_window_zamorak
++multiloc=14,poh_lumbridge_window_bob2
++multiloc=15,poh_lumbridge_window_saradomin2
++multiloc=16,poh_lumbridge_window_guthix2
++multiloc=17,poh_lumbridge_window_zamorak2
++multiloc=18,poh_pollnivneach_window_shutters
++multiloc=19,poh_pollnivneach_window_bob
++multiloc=20,poh_pollnivneach_window_saradomin
++multiloc=21,poh_pollnivneach_window_guthix
++multiloc=22,poh_pollnivneach_window_zamorak
++multiloc=23,poh_pollnivneach_window_bob2
++multiloc=24,poh_pollnivneach_window_saradomin2
++multiloc=25,poh_pollnivneach_window_guthix2
++multiloc=26,poh_pollnivneach_window_zamorak2
++multiloc=27,poh_rellekka_window_shutters
++multiloc=28,poh_rellekka_window_bob
++multiloc=29,poh_rellekka_window_saradomin
++multiloc=30,poh_rellekka_window_guthix
++multiloc=31,poh_rellekka_window_zamorak
++multiloc=32,poh_rellekka_window_bob2
++multiloc=33,poh_rellekka_window_saradomin2
++multiloc=34,poh_rellekka_window_guthix2
++multiloc=35,poh_rellekka_window_zamorak2
++multiloc=36,poh_brimhaven_window_shutters
++multiloc=37,poh_brimhaven_window_bob
++multiloc=38,poh_brimhaven_window_saradomin
++multiloc=39,poh_brimhaven_window_guthix
++multiloc=40,poh_brimhaven_window_zamorak
++multiloc=41,poh_brimhaven_window_bob2
++multiloc=42,poh_brimhaven_window_saradomin2
++multiloc=43,poh_brimhaven_window_guthix2
++multiloc=44,poh_brimhaven_window_zamorak2
++multiloc=45,poh_yanille_window_shutters
++multiloc=46,poh_yanille_window_bob
++multiloc=47,poh_yanille_window_saradomin
++multiloc=48,poh_yanille_window_guthix
++multiloc=49,poh_yanille_window_zamorak
++multiloc=50,poh_yanille_window_bob2
++multiloc=51,poh_yanille_window_saradomin2
++multiloc=52,poh_yanille_window_guthix2
++multiloc=53,poh_yanille_window_zamorak2
+\ No newline at end of file
+diff --git a/scripts/skill_construction/scripts/poh.rs2 b/scripts/skill_construction/scripts/poh.rs2
+index 9fa70ba3..cb339833 100644
+--- a/scripts/skill_construction/scripts/poh.rs2
++++ b/scripts/skill_construction/scripts/poh.rs2
+@@ -187,6 +187,17 @@ return(false);
+ 
+ // =========================================================================== building
+ 
++// EVERY WINDOW IN THE HOUSE FOLLOWS THE STYLE. poh_dynamic_window is a multiloc over
++// poh_window_state, and %poh_window is the one number that feeds it: style * 9 + the glazing you
++// have fitted. This is the only thing that writes it, and it has to run whenever either half
++// changes - which today means buying a house and redecorating one.
++//
++// The choice is recovered from the old value rather than stored twice: modulo 9 is the glazing, and
++// dividing by 9 was the old style.
++[proc,poh_window_refresh]
++def_int $choice = modulo(%poh_window, ^poh_window_kinds);
++%poh_window = calc(%poh_style * ^poh_window_kinds + $choice);
++
+ // The square and level a house style is cut from. Six styles: m29_79 levels 0-3, m30_79 levels 0-1.
+ [proc,poh_style_origin](int $style)(coord)
+ switch_int ($style) {
+@@ -294,6 +305,8 @@ def_int $mid = divide(^poh_grid, 2);
+ ~poh_room_set($mid, $mid, ^poh_room_garden, 0);
+ ~poh_room_set(calc($mid + 1), $mid, ^poh_room_parlour, 0);
+ %poh_owned = 1;
++// a house with no window state renders 116 holes in its walls
++~poh_window_refresh;
+ 
+ // =========================================================================== entering and leaving
+ 
+diff --git a/scripts/skill_construction/scripts/poh_furn_ops.rs2 b/scripts/skill_construction/scripts/poh_furn_ops.rs2
+index 0f82afac..b4c7b288 100644
+--- a/scripts/skill_construction/scripts/poh_furn_ops.rs2
++++ b/scripts/skill_construction/scripts/poh_furn_ops.rs2
+@@ -88,6 +88,35 @@ sound_synth(prayer_recharge, 1, 0);
+ stat_advance(prayer, calc(oc_param($bone, bone_exp) * $pct / 100));
+ mes("You offer the bones. The gods are pleased.");
+ 
++// =========================================================================== sitting
++
++// 377 HAS NO SEATED STATE, so this is a pose and not something the engine holds: the seq
++// plays once and the player stands back up. What it can do is play in the right PLACE.
++// An oploc1 click walks the player adjacent to the loc, which is why Sit-on used to leave
++// them standing beside an empty chair; p_walk puts them on the tile and facesquare turns
++// them the way the chair faces.
++//
++// human_sitting_chair is the right animation and always was - four npcs in all.npc carry
++// it as their readyanim, which is a seated idle by definition.
++[proc,poh_furn_sit](seq $seq, string $mes)
++if (%poh_instance = null | instance_find(loc_coord) ! %poh_instance) {
++    mes("You can only use that in your own house.");
++    return;
++}
++def_coord $seat = loc_coord;
++def_int $angle = loc_angle;
++p_walk($seat);
++p_arrivedelay;
++// the tile the chair looks at: angle 0 is north, and the cycle is N E S W
++switch_int ($angle) {
++    case 0 : facesquare(movecoord($seat, 0, 0, 1));
++    case 1 : facesquare(movecoord($seat, 1, 0, 0));
++    case 2 : facesquare(movecoord($seat, 0, 0, -1));
++    case default : facesquare(movecoord($seat, -1, 0, 0));
++}
++anim($seq, 0);
++mes($mes);
++
+ // =========================================================================== the triggers
+ 
+ [oploc1,poh_larder_1]
+@@ -131,32 +160,25 @@ mes("You search the shelves.");
+ mes("There is nothing on them.");
+ 
+ [oploc1,poh_diningchairs_1]
+-anim(human_sitting_chair, 0);
+-mes("You sit down on the bench.");
++~poh_furn_sit(human_sitting_chair, "You sit down on the bench.");
+ 
+ [oploc1,poh_diningchairs_2]
+-anim(human_sitting_chair, 0);
+-mes("You sit down on the bench.");
++~poh_furn_sit(human_sitting_chair, "You sit down on the bench.");
+ 
+ [oploc1,poh_diningchairs_3]
+-anim(human_sitting_chair, 0);
+-mes("You sit down on the bench.");
++~poh_furn_sit(human_sitting_chair, "You sit down on the bench.");
+ 
+ [oploc1,poh_diningchairs_4]
+-anim(human_sitting_chair, 0);
+-mes("You sit down on the bench.");
++~poh_furn_sit(human_sitting_chair, "You sit down on the bench.");
+ 
+ [oploc1,poh_diningchairs_5]
+-anim(human_sitting_chair, 0);
+-mes("You sit down on the bench.");
++~poh_furn_sit(human_sitting_chair, "You sit down on the bench.");
+ 
+ [oploc1,poh_diningchairs_6]
+-anim(human_sitting_chair, 0);
+-mes("You sit down on the bench.");
++~poh_furn_sit(human_sitting_chair, "You sit down on the bench.");
+ 
+ [oploc1,poh_diningchairs_7]
+-anim(human_sitting_chair, 0);
+-mes("You sit down on the bench.");
++~poh_furn_sit(human_sitting_chair, "You sit down on the bench.");
+ 
+ [oploc1,poh_bellpull_1]
+ mes("You ring the bell.");
+@@ -204,32 +226,25 @@ mes("You glance at the clock.");
+ mes("There is still plenty of the day left for building.");
+ 
+ [oploc1,loc_13581]
+-anim(human_sitting_chair, 0);
+-mes("You sit down.");
++~poh_furn_sit(human_sitting_chair, "You sit down.");
+ 
+ [oploc1,loc_13582]
+-anim(human_sitting_chair, 0);
+-mes("You sit down.");
++~poh_furn_sit(human_sitting_chair, "You sit down.");
+ 
+ [oploc1,loc_13583]
+-anim(human_sitting_chair, 0);
+-mes("You sit down.");
++~poh_furn_sit(human_sitting_chair, "You sit down.");
+ 
+ [oploc1,loc_13584]
+-anim(human_sitting_chair, 0);
+-mes("You sit down.");
++~poh_furn_sit(human_sitting_chair, "You sit down.");
+ 
+ [oploc1,loc_13585]
+-anim(human_sitting_chair, 0);
+-mes("You sit down.");
++~poh_furn_sit(human_sitting_chair, "You sit down.");
+ 
+ [oploc1,loc_13586]
+-anim(human_sitting_chair, 0);
+-mes("You sit down.");
++~poh_furn_sit(human_sitting_chair, "You sit down.");
+ 
+ [oploc1,loc_13587]
+-anim(human_sitting_chair, 0);
+-mes("You sit down.");
++~poh_furn_sit(human_sitting_chair, "You sit down.");
+ 
+ [oploc1,loc_13597]
+ mes("You search the shelves.");
+@@ -466,44 +481,34 @@ switch_int (random(4)) {
+ }
+ 
+ [oploc1,poh_throne_1]
+-anim(sitting_throne, 0);
+-mes("You sit on your throne and survey your kingdom.");
++~poh_furn_sit(sitting_throne, "You sit on your throne and survey your kingdom.");
+ 
+ [oploc1,poh_throne_2]
+-anim(sitting_throne, 0);
+-mes("You sit on your throne and survey your kingdom.");
++~poh_furn_sit(sitting_throne, "You sit on your throne and survey your kingdom.");
+ 
+ [oploc1,poh_throne_3]
+-anim(sitting_throne, 0);
+-mes("You sit on your throne and survey your kingdom.");
++~poh_furn_sit(sitting_throne, "You sit on your throne and survey your kingdom.");
+ 
+ [oploc1,poh_throne_4]
+-anim(sitting_throne, 0);
+-mes("You sit on your throne and survey your kingdom.");
++~poh_furn_sit(sitting_throne, "You sit on your throne and survey your kingdom.");
+ 
+ [oploc1,poh_throne_5]
+-anim(sitting_throne, 0);
+-mes("You sit on your throne and survey your kingdom.");
++~poh_furn_sit(sitting_throne, "You sit on your throne and survey your kingdom.");
+ 
+ [oploc1,poh_throne_6]
+-anim(sitting_throne, 0);
+-mes("You sit on your throne and survey your kingdom.");
++~poh_furn_sit(sitting_throne, "You sit on your throne and survey your kingdom.");
+ 
+ [oploc1,poh_throne_7]
+-anim(sitting_throne, 0);
+-mes("You sit on your throne and survey your kingdom.");
++~poh_furn_sit(sitting_throne, "You sit on your throne and survey your kingdom.");
+ 
+ [oploc1,poh_throneroom_bench_1]
+-anim(human_sitting_chair, 0);
+-mes("You sit down on the bench.");
++~poh_furn_sit(human_sitting_chair, "You sit down on the bench.");
+ 
+ [oploc1,poh_throneroom_bench_2]
+-anim(human_sitting_chair, 0);
+-mes("You sit down on the bench.");
++~poh_furn_sit(human_sitting_chair, "You sit down on the bench.");
+ 
+ [oploc1,poh_throneroom_bench_3]
+-anim(human_sitting_chair, 0);
+-mes("You sit down on the bench.");
++~poh_furn_sit(human_sitting_chair, "You sit down on the bench.");
+ 
+ [oploc1,loc_13481]
+ mes("The crawling hand waves a finger at you.");
+diff --git a/scripts/skill_construction/scripts/poh_portal.rs2 b/scripts/skill_construction/scripts/poh_portal.rs2
+index 373e99c6..2211eeb6 100644
+--- a/scripts/skill_construction/scripts/poh_portal.rs2
++++ b/scripts/skill_construction/scripts/poh_portal.rs2
+@@ -158,6 +158,8 @@ if (inv_total(inv, coins) < $cost) {
+ ~chatplayer("<p,happy>Here you are.");
+ inv_del(inv, coins, $cost);
+ %poh_style = $style;
++// the windows are part of the style, and all 116 of them read one varp
++~poh_window_refresh;
+ ~chatnpc("<p,happy>The builders will be done before you are. Step through the portal and have a look.");
+ 
+ // =========================================================================== moving house
+diff --git a/scripts/skill_construction/scripts/poh_test.rs2 b/scripts/skill_construction/scripts/poh_test.rs2
+index f7f473ae..e944b5f8 100644
+--- a/scripts/skill_construction/scripts/poh_test.rs2
++++ b/scripts/skill_construction/scripts/poh_test.rs2
+@@ -102,6 +102,7 @@ if (p_finduid(uid) = true) {
+         return;
+     }
+     %poh_style = $style;
++    ~poh_window_refresh;
+     mes("House style <tostring($style)>.");
+ }
+ 
+diff --git a/tools/genfurn.py b/tools/genfurn.py
+index f87cfa0a..df3faa3f 100644
+--- a/tools/genfurn.py
++++ b/tools/genfurn.py
+@@ -938,6 +938,31 @@ def emit_ops(fams, items, byfam, path='scripts/skill_construction/scripts/poh_fu
+           'sound_synth(prayer_recharge, 1, 0);',
+           'stat_advance(prayer, calc(oc_param($bone, bone_exp) * $pct / 100));',
+           'mes("You offer the bones. The gods are pleased.");', '',
++          '// =========================================================================== sitting', '',
++          '// 377 HAS NO SEATED STATE, so this is a pose and not something the engine holds: the seq',
++          '// plays once and the player stands back up. What it can do is play in the right PLACE.',
++          '// An oploc1 click walks the player adjacent to the loc, which is why Sit-on used to leave',
++          '// them standing beside an empty chair; p_walk puts them on the tile and facesquare turns',
++          '// them the way the chair faces.',
++          '//',
++          '// human_sitting_chair is the right animation and always was - four npcs in all.npc carry',
++          '// it as their readyanim, which is a seated idle by definition.',
++          '[proc,poh_furn_sit](seq $seq, string $mes)',
++          'if (%poh_instance = null | instance_find(loc_coord) ! %poh_instance) {',
++          '    mes("You can only use that in your own house.");', '    return;', '}',
++          'def_coord $seat = loc_coord;',
++          'def_int $angle = loc_angle;',
++          'p_walk($seat);',
++          'p_arrivedelay;',
++          '// the tile the chair looks at: angle 0 is north, and the cycle is N E S W',
++          'switch_int ($angle) {',
++          '    case 0 : facesquare(movecoord($seat, 0, 0, 1));',
++          '    case 1 : facesquare(movecoord($seat, 1, 0, 0));',
++          '    case 2 : facesquare(movecoord($seat, 0, 0, -1));',
++          '    case default : facesquare(movecoord($seat, -1, 0, 0));',
++          '}',
++          'anim($seq, 0);',
++          'mes($mes);', '',
+           '// =========================================================================== the triggers', '']
+ 
+     KIND = {}
+@@ -950,7 +975,11 @@ def emit_ops(fams, items, byfam, path='scripts/skill_construction/scripts/poh_fu
+             continue
+         k = op['kind']
+         if k == 'sit':
+-            body = ['anim(%s, 0);' % op['seq'], 'mes(%s);' % q(op['mes'])]
++            # ON the chair, not beside it. An oploc1 click walks the player ADJACENT to the loc, so
++            # the seated pose used to play with the player standing next to an empty chair, which is
++            # what it looked like in game. ~poh_furn_sit walks onto the tile and turns to face the
++            # way the chair faces first.
++            body = ['~poh_furn_sit(%s, %s);' % (op['seq'], q(op['mes']))]
+         elif k == 'light':
+             body = ['~poh_furn_light(%s);' % q(op['mes'])]
+         elif k == 'altar':
+diff --git a/tools/poh_battery.py b/tools/poh_battery.py
+index 6d422ccc..60ba1600 100644
+--- a/tools/poh_battery.py
++++ b/tools/poh_battery.py
+@@ -2213,6 +2213,67 @@ for proc in ('poh_archery', 'poh_darts', 'poh_lever_pull', 'poh_needs_company',
+     body = GAMES.split('[proc,%s]' % proc, 1)[1].split('\n[', 1)[0]
+     check('~poh_in_own_house' in body, '%s checks you are in your own house' % proc)
+ 
++# ============================================================================ 57
++print('57. the windows resolve, in all six styles')
++# THE BUG THIS EARNED. poh_dynamic_window shipped as a single loc whose model is a wall with a
++# window-shaped HOLE in it and whose desc read "This should have resolved!". There are 116 of them
++# per style in the templates, so every house had 116 holes in its walls.
++#
++# A multiloc shell with no entry at the current value renders nothing and carries no ops, so the
++# table has to be COMPLETE - all 6 styles times 9 kinds - and each child has to be the window for
++# the style its index claims, or a stone house grows wooden windows.
++WSTYLE = ['rimmington', 'lumbridge', 'pollnivneach', 'rellekka', 'brimhaven', 'yanille']
++WKIND = ['shutters', 'bob', 'saradomin', 'guthix', 'zamorak',
++         'bob2', 'saradomin2', 'guthix2', 'zamorak2']
++NKIND = int(re.search(r'^\^poh_window_kinds\s*=\s*(\d+)', CONSTF, re.M).group(1))
++check(NKIND == len(WKIND), '^poh_window_kinds is %d' % NKIND)
++wblk = read('scripts/skill_construction/configs/poh.loc').split('[poh_dynamic_window]', 1)[1].split('\n[', 1)[0]
++check('multivar=poh_window_state' in wblk, 'it is a multiloc over poh_window_state')
++kids = {int(m.group(1)): m.group(2) for m in re.finditer(r'^multiloc=(\d+),(\w+)$', wblk, re.M)}
++check(sorted(kids) == list(range(6 * NKIND)),
++      'all %d states are listed with no gap (%d found)' % (6 * NKIND, len(kids)))
++wrong = [(i, kids[i], 'poh_%s_window_%s' % (WSTYLE[i // NKIND], WKIND[i % NKIND]))
++         for i in sorted(kids) if kids[i] != 'poh_%s_window_%s' % (WSTYLE[i // NKIND], WKIND[i % NKIND])]
++check(not wrong, 'each child is the window for its own style and kind: %s' % (wrong[:2] or 'all %d' % len(kids)))
++check(all(k in LOCS for k in kids.values()), 'every child is in loc.pack: %s'
++      % ([k for k in kids.values() if k not in LOCS][:3] or 'all of them'))
++check('This should have resolved' not in wblk, 'and the placeholder description is gone')
++
++# the varp, the varbit, and the one proc that writes them
++VB = read('scripts/skill_construction/configs/construction.varbit').split('[poh_window_state]', 1)[1]
++check('basevar=poh_window' in VB, 'poh_window_state reads %poh_window')
++bits = (int(re.search(r'endbit=(\d+)', VB).group(1)) - int(re.search(r'startbit=(\d+)', VB).group(1)) + 1)
++check(2 ** bits > 6 * NKIND - 1, 'and it is %d bits, enough for %d states' % (bits, 6 * NKIND))
++check('poh_window' in {l.split('=', 1)[1] for l in read('pack/varp.pack').split('\n') if '=' in l},
++      '%poh_window is in varp.pack')
++check('poh_window_state' in {l.split('=', 1)[1] for l in read('pack/varbit.pack').split('\n') if '=' in l},
++      'poh_window_state is in varbit.pack')
++vwin = read('scripts/skill_construction/configs/construction.varp').split('[poh_window]', 1)[1].split('\n[', 1)[0]
++check('scope=perm' in vwin, 'and it is perm - a house does not reglaze itself on logout')
++POHRS3 = read('scripts/skill_construction/scripts/poh.rs2')
++ref = POHRS3.split('[proc,poh_window_refresh]', 1)[1].split('\n[', 1)[0]
++check('%poh_style * ^poh_window_kinds' in ref, 'the refresh is style * kinds + choice')
++writers = [f for f in ('scripts/skill_construction/scripts/poh.rs2',
++                       'scripts/skill_construction/scripts/poh_portal.rs2',
++                       'scripts/skill_construction/scripts/poh_test.rs2',
++                       'scripts/skill_construction/scripts/poh_menus.rs2',
++                       'scripts/skill_construction/scripts/poh_furniture.rs2')
++           if '%poh_window =' in read(f)]
++check(writers == ['scripts/skill_construction/scripts/poh.rs2'],
++      'and it is the ONLY thing that writes %%poh_window: %s' % writers)
++for f, why in (('scripts/skill_construction/scripts/poh_portal.rs2', 'redecorating'),
++               ('scripts/skill_construction/scripts/poh.rs2', 'buying a house'),
++               ('scripts/skill_construction/scripts/poh_test.rs2', '::~pohstyle')):
++    check('~poh_window_refresh' in read(f), '%s calls it - the windows are part of the style' % why)
++
++# the sit, which was playing beside the chair rather than on it
++SIT = read('scripts/skill_construction/scripts/poh_furn_ops.rs2').split('[proc,poh_furn_sit]', 1)[1].split('\n[', 1)[0]
++check('p_walk($seat)' in SIT, 'sitting walks onto the chair - an oploc1 click only gets you adjacent')
++check('facesquare' in SIT, 'and turns to face the way the chair faces')
++check(SIT.index('p_walk') < SIT.index('anim('), 'before the pose plays, not after')
++check(len(re.findall(r'~poh_furn_sit\(', read('scripts/skill_construction/scripts/poh_furn_ops.rs2'))) == 24,
++      'all 24 seats go through it')
++
+ print()
+ print('ALL PASS' if fails == 0 else '%d FAILED' % fails)
+ sys.exit(1 if fails else 0)
+diff --git a/tools/poh_mutate.py b/tools/poh_mutate.py
+index 377a3d9b..8bef560d 100644
+--- a/tools/poh_mutate.py
++++ b/tools/poh_mutate.py
+@@ -344,6 +344,23 @@ if (inv_total(inv, coins) < $cost) {
+   '[proc,poh_darts]\nif (~poh_in_own_house = false) {\n    return;\n}',
+   '[proc,poh_darts]',
+   '56 a dartboard you can throw at from outside the house'),
++ ('scripts/skill_construction/configs/poh.loc',
++  'multiloc=9,poh_lumbridge_window_shutters', 'multiloc=9,poh_rimmington_window_shutters',
++  '57 a stone house with wooden windows'),
++ ('scripts/skill_construction/configs/poh.loc',
++  'multiloc=53,poh_yanille_window_zamorak2', 'multiloc=60,poh_yanille_window_zamorak2',
++  '57 a window state the shell cannot resolve'),
++ ('scripts/skill_construction/configs/construction.varp',
++  '[poh_window]\nscope=perm', '[poh_window]\nscope=temp',
++  '57 a house that reglazes itself on logout'),
++ ('scripts/skill_construction/scripts/poh_portal.rs2',
++  '%poh_style = $style;\n// the windows are part of the style, and all 116 of them read one varp\n~poh_window_refresh;',
++  '%poh_style = $style;',
++  '57 redecorating that leaves the old windows behind'),
++ ('tools/genfurn.py',
++  "body = ['~poh_furn_sit(%s, %s);' % (op['seq'], q(op['mes']))]",
++  "body = ['anim(%s, 0);' % op['seq'], 'mes(%s);' % q(op['mes'])]",
++  '57 sitting beside the chair again'),
+  ('maps/m45_54.jm2', '0 7 0: 15296 10 3', '0 7 1: 15296 10 3',
+   '15 the map and poh_loc_portal naming different tiles'),
+  ('scripts/skill_construction/configs/poh_locations.enum',
+-- 
+2.43.0
+

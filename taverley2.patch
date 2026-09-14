@@ -1,0 +1,183 @@
+From f8f458810f80d666e231b6c135db0dacb4f9ebaf Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Mon, 14 Sep 2026 17:35:02 +0000
+Subject: [PATCH] Taverley: the tile Corey picked, and a check for the mistake
+ I made
+
+I put the portal in the middle of somebody's kitchen. The footprint was level
+and no solid loc stood on any of its ten tiles - which is exactly why "no
+solid loc" does not mean outdoors: walls sit on tile BOUNDARIES, so the inside
+of a house reads as ten free tiles.
+
+Flag bit 4 is the client's remove-roofs flag and it marks every tile under a
+roof. That is the only thing in the map that says indoors, and it reads 4 on
+all ten of the tiles I chose and 0 on every portal that was placed correctly.
+Both portalsite.py and battery group 15 now reject a roofed footprint, and a
+mutation moves a portal into a Yanille building to prove it goes red.
+
+Taverley is now m45_54 anchor 7,0 rotated 3 - facing west, which is what was
+asked for in the first place and what the last square had nowhere level for.
+Spread 5, no roof, no road, landing 6,2 and the agent at 6,1.
+
+rs2check 0 ERROR / 0 CHECK; poh_battery ALL PASS; poh_mutate 94/94 caught.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01J1qUhTcu63bJ3hCBBxy7nU
+---
+ maps/m45_53.jm2                                     |  2 --
+ maps/m45_54.jm2                                     |  2 ++
+ .../skill_construction/configs/poh_locations.enum   |  4 ++--
+ scripts/skill_construction/scripts/poh_test.rs2     |  2 +-
+ tools/poh_battery.py                                | 13 +++++++++++--
+ tools/poh_mutate.py                                 |  4 +++-
+ tools/portalsite.py                                 |  6 ++++++
+ 7 files changed, 25 insertions(+), 8 deletions(-)
+
+diff --git a/maps/m45_53.jm2 b/maps/m45_53.jm2
+index 47b1332a..e83b9b98 100644
+--- a/maps/m45_53.jm2
++++ b/maps/m45_53.jm2
+@@ -5681,7 +5681,6 @@
+ 0 17 55: 1257 22 3
+ 0 17 55: 1602 1 1
+ 0 17 56: 1905 9 1
+-0 17 57: 15296 10 2
+ 0 17 58: 947 22 1
+ 0 17 59: 1107 7 2
+ 0 17 59: 1905 9 2
+@@ -7882,7 +7881,6 @@
+ 0 17 44: 14
+ 0 18 27: 14
+ 0 19 35: 587
+-0 20 56: 3920
+ 0 20 57: 14
+ 0 22 57: 14
+ 0 26 49: 14
+diff --git a/maps/m45_54.jm2 b/maps/m45_54.jm2
+index 5ff41181..1cbea171 100644
+--- a/maps/m45_54.jm2
++++ b/maps/m45_54.jm2
+@@ -4662,6 +4662,7 @@
+ 0 6 58: 1315 10 2
+ 0 6 60: 185 22 2
+ 0 6 60: 997 0 3
++0 7 0: 15296 10 3
+ 0 7 3: 1257 22
+ 0 7 4: 1257 22
+ 0 7 5: 1257 22 3
+@@ -7434,6 +7435,7 @@
+ 3 17 62: 1793 21 3
+ 
+ ==== NPC ====
++0 6 1: 3920
+ 0 23 54: 796
+ 0 24 7: 896
+ 0 39 30: 14
+diff --git a/scripts/skill_construction/configs/poh_locations.enum b/scripts/skill_construction/configs/poh_locations.enum
+index 31d65961..d9db7068 100644
+--- a/scripts/skill_construction/configs/poh_locations.enum
++++ b/scripts/skill_construction/configs/poh_locations.enum
+@@ -55,7 +55,7 @@ inputtype=int
+ outputtype=coord
+ default=null
+ val=0,0_46_50_9_24
+-val=1,0_45_53_19_56
++val=1,0_45_54_6_2
+ val=2,0_52_46_12_58
+ val=3,0_41_56_43_47
+ val=4,0_43_49_6_42
+@@ -68,7 +68,7 @@ inputtype=int
+ outputtype=coord
+ default=null
+ val=0,0_46_50_7_23
+-val=1,0_45_53_17_57
++val=1,0_45_54_7_0
+ val=2,0_52_46_10_59
+ val=3,0_41_56_43_48
+ val=4,0_43_49_7_40
+diff --git a/scripts/skill_construction/scripts/poh_test.rs2 b/scripts/skill_construction/scripts/poh_test.rs2
+index a09cc6ce..f7f473ae 100644
+--- a/scripts/skill_construction/scripts/poh_test.rs2
++++ b/scripts/skill_construction/scripts/poh_test.rs2
+@@ -130,7 +130,7 @@ if (p_finduid(uid) = true) {
+ if (p_finduid(uid) = true) {
+     switch_int ($town) {
+         case 0 : p_telejump(0_46_50_9_24);   mes("Rimmington - level 1, 5000 coins.");
+-        case 1 : p_telejump(0_45_53_19_56);   mes("Taverley - level 10, 5000 coins.");
++        case 1 : p_telejump(0_45_54_6_2);   mes("Taverley - level 10, 5000 coins.");
+         case 2 : p_telejump(0_52_46_12_58);  mes("Pollnivneach - level 20, 7500 coins.");
+         case 3 : p_telejump(0_41_56_43_47);  mes("Rellekka - level 30, 10000 coins.");
+         case 4 : p_telejump(0_43_49_6_42);   mes("Brimhaven - level 40, 15000 coins.");
+diff --git a/tools/poh_battery.py b/tools/poh_battery.py
+index 53a3f1f0..85909dcc 100644
+--- a/tools/poh_battery.py
++++ b/tools/poh_battery.py
+@@ -325,6 +325,15 @@ for town in sorted(PORTAL_AT):
+         others = [e for e in mlocs.get(t, []) if e[0] != LOCS['poh_house_portal'] and e[1] != 22]
+         check(not others, 'town %d: tile %s carries nothing else that blocks: %s' % (town, t[1:], others))
+         check(t in land, 'town %d: tile %s is real ground' % (town, t[1:]))
++        # Flag bit 4 is the client's remove-roofs flag - it marks every tile under a roof, and it is
++        # the only thing in the map that says INDOORS. "No solid loc on the footprint" does not:
++        # walls sit on tile boundaries, so the inside of a house reads as ten free tiles, and the
++        # Taverley portal was placed in the middle of somebody's kitchen on exactly that reasoning.
++        flags = 0
++        for tok in land.get(t, []):
++            if tok.startswith('f') and tok[1:].isdigit():
++                flags = int(tok[1:])
++        check(not flags & 4, 'town %d: tile %s is outdoors (flag %d)' % (town, t[1:], flags))
+     elv, emx, emz, ex, ez = EXIT_AT[town]
+     check((emx, emz) == (mx, mz), 'town %d: the landing tile is on the portal\'s own square' % town)
+     check((elv, ex, ez) not in covered, 'town %d: leaving does not land you inside the portal' % town)
+@@ -487,7 +496,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+ from terrain377 import height_of
+ 
+ # town -> the height spread under the footprint as approved in game, 2026-09-14.
+-APPROVED_SPREAD = {0: 4, 1: 0, 2: 4, 3: 17, 4: 3, 5: 10}
++APPROVED_SPREAD = {0: 4, 1: 5, 2: 4, 3: 17, 4: 3, 5: 10}
+ 
+ def groundfn(land, mx, mz):
+     def g(lv, x, z):
+@@ -561,7 +570,7 @@ print('22. each portal is turned the way it was turned in game')
+ # rotation 0 is north, 1 east, 2 south, 3 west. (claude/poh-portal-placement.md had it 180 out - it
+ # reasoned from the swirl sitting south of the frame's centre in model space.) The footprint swaps
+ # width and length on an odd angle, which is what makes the wide face run north-south.
+-APPROVED_ANGLE = {0: 3, 1: 2, 2: 2, 3: 2, 4: 3, 5: 0}
++APPROVED_ANGLE = {0: 3, 1: 3, 2: 2, 3: 2, 4: 3, 5: 0}
+ FACING = {0: 'north', 1: 'east', 2: 'south', 3: 'west'}
+ for town, mx, mz, anchor, pangle, covered, land, mlocs, agents in TOWNS:
+     check(pangle == APPROVED_ANGLE.get(town),
+diff --git a/tools/poh_mutate.py b/tools/poh_mutate.py
+index d07947af..4a15f0e9 100644
+--- a/tools/poh_mutate.py
++++ b/tools/poh_mutate.py
+@@ -300,7 +300,9 @@ if (inv_total(inv, coins) < $cost) {
+   '21 a portal that drifted onto ground nobody looked at'),
+  ('maps/m41_56.jm2', '0 42 48: 3920', '0 47 48: 3920',
+   '15 an estate agent standing inside the portal'),
+- ('maps/m45_53.jm2', '0 17 57: 15296 10 2', '0 17 56: 15296 10 2',
++ ('maps/m39_48.jm2', '0 45 27: 15296 10 0', '0 33 27: 15296 10 0',
++  '15 a portal placed inside a building'),
++ ('maps/m45_54.jm2', '0 7 0: 15296 10 3', '0 7 1: 15296 10 3',
+   '15 the map and poh_loc_portal naming different tiles'),
+  ('scripts/skill_construction/configs/poh_locations.enum',
+   'val=5,0_39_48_47_29', 'val=5,0_39_48_52_29',
+diff --git a/tools/portalsite.py b/tools/portalsite.py
+index 8df1c226..1dffba44 100644
+--- a/tools/portalsite.py
++++ b/tools/portalsite.py
+@@ -112,6 +112,12 @@ def sites(mx, mz, ax, az, paths, radius=14):
+                     continue
+                 if any(flag(a, b) & 1 for a, b in fp):
+                     continue
++                # Flag bit 4 is the client's remove-roofs flag: it marks every tile UNDER A ROOF,
++                # which is the only thing in the map that says "indoors". Without this the search
++                # happily proposed the middle of a Taverley house - level ground, no solid loc on
++                # any of the ten tiles, because the walls sit on the tile boundaries around them.
++                if any(flag(a, b) & 4 for a, b in fp):
++                    continue
+                 if any(overlay(a, b) in NEVER_ON for a, b in fp):
+                     continue      # a five-wide loc across the dirt road severs the path
+                 hs = [ground(a, b) for a, b in fp]
+-- 
+2.43.0
+

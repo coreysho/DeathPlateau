@@ -1,0 +1,447 @@
+From 303290d306e0484e8f4b80c756e4555040fdcab2 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Mon, 14 Sep 2026 18:56:26 +0000
+Subject: [PATCH] Finish the op list: 539 ops, none of them dead
+
+Battery group 56 walks the 284 placed locs, reads every op1-op5 off poh.loc
+and poh_templates.loc, and fails if one of them has no trigger anywhere. It
+is the other direction from check 39, which has caught triggers on ops a loc
+does not carry since the furniture round; this is the one that was never
+checked. An op the loc DOES carry with no trigger is a click that does
+nothing, and a click that does nothing is indistinguishable from a bug. It
+found six more than the survey did - op4=Upgrade on four tool stores and two
+workbenches that nobody had noticed.
+
+Two of them are real activities. The archery target wants a bow and arrows -
+a bow being a worn right-hand weapon with attackrange above 1, the same test
+tut_giant_rat uses rather than a list of bows to fall behind - and the
+dartboard wants darts. Both spend the BEST ammunition carried, spend it
+before the roll so a miss costs something, and pay experience only on a hit.
+A shot is three ticks: the target is a thing to build, not a way to train.
+
+The rest are honest, and what is missing is always one of two things. Either
+the house is empty - hangman, the mime, the elemental balance, the attack
+stone and the dungeon challenge are all things OSRS plays against another
+person - or the items are not in a 2006 cache. The clockmaker's bench makes
+nine clockwork toys and not one of them is in obj.pack; the heraldry stand
+makes steel heraldic helmets, shields and banners and none of those are
+either, and the fifteen heraldic kiteshields that DO exist are treasure trail
+rewards that making at a stand would undercut.
+
+rs2check 0 ERROR / 0 CHECK; poh_battery ALL PASS (56 groups);
+poh_mutate 106/106 caught.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01J1qUhTcu63bJ3hCBBxy7nU
+---
+ .../configs/construction.constant             |  11 +
+ .../skill_construction/configs/poh_games.enum |  44 ++++
+ .../skill_construction/scripts/poh_games.rs2  | 206 ++++++++++++++++++
+ tools/poh_battery.py                          |  76 +++++++
+ tools/poh_mutate.py                           |  17 ++
+ 5 files changed, 354 insertions(+)
+ create mode 100644 scripts/skill_construction/configs/poh_games.enum
+ create mode 100644 scripts/skill_construction/scripts/poh_games.rs2
+
+diff --git a/scripts/skill_construction/configs/construction.constant b/scripts/skill_construction/configs/construction.constant
+index 07f09e7c..04c9b0cc 100644
+--- a/scripts/skill_construction/configs/construction.constant
++++ b/scripts/skill_construction/configs/construction.constant
+@@ -17,6 +17,17 @@
+ ^poh_costume_items = 72
+ ^poh_costume_sets = 16
+ 
++// ---- the archery target and the dartboard (poh_games.rs2, 2026-09-14) ----
++// Indices into poh_range_ammo: the six arrows first, then the six darts.
++^poh_arrow_first = 0
++^poh_arrow_last = 5
++^poh_dart_first = 6
++^poh_dart_last = 11
++// Ranged experience for one shot that lands, before the bullseye multiplier. NOT cache data - the
++// tunable part, like the altar percentages and the room prices. A shot is three ticks, so this is a
++// few thousand an hour at best: the target is a thing to build, not a way to train.
++^poh_range_xp = 8
++
+ // ---- the saved house layout (poh.rs2, 2026-09-11) ----
+ // The grid is ^poh_grid x ^poh_grid rooms on the ground floor. Eight is more than OSRS ever needs
+ // and still fits four rooms to a varp with the 8x8-zone instance slot to spare.
+diff --git a/scripts/skill_construction/configs/poh_games.enum b/scripts/skill_construction/configs/poh_games.enum
+new file mode 100644
+index 00000000..7ede48a0
+--- /dev/null
++++ b/scripts/skill_construction/configs/poh_games.enum
+@@ -0,0 +1,44 @@
++// Ammunition for the two pieces of house furniture you can actually use on your own: the archery
++// target in the ranging game and the dartboard in the games room.
++//
++// One flat table with the arrows first and the darts after, and a parallel table of launch
++// spotanims, rather than two obj-keyed enums - the arrow index and its effect index are the same
++// number, and battery group 56 checks the two tables stay the same length.
++//
++// Only the six standard metals are here. Ogre, broad, fire, ice and headless arrows all exist in
++// obj.pack and none of them belong on a target in somebody's bedroom.
++
++[poh_range_ammo]
++inputtype=int
++outputtype=namedobj
++default=null
++val=0,bronze_arrow
++val=1,iron_arrow
++val=2,steel_arrow
++val=3,mithril_arrow
++val=4,adamant_arrow
++val=5,rune_arrow
++val=6,bronze_dart
++val=7,iron_dart
++val=8,steel_dart
++val=9,mithril_dart
++val=10,adamant_dart
++val=11,rune_dart
++
++// The launch effect for the ammo at the same index.
++[poh_range_fx]
++inputtype=int
++outputtype=spotanim
++default=null
++val=0,bronze_arrow_launch
++val=1,iron_arrow_launch
++val=2,steel_arrow_launch
++val=3,mithril_arrow_launch
++val=4,adamant_arrow_launch
++val=5,rune_arrow_launch
++val=6,bronze_dart_launch
++val=7,iron_dart_launch
++val=8,steel_dart_launch
++val=9,mithril_dart_launch
++val=10,adamant_dart_launch
++val=11,rune_dart_launch
+diff --git a/scripts/skill_construction/scripts/poh_games.rs2 b/scripts/skill_construction/scripts/poh_games.rs2
+new file mode 100644
+index 00000000..25ce84de
+--- /dev/null
++++ b/scripts/skill_construction/scripts/poh_games.rs2
+@@ -0,0 +1,206 @@
++// The last of the ops. After this file, EVERY op any piece of house furniture advertises does
++// something - battery group 56 walks poh.loc and fails if one of them is a dead click again.
++//
++// Two of them are real activities. The rest are honest: a click that says why it cannot work beats a
++// click that does nothing, and it is the difference between "not built" and "broken".
++//
++// WHAT IS MISSING IS ALWAYS THE SAME TWO THINGS. Either the house is empty - the games room, the
++// combat room and the throne room lever are all things OSRS plays against another person - or the
++// items do not exist in a 2006 cache. The clockmaker's bench makes nine clockwork toys and not one
++// of toy_horsey, wooden_cat, toy_soldier, toy_doll, clockwork_suit, toy_mouse or clockwork_cat is in
++// obj.pack; the heraldry stand makes steel heraldic helmets, kiteshields and banners, and none of
++// those are there either. The fifteen heraldic kiteshields that DO exist are treasure trail rewards
++// and making them at a stand would undercut the clue they come from.
++
++// =========================================================================== the archery target
++
++// Requires a bow and arrows: a worn right-hand weapon with attackrange greater than 1 is a ranged
++// weapon, which is the same test tut_giant_rat uses, rather than a list of bows to fall behind.
++[oploc1,poh_archery_target1] ~poh_archery;
++[oploc1,poh_archery_target2] ~poh_archery;
++
++[proc,poh_archery]
++if (~poh_in_own_house = false) {
++    return;
++}
++if (oc_param(inv_getobj(worn, ^wearpos_rhand), attackrange) <= 1) {
++    mes("You need a bow to shoot at the target.");
++    return;
++}
++def_int $ammo = ~poh_range_find(^poh_arrow_first, ^poh_arrow_last);
++if ($ammo < 0) {
++    mes("You have no arrows.");
++    return;
++}
++~poh_range_shoot($ammo, human_bow, "Your arrow misses the target.", "Your arrow hits the target.");
++
++// =========================================================================== the dartboard
++
++// Darts are thrown, so there is nothing to be holding. OSRS plays this against another person and
++// keeps score; on your own it is target practice, which is what the score line says.
++[oploc1,poh_dartboard1] ~poh_darts;
++[oploc1,poh_dartboard2] ~poh_darts;
++
++[proc,poh_darts]
++if (~poh_in_own_house = false) {
++    return;
++}
++def_int $ammo = ~poh_range_find(^poh_dart_first, ^poh_dart_last);
++if ($ammo < 0) {
++    mes("You have no darts to throw.");
++    return;
++}
++~poh_range_shoot($ammo, human_throw_dart1, "Your dart misses the board.", "Your dart hits the board.");
++
++// The best ammunition the player is carrying between two indices, or -1. Best rather than first: a
++// quiver with bronze at the bottom should not spend the bronze.
++[proc,poh_range_find](int $first, int $last)(int)
++def_int $i = $last;
++while ($i >= $first) {
++    if (inv_total(inv, enum(int, namedobj, poh_range_ammo, $i)) > 0) {
++        return($i);
++    }
++    $i = calc($i - 1);
++}
++return(-1);
++
++// One shot. The ammunition is spent whether or not it lands, which is what makes a miss cost
++// something; the experience is only paid for a hit.
++//
++// Where it lands is a straight roll against Ranged level - 1 in 10 at level 1, about 1 in 2 at 99 -
++// with a bullseye a tenth as likely as a hit. Nothing here is cache data; see ^poh_range_xp.
++[proc,poh_range_shoot](int $ammo, seq $anim, string $miss, string $hit)
++def_namedobj $obj = enum(int, namedobj, poh_range_ammo, $ammo);
++if ($obj = null) {
++    return;
++}
++inv_del(inv, $obj, 1);
++anim($anim, 0);
++spotanim_map(enum(int, spotanim, poh_range_fx, $ammo), loc_coord, 0, 0);
++p_delay(2);
++def_int $roll = random(100);
++def_int $skill = calc(10 + stat(ranged) / 2);
++if ($roll >= $skill) {
++    mes($miss);
++    return;
++}
++if ($roll < calc($skill / 10)) {
++    stat_advance(ranged, calc(^poh_range_xp * 3));
++    mes("Bullseye!");
++    return;
++}
++stat_advance(ranged, ^poh_range_xp);
++mes($hit);
++
++// =========================================================================== the wall chart
++
++// A star chart in a study. It reads, like the clock does, and that is all OSRS's is for either.
++[oploc1,poh_wallchart_1] ~poh_wallchart;
++[oploc1,poh_wallchart_2] ~poh_wallchart;
++[oploc1,poh_wallchart_3] ~poh_wallchart;
++
++[proc,poh_wallchart]
++mes("The chart maps the stars over Gielinor. Someone has pencilled a note in the margin.");
++mes("It reads: 'The telescope is wrong about the third one along.'");
++
++// =========================================================================== the empty house
++//
++// Everything below needs a second person in the house. Saying so is the point: these are the ops
++// that used to be dead clicks, and a dead click is indistinguishable from a bug.
++
++[oploc1,poh_lever_oak_4] ~poh_lever_pull;
++[oploc1,poh_lever_teak_4] ~poh_lever_pull;
++[oploc1,poh_lever_mag_4] ~poh_lever_pull;
++
++// In OSRS this drops the floor out of the throne room into the oubliette below. There is no second
++// level in this build - the grid is one storey - so there is nothing under the house to open.
++[proc,poh_lever_pull]
++if (~poh_in_own_house = false) {
++    return;
++}
++mes("You pull the lever. Somewhere below the house, nothing happens.");
++mes("There is no dungeon under this house to open.");
++
++[oploc2,poh_lever_oak_4] ~poh_needs_company("You need someone else in the house to challenge to the dungeon.");
++[oploc2,poh_lever_teak_4] ~poh_needs_company("You need someone else in the house to challenge to the dungeon.");
++[oploc2,poh_lever_mag_4] ~poh_needs_company("You need someone else in the house to challenge to the dungeon.");
++
++[oploc1,poh_hangman_chest] ~poh_needs_company("You need someone else in the house to play hangman.");
++[oploc1,poh_mime_jester] ~poh_needs_company("You need someone else in the house to put on a show for.");
++[oploc1,poh_elemental_orb_1] ~poh_needs_company("You need someone else in the house to play the elemental balance.");
++[oploc1,poh_elemental_orb_2] ~poh_needs_company("You need someone else in the house to play the elemental balance.");
++[oploc1,poh_elemental_orb_3] ~poh_needs_company("You need someone else in the house to play the elemental balance.");
++[oploc1,poh_tbt_clay_new] ~poh_needs_company("You need someone else in the house to set up a fight with.");
++[oploc1,poh_tbt_limestone_new] ~poh_needs_company("You need someone else in the house to set up a fight with.");
++[oploc1,poh_tbt_marble_new] ~poh_needs_company("You need someone else in the house to set up a fight with.");
++
++// The whole line, not a fragment: interpolating a string VARIABLE (<$var>) is one of the four
++// idioms this repo has no precedent for, and battery check 24 enforces that.
++[proc,poh_needs_company](string $line)
++if (~poh_in_own_house = false) {
++    return;
++}
++mes($line);
++
++// The prize chest holds what the games room games pay out, and none of those games can be played
++// yet, so it holds nothing. It is not the costume room chest - that one is real (poh_costume.rs2).
++[oploc1,poh_prize_chest_oak_closed] ~poh_prize_chest;
++[oploc1,poh_prize_chest_teak_closed] ~poh_prize_chest;
++[oploc1,poh_prize_chest_mag_closed] ~poh_prize_chest;
++
++[proc,poh_prize_chest]
++if (~poh_in_own_house = false) {
++    return;
++}
++mes("The chest is empty. Nothing has been won in this room yet.");
++
++// =========================================================================== the missing items
++
++[oploc1,loc_13709] ~poh_no_parts("The clockwork toys this bench makes do not exist in this world yet.");
++[oploc1,loc_13710] ~poh_no_parts("The clockwork toys this bench makes do not exist in this world yet.");
++[oploc1,loc_13711] ~poh_no_parts("The clockwork toys this bench makes do not exist in this world yet.");
++[oploc1,loc_13712] ~poh_no_parts("The clockwork toys this bench makes do not exist in this world yet.");
++[oploc4,loc_13709] ~poh_no_parts("The clockwork toys this bench makes do not exist in this world yet.");
++[oploc4,loc_13710] ~poh_no_parts("The clockwork toys this bench makes do not exist in this world yet.");
++[oploc4,loc_13711] ~poh_no_parts("The clockwork toys this bench makes do not exist in this world yet.");
++[oploc1,loc_13716] ~poh_no_parts("The heraldic helmets this stand makes do not exist in this world yet.");
++[oploc1,loc_13717] ~poh_no_parts("The heraldic shields this easel makes do not exist in this world yet.");
++[oploc1,loc_13718] ~poh_no_parts("The heraldic banners this easel makes do not exist in this world yet.");
++
++[proc,poh_no_parts](string $line)
++if (~poh_in_own_house = false) {
++    return;
++}
++mes("You have nothing to work with.");
++mes($line);
++
++// =========================================================================== Upgrade
++//
++// OSRS upgrades a tool store or a workbench in place. This build does not work that way: every piece
++// of furniture is built from its hotspot and removed back to it, so "upgrade" here is remove and
++// build the next one - which costs the same materials either way, because OSRS charges for the new
++// one too. Saying so is the whole of what this op can honestly do until the build menu learns to
++// take a piece out and put the next one in as one action.
++[oploc4,loc_13699] ~poh_upgrade;
++[oploc4,loc_13700] ~poh_upgrade;
++[oploc4,loc_13701] ~poh_upgrade;
++[oploc4,loc_13702] ~poh_upgrade;
++[oploc4,loc_13706] ~poh_upgrade;
++[oploc4,loc_13707] ~poh_upgrade;
++
++[proc,poh_upgrade]
++if (~poh_in_own_house = false) {
++    return;
++}
++mes("Remove it first, then build the better one from the hotspot underneath.");
++
++// =========================================================================== shared
++
++// Every op in this file is on a piece of furniture inside an instance, and none of them should
++// answer a click on one standing somewhere else.
++[proc,poh_in_own_house]()(boolean)
++if (%poh_instance = null | instance_find(loc_coord) ! %poh_instance) {
++    mes("You can only use that in your own house.");
++    return(false);
++}
++return(true);
+diff --git a/tools/poh_battery.py b/tools/poh_battery.py
+index 678d4098..6d422ccc 100644
+--- a/tools/poh_battery.py
++++ b/tools/poh_battery.py
+@@ -2137,6 +2137,82 @@ tel = AOGCODE.split('[proc,glory_teleport]', 1)[1].split('\n[', 1)[0]
+ check('inv_setslot' in lab and 'inv_setslot' not in tel,
+       'the charge is eaten by the LABEL - a loc trigger has no last_slot worth writing to')
+ 
++# ============================================================================ 56
++print('56. every op a piece of house furniture advertises is answered by something')
++# THE POINT OF THE LAST ROUND. A trigger on an op a loc does not carry never fires, which check 39
++# has covered since the furniture round - this is the other direction, and it is the one that was
++# never checked: an op the loc DOES carry with no trigger anywhere is a click that does nothing,
++# and a click that does nothing is indistinguishable from a bug.
++#
++# Not every op has to be an activity. Several of these answer "you need someone else in the house"
++# or "those items do not exist in this world yet" - which is the honest answer and still an answer.
++GAMES = read('scripts/skill_construction/scripts/poh_games.rs2')
++LOCCFG2 = blocks(read('scripts/skill_construction/configs/poh.loc'))
++TEMPL2 = blocks(read('scripts/skill_construction/configs/poh_templates.loc'))
++OPFILES = [read('scripts/skill_construction/scripts/poh_furn_ops.rs2'), GAMES,
++           read('scripts/skill_construction/scripts/poh_costume.rs2'),
++           read('scripts/skill_construction/scripts/poh_glory.rs2'),
++           read('scripts/skill_construction/scripts/poh_flatpacks.rs2'),
++           read('scripts/skill_construction/scripts/poh_furniture.rs2'),
++           read('scripts/skill_construction/scripts/poh_tablets.rs2'),
++           read('scripts/skill_construction/scripts/poh_build.rs2'),
++           read('scripts/skill_construction/scripts/poh_portal.rs2')]
++TRIG = set()
++for t in OPFILES:
++    TRIG |= set(re.findall(r'^\[oploc([1-5]),(\w+)\]', t, re.M))
++
++# only the locs the furniture actually places - poh.loc also holds hotspots and scenery
++FAM = _json.load(open(os.path.join(C, 'tools/furnspec.json')))['families']
++# the spec carries a family's pieces either as a flat "locs" list or as "pieces" objects
++placed = sorted({l for f in FAM for l in
++                 (f.get('locs') or [p['loc'] for p in f.get('pieces', [])])})
++check(len(placed) > 200, 'the spec places %d locs' % len(placed))
++dead = []
++for l in placed:
++    cfg = LOCCFG2.get(l) or TEMPL2.get(l) or {}
++    for k in cfg:
++        m = re.match(r'^op([1-5])$', k)
++        if m and (m.group(1), l) not in TRIG:
++            dead.append('%s %s=%s' % (l, k, cfg[k][0]))
++check(not dead, 'no op on a placed piece is a dead click: %s' % (dead[:6] or 'all %d answered' % len(TRIG)))
++
++# the two that are real activities
++check(len(re.findall(r'^\[oploc1,poh_archery_target', GAMES, re.M)) == 2, 'both archery targets shoot')
++check(len(re.findall(r'^\[oploc1,poh_dartboard', GAMES, re.M)) == 2, 'both dartboards throw')
++shoot = GAMES.split('[proc,poh_range_shoot]', 1)[1].split('\n[', 1)[0]
++check(shoot.index('inv_del') < shoot.index('random(100)'),
++      'the ammunition is spent before the roll - a miss has to cost something')
++check(shoot.count('stat_advance(ranged') == 2, 'and the experience is only paid on a hit or a bullseye')
++arch = GAMES.split('[proc,poh_archery]', 1)[1].split('\n[', 1)[0]
++check('attackrange' in arch, 'the target asks for a bow by attackrange, not by a list of bows')
++
++AMMO = read('scripts/skill_construction/configs/poh_games.enum')
++ammo = enumtable(AMMO, 'poh_range_ammo')
++fx = enumtable(AMMO, 'poh_range_fx')
++check(sorted(ammo) == sorted(fx), 'every piece of ammunition has a launch effect')
++check(all(o in OBJS for o in ammo.values()), 'every one is in obj.pack')
++SPOT = set(packmap('pack/spotanim.pack'))
++check(all(v in SPOT for v in fx.values()), 'every launch effect is in spotanim.pack: %s'
++      % ([v for v in fx.values() if v not in SPOT][:3] or 'all %d' % len(fx)))
++# and it is the RIGHT one. Every launch spotanim in the cache is its ammunition's name with _launch
++# on the end, so the two tables can be checked against each other rather than just for existence -
++# without this, a dart that launches an arrow passes everything.
++wrongfx = sorted(ammo[i] for i in ammo if fx.get(i) != ammo[i] + '_launch')
++check(not wrongfx, 'and it is the effect for that ammunition: %s' % (wrongfx[:3] or 'all %d match' % len(fx)))
++AF = int(re.search(r'^\^poh_arrow_first\s*=\s*(\d+)', CONSTF, re.M).group(1))
++AL = int(re.search(r'^\^poh_arrow_last\s*=\s*(\d+)', CONSTF, re.M).group(1))
++DF = int(re.search(r'^\^poh_dart_first\s*=\s*(\d+)', CONSTF, re.M).group(1))
++DL = int(re.search(r'^\^poh_dart_last\s*=\s*(\d+)', CONSTF, re.M).group(1))
++check(AL + 1 == DF and DL == max(ammo), 'the arrow and dart ranges tile the table with no gap')
++check(all(ammo[i].endswith('_arrow') for i in range(AF, AL + 1)), 'the arrow range really is arrows')
++check(all(ammo[i].endswith('_dart') for i in range(DF, DL + 1)), 'and the dart range really is darts')
++
++# every one of these is inside somebody's house
++for proc in ('poh_archery', 'poh_darts', 'poh_lever_pull', 'poh_needs_company', 'poh_no_parts',
++             'poh_prize_chest'):
++    body = GAMES.split('[proc,%s]' % proc, 1)[1].split('\n[', 1)[0]
++    check('~poh_in_own_house' in body, '%s checks you are in your own house' % proc)
++
+ print()
+ print('ALL PASS' if fails == 0 else '%d FAILED' % fails)
+ sys.exit(1 if fails else 0)
+diff --git a/tools/poh_mutate.py b/tools/poh_mutate.py
+index c109ca95..377a3d9b 100644
+--- a/tools/poh_mutate.py
++++ b/tools/poh_mutate.py
+@@ -327,6 +327,23 @@ if (inv_total(inv, coins) < $cost) {
+   'if (~glory_teleport($message) = false) {\n    return;\n}\ninv_setslot',
+   'if (~glory_teleport($message) = false) {\n    return;\n}\n// inv_setslot',
+   '55 an amulet of glory that never loses a charge'),
++ ('scripts/skill_construction/scripts/poh_games.rs2',
++  '[oploc1,poh_dartboard2] ~poh_darts;', '',
++  '56 an op left as a dead click'),
++ ('scripts/skill_construction/scripts/poh_games.rs2',
++  'inv_del(inv, $obj, 1);\nanim($anim, 0);',
++  'anim($anim, 0);',
++  '56 ammunition that is never spent'),
++ ('scripts/skill_construction/configs/poh_games.enum',
++  'val=11,rune_dart_launch', 'val=11,rune_arrow_launch',
++  '56 a dart that launches an arrow'),
++ ('scripts/skill_construction/configs/poh_games.enum',
++  'val=6,bronze_dart', 'val=6,bronze_arrow',
++  '56 an arrow inside the dart range'),
++ ('scripts/skill_construction/scripts/poh_games.rs2',
++  '[proc,poh_darts]\nif (~poh_in_own_house = false) {\n    return;\n}',
++  '[proc,poh_darts]',
++  '56 a dartboard you can throw at from outside the house'),
+  ('maps/m45_54.jm2', '0 7 0: 15296 10 3', '0 7 1: 15296 10 3',
+   '15 the map and poh_loc_portal naming different tiles'),
+  ('scripts/skill_construction/configs/poh_locations.enum',
+-- 
+2.43.0
+
