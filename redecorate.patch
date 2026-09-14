@@ -1,0 +1,510 @@
+From 693442c04a4834d03cd5fac95fb8e06633448acb Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Mon, 14 Sep 2026 15:08:01 +0000
+Subject: [PATCH] Redecorate: six house styles, and a site finder for five more
+ portals
+
+Which template level is which OSRS house style was never established. The
+template maps answer it: each of the six levels builds its rooms out of a
+different wall set AND carries its own complete dungeon set, and the materials
+run wood, stone, whitewashed stone, Fremennik, tropical, fancy stone - exactly
+the OSRS ladder. So the names, levels and prices are OSRS's own.
+
+The estate agent's second option is real now: he names your current style,
+offers the six over two chat pages, checks the level, takes the coins and
+writes %poh_style. Nothing rebuilds - he stands outside the portal, and the
+furniture is stored per hotspot, which is why this is decoration and not
+demolition. The purse is re-checked after the confirm box, which is a suspend.
+
+Relocate stops at the one question a checker cannot answer. It needs a
+five-tile portal standing in five more towns, and siting the FIRST one cost
+five shipped placements because a 377 loc sits at one height with the ground
+running through it. tools/portalsite.py does the computable part - level
+ground, nothing solid, off the dirt road, beside the town's own path - and
+::~pohtown <0-5> puts you on each candidate so ::~pohportal can show you one.
+
+The tool validates on Rimmington: excluding the tile the portal occupies, its
+best answer is one tile from the 7,23 that took five attempts by hand.
+
+rs2check 0 ERROR / 0 CHECK; poh_battery ALL PASS (53 groups);
+poh_mutate 53/53 caught.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01J1qUhTcu63bJ3hCBBxy7nU
+---
+ .../configs/poh_styles.enum                   |  54 ++++++
+ .../skill_construction/scripts/poh_portal.rs2 |  85 ++++++++-
+ .../skill_construction/scripts/poh_test.rs2   |  23 +++
+ tools/poh_battery.py                          |  44 +++++
+ tools/poh_mutate.py                           |  27 +++
+ tools/portalsite.py                           | 163 ++++++++++++++++++
+ 6 files changed, 395 insertions(+), 1 deletion(-)
+ create mode 100644 scripts/skill_construction/configs/poh_styles.enum
+ create mode 100644 tools/portalsite.py
+
+diff --git a/scripts/skill_construction/configs/poh_styles.enum b/scripts/skill_construction/configs/poh_styles.enum
+new file mode 100644
+index 00000000..378b59a5
+--- /dev/null
++++ b/scripts/skill_construction/configs/poh_styles.enum
+@@ -0,0 +1,54 @@
++// The six house styles the estate agent can redecorate into, and what each one costs.
++//
++// WHICH STYLE IS WHICH WAS READ OFF THE TEMPLATE MAPS, not remembered. ~poh_style_origin cuts each
++// style from one level of one map square - m29_79 levels 0-3, then m30_79 levels 0-1 - and every
++// level builds its rooms out of a different wall set:
++//
++//   0  m29_79 L0  village_wall          + dungeon_walltop            plain wooden planks
++//   1  m29_79 L1  brickwall             + dungeon_walltop_cutstone   grey brick
++//   2  m29_79 L2  desertwall            + dungeon_walltop_dwarf      pale sandstone, and a roof wall
++//   3  m29_79 L3  viking_longhall_wall  + dungeon_walltop_mixed      Fremennik longhall timber
++//   4  m30_79 L0  poh_timberwall        + dungeon_walltop_roots      dark timber, roots underfoot
++//   5  m30_79 L1  loc474_13116          + dungeon_walltop_rubble     cream stone and dark beams
++//
++// Each style also carries its own complete dungeon set - plain, cutstone, dwarf, mixed, roots and
++// rubble - which is what confirms the six are meant to be six STYLES and not six unrelated squares.
++// The order runs wood, stone, whitewashed stone, Fremennik, tropical, fancy stone, which is exactly
++// the OSRS ladder, so the names and the level/cost table below are OSRS's own.
++//
++// THE PLOT PRICE IS THE ODD ONE OUT. OSRS charges 5,000 for the plot and this build charges 1,000
++// (^poh_house_cost). The redecoration prices here are OSRS's real ones; if the whole ladder should
++// be scaled to match the plot instead, it is this table and nothing else.
++
++[poh_style_name]
++inputtype=int
++outputtype=string
++default=null
++val=0,Basic wood
++val=1,Basic stone
++val=2,Whitewashed stone
++val=3,Fremennik-style wood
++val=4,Tropical wood
++val=5,Fancy stone
++
++[poh_style_level]
++inputtype=int
++outputtype=int
++default=null
++val=0,1
++val=1,10
++val=2,20
++val=3,30
++val=4,40
++val=5,50
++
++[poh_style_cost]
++inputtype=int
++outputtype=int
++default=null
++val=0,5000
++val=1,5000
++val=2,7500
++val=3,10000
++val=4,15000
++val=5,25000
+diff --git a/scripts/skill_construction/scripts/poh_portal.rs2 b/scripts/skill_construction/scripts/poh_portal.rs2
+index e9cf899c..49a8429d 100644
+--- a/scripts/skill_construction/scripts/poh_portal.rs2
++++ b/scripts/skill_construction/scripts/poh_portal.rs2
+@@ -26,10 +26,13 @@
+ [opnpc1,poh_estate_agent]
+ if (%poh_owned = 1) {
+     ~chatnpc("<p,happy>How are you finding the new place?");
+-    def_int $owned = ~p_choice2("It's lovely, thanks.", 1, "Can I move house?", 2);
++    def_int $owned = ~p_choice3("It's lovely, thanks.", 1, "Can I redecorate?", 2, "Can I move house?", 3);
+     if ($owned = 1) {
+         ~chatplayer("<p,happy>It's lovely, thanks.");
+         ~chatnpc("<p,happy>Glad to hear it. The portal is right outside.");
++    } else if ($owned = 2) {
++        ~chatplayer("<p,neutral>Can I redecorate?");
++        ~poh_redecorate;
+     } else {
+         ~chatplayer("<p,neutral>Can I move house?");
+         ~chatnpc("<p,sad>Not yet, I'm afraid. Rimmington is all I have on my books.");
+@@ -65,3 +68,83 @@ if (inv_total(inv, coins) < ^poh_house_cost) {
+ inv_del(inv, coins, ^poh_house_cost);
+ ~poh_grant_starter;
+ ~chatnpc("<p,happy>Congratulations on your new home! Step through the portal whenever you like.");
++
++// =========================================================================== redecorating
++//
++// The style is the only thing about a house that is not stored per room: ~poh_style_origin turns
++// %poh_style into the template square and level the whole house is cut from, so changing the varp
++// changes every room at once and costs nothing but the next ~poh_build. The furniture is untouched -
++// it is stored per hotspot, in varps of its own - which is why OSRS can sell this as decoration.
++//
++// Nothing rebuilds here on purpose. The agent stands OUTSIDE the portal, so a player talking to him
++// is not in an instance to rebuild; the new walls are up the next time they walk through.
++
++[proc,poh_redecorate]
++~chatnpc("<p,neutral>Certainly. You have <enum(int, string, poh_style_name, %poh_style)> at the moment. What would you fancy?");
++def_int $pick = ~poh_style_pick;
++if ($pick < 0) {
++    return;
++}
++~poh_redecorate_to($pick);
++
++// Six styles will not fit in one chat menu - five options is the most p_choice takes - so this is two
++// pages with a way back, and it answers -1 for "changed my mind". The page counter is a bounded
++// while loop rather than while (true): four idioms have no precedent in this repo and that is one.
++[proc,poh_style_pick]()(int)
++def_int $turns = 0;
++while ($turns < 8) {
++    $turns = calc($turns + 1);
++    def_int $a = ~p_choice5(
++        "<enum(int, string, poh_style_name, 0)> - <tostring(enum(int, int, poh_style_cost, 0))> coins", 1,
++        "<enum(int, string, poh_style_name, 1)> - <tostring(enum(int, int, poh_style_cost, 1))> coins", 2,
++        "<enum(int, string, poh_style_name, 2)> - <tostring(enum(int, int, poh_style_cost, 2))> coins", 3,
++        "<enum(int, string, poh_style_name, 3)> - <tostring(enum(int, int, poh_style_cost, 3))> coins", 4,
++        "More styles...", 5);
++    if ($a < 5) {
++        return(calc($a - 1));
++    }
++    def_int $b = ~p_choice3(
++        "<enum(int, string, poh_style_name, 4)> - <tostring(enum(int, int, poh_style_cost, 4))> coins", 1,
++        "<enum(int, string, poh_style_name, 5)> - <tostring(enum(int, int, poh_style_cost, 5))> coins", 2,
++        "Back", 3);
++    if ($b < 3) {
++        return(calc($b + 3));
++    }
++}
++return(-1);
++
++[proc,poh_redecorate_to](int $style)
++if ($style = %poh_style) {
++    ~chatnpc("<p,neutral>That's what you have already. Save your coins.");
++    return;
++}
++def_int $level = enum(int, int, poh_style_level, $style);
++def_int $cost = enum(int, int, poh_style_cost, $style);
++if ($level = null | $cost = null) {
++    return;
++}
++if (stat(construction) < $level) {
++    ~chatnpc("<p,sad>That's a level <tostring($level)> Construction job, that is. Come back when you've the skill for it.");
++    return;
++}
++~chatnpc("<p,neutral><enum(int, string, poh_style_name, $style)>, then. That'll be <tostring($cost)> coins for the lot.");
++if (inv_total(inv, coins) < $cost) {
++    ~chatnpc("<p,sad>Come back when you have the money and the builders are yours.");
++    return;
++}
++def_int $yes = ~p_choice2("Here you are.", 1, "That's too much for me.", 2);
++if ($yes = 2) {
++    ~chatplayer("<p,neutral>That's too much for me.");
++    ~chatnpc("<p,neutral>Suit yourself. It's honest work at that price.");
++    return;
++}
++// re-check: the choice box gives the player a chance to drop or trade the coins away
++if (inv_total(inv, coins) < $cost) {
++    ~chatplayer("<p,sad>Actually, I don't have the money.");
++    ~chatnpc("<p,sad>Come back when you do.");
++    return;
++}
++~chatplayer("<p,happy>Here you are.");
++inv_del(inv, coins, $cost);
++%poh_style = $style;
++~chatnpc("<p,happy>The builders will be done before you are. Step through the portal and have a look.");
+diff --git a/scripts/skill_construction/scripts/poh_test.rs2 b/scripts/skill_construction/scripts/poh_test.rs2
+index 354d0bf9..23509866 100644
+--- a/scripts/skill_construction/scripts/poh_test.rs2
++++ b/scripts/skill_construction/scripts/poh_test.rs2
+@@ -11,6 +11,8 @@
+ //   ::~pohwipe                    empty the grid, then hand out the starter house again
+ //   ::~pohstyle <0-5>             change which of the six house styles it is built from
+ //   ::~pohlist                    print the saved layout
++//   ::~pohtown <0-5>              jump to the candidate portal site in each of the six towns, so
++//                                 ::~pohportal can be dropped there and looked at
+ //
+ // Room types are in poh_rooms.enum: 1 garden, 2 parlour, 3 kitchen, 4 dining room, 5 bedroom,
+ // 6 workshop, 7 chapel, 8 study, 9 throne room, 10 portal chamber, 11 combat room, 12 games room,
+@@ -107,3 +109,24 @@ if (p_finduid(uid) = true) {
+         $rz = calc($rz + 1);
+     }
+ }
++
++// The five towns Relocate will need a portal in, at the best site tools/portalsite.py could find:
++// level ground, clear of anything solid, off the dirt road and next to the town's own path. What the
++// tool cannot answer is whether it LOOKS right, and that has already cost five placements once
++// (claude/poh-portal-placement.md) - so this puts you on each one, and ::~pohportal <rot> puts a
++// real portal at your feet for three minutes.
++//
++// The anchor for each search was the OSRS portal's own tile. Taverley's is inside a building in the
++// 377 map and Brimhaven's is in jungle, so those two moved; the other three are within a few tiles.
++[debugproc,pohtown](int $town)
++if (p_finduid(uid) = true) {
++    switch_int ($town) {
++        case 0 : p_telejump(0_46_50_9_24);   mes("Rimmington - the portal that is already there.");
++        case 1 : p_telejump(0_45_53_17_57);  mes("Taverley - 2897,3449, east of the town on the path. Try ::~pohportal 0.");
++        case 2 : p_telejump(0_52_46_12_59);  mes("Pollnivneach - 3340,3003, the OSRS tile itself. Try ::~pohportal 0.");
++        case 3 : p_telejump(0_41_56_45_52);  mes("Rellekka - 2669,3636, six north of the OSRS tile. Try ::~pohportal 0.");
++        case 4 : p_telejump(0_43_49_9_49);   mes("Brimhaven - 2761,3185, north east of the OSRS tile. Try ::~pohportal 0.");
++        case 5 : p_telejump(0_39_48_44_22);  mes("Yanille - 2540,3094, four west of the OSRS tile. Try ::~pohportal 1.");
++        case default : mes("Towns are 0 Rimmington, 1 Taverley, 2 Pollnivneach, 3 Rellekka, 4 Brimhaven, 5 Yanille.");
++    }
++}
+diff --git a/tools/poh_battery.py b/tools/poh_battery.py
+index 730be0e0..d18ad4e4 100644
+--- a/tools/poh_battery.py
++++ b/tools/poh_battery.py
+@@ -1857,6 +1857,50 @@ for loc in ('loc_13704', 'loc_13705', 'loc_13706', 'loc_13707', 'loc_13708'):
+     check('op1=Work-at' in blk, '%s carries op1=Work-at' % loc)
+     check('[oploc1,%s]' % loc in FLATRS, '%s has an oploc1 - a trigger on an op that is not there never fires' % loc)
+ 
++# ============================================================================ 53
++print('53. redecorating: six styles, six template levels, and prices that are OSRS\'s')
++STYLEE = read('scripts/skill_construction/configs/poh_styles.enum')
++stab = enumtable(STYLEE, 'poh_style_name')
++slvl = enumtable(STYLEE, 'poh_style_level')
++scost = enumtable(STYLEE, 'poh_style_cost')
++check(sorted(stab) == list(range(6)), 'poh_style_name covers 0-5 with no gaps')
++check(sorted(slvl) == list(range(6)), 'poh_style_level covers 0-5')
++check(sorted(scost) == list(range(6)), 'poh_style_cost covers 0-5')
++# A miss on any of these is a real answer without default=: style 0 is Basic wood, level 0 reads as
++# "no requirement" and cost 0 reads as free. That is rule 17's lesson in a table it does not cover.
++for t in ('poh_style_name', 'poh_style_level', 'poh_style_cost'):
++    blk = STYLEE.split('[%s]' % t, 1)[1].split('\n[', 1)[0]
++    check('default=null' in blk, '%s declares default=null - a miss must not answer style 0' % t)
++lv = [int(slvl[i]) for i in range(6)]
++cs = [int(scost[i]) for i in range(6)]
++check(lv == sorted(lv) and cs == sorted(cs), 'the ladder only ever goes up: %s at %s' % (lv, cs))
++check(lv == [1, 10, 20, 30, 40, 50], "the levels are OSRS's own: %s" % lv)
++check(cs == [5000, 5000, 7500, 10000, 15000, 25000], "and so are the prices: %s" % cs)
++
++# ~poh_style_origin has to answer a DIFFERENT template square/level for each of the six, or two
++# styles are the same house and one of the prices buys nothing.
++POHRS = read('scripts/skill_construction/scripts/poh.rs2')
++org = POHRS.split('[proc,poh_style_origin]', 1)[1].split('\n[', 1)[0]
++cases = re.findall(r'case (\d+|default) : return\(([^;]+)\);', org)
++check(len(cases) == 6, '~poh_style_origin answers all six styles (%d cases)' % len(cases))
++check(len({c[1].strip() for c in cases}) == 6,
++      'each style is cut from a different square and level: %d distinct origins' % len({c[1].strip() for c in cases}))
++check('^poh_templates_a' in org and '^poh_templates_b' in org, 'both template squares are used')
++
++# the dialogue: every style reachable, the charge taken once, and the level tested before the coins
++PORTRS = read('scripts/skill_construction/scripts/poh_portal.rs2')
++pick = PORTRS.split('[proc,poh_style_pick]', 1)[1].split('\n[', 1)[0]
++named = {int(m) for m in re.findall(r'poh_style_name, (\d)\)', pick)}
++check(named == set(range(6)), 'the two menu pages between them offer all six styles: %s' % sorted(named))
++check('while (true)' not in pick, 'the pager is a bounded loop - while (true) has no precedent here')
++do = PORTRS.split('[proc,poh_redecorate_to]', 1)[1].split('\n[', 1)[0]
++check(do.index('stat(construction)') < do.index('inv_del'), 'the level is tested before the coins are taken')
++check(do.count('inv_del(inv, coins') == 1, 'the coins come out exactly once')
++check(do.count('inv_total(inv, coins)') == 2,
++      'the purse is re-checked AFTER the confirm box - it is a suspend, and coins can leave during it')
++check(do.index('%poh_style = $style') > do.index('inv_del'), 'and the style only changes once it is paid for')
++check('$style = %poh_style' in do, 'buying the style you already have is refused')
++
+ print()
+ print('ALL PASS' if fails == 0 else '%d FAILED' % fails)
+ sys.exit(1 if fails else 0)
+diff --git a/tools/poh_mutate.py b/tools/poh_mutate.py
+index a904f47c..e101a773 100644
+--- a/tools/poh_mutate.py
++++ b/tools/poh_mutate.py
+@@ -267,6 +267,33 @@ MUTS = [
+   '[loc_13704]\nname=Workbench\ndesc=You can make furniture here.\nmodel=loc_10673i2\nwidth=2\nop1=Work-at',
+   '[loc_13704]\nname=Workbench\ndesc=You can make furniture here.\nmodel=loc_10673i2\nwidth=2\nop1=Use',
+   '52 a Work-at trigger on a loc that no longer carries the op'),
++ ('scripts/skill_construction/configs/poh_styles.enum',
++  '[poh_style_cost]\ninputtype=int\noutputtype=int\ndefault=null',
++  '[poh_style_cost]\ninputtype=int\noutputtype=int',
++  '53 a style price table whose miss answers free'),
++ ('scripts/skill_construction/configs/poh_styles.enum',
++  'val=3,10000', 'val=3,1000', '53 a price ladder that goes down'),
++ ('scripts/skill_construction/scripts/poh.rs2',
++  'case 5 : return(movecoord(^poh_templates_b, 0, 1, 0));',
++  'case 5 : return(^poh_templates_b);',
++  '53 two styles cut from the same template level'),
++ ('scripts/skill_construction/scripts/poh_portal.rs2',
++  'if (stat(construction) < $level) {', 'if (false) {',
++  '53 a redecoration with no level gate'),
++ ('scripts/skill_construction/scripts/poh_portal.rs2',
++  '''// re-check: the choice box gives the player a chance to drop or trade the coins away
++if (inv_total(inv, coins) < $cost) {
++    ~chatplayer("<p,sad>Actually, I don't have the money.");
++    ~chatnpc("<p,sad>Come back when you do.");
++    return;
++}
++~chatplayer("<p,happy>Here you are.");''',
++  '~chatplayer("<p,happy>Here you are.");',
++  '53 the purse not re-checked after the confirm box'),
++ ('scripts/skill_construction/scripts/poh_portal.rs2',
++  '"<enum(int, string, poh_style_name, 5)> - <tostring(enum(int, int, poh_style_cost, 5))> coins", 2,',
++  '"<enum(int, string, poh_style_name, 4)> - <tostring(enum(int, int, poh_style_cost, 4))> coins", 2,',
++  '53 a style no menu page can reach'),
+ ]
+ 
+ def checker_for(why):
+diff --git a/tools/portalsite.py b/tools/portalsite.py
+new file mode 100644
+index 00000000..8df1c226
+--- /dev/null
++++ b/tools/portalsite.py
+@@ -0,0 +1,163 @@
++#!/usr/bin/env python3
++"""Find somewhere a five-tile house portal can actually stand, on a 377 map square.
++
++Written for the Relocate round, and it exists because of what siting the FIRST portal cost: five
++placements shipped before one looked right, because a 377 loc sits at ONE height with the ground
++running through it, and the OSRS portal tile in Rimmington falls h35 to h12 across exactly the five
++tiles the portal needs. See claude/poh-portal-placement.md. Guessing a tile in five more towns would
++have repeated that five more times.
++
++A tile with no explicit `h` in the .jm2 is NOT flat and NOT unknown - the client generates it, and
++tools/terrain377.py is that function transcribed, so every tile here has a height.
++
++    python3 tools/portalsite.py                 # every town in TOWNS
++    python3 tools/portalsite.py Yanille         # one of them, with the height map
++
++What it will not do is tell you which candidate looks right. That is a question only someone standing
++there can answer - ::~pohportal <rot> drops a real one at your feet for three minutes.
++"""
++import os, re, sys
++
++C = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
++sys.path.insert(0, os.path.join(C, 'tools'))
++from terrain377 import height_of
++
++MAX_SPREAD = 4       # the same quarter-tile the battery's group 21 enforces
++# The town path, per town, by overlay id out of scripts/_unpack/377/all.flo. It is NOT the same
++# overlay everywhere and assuming it was is why this first reported nothing for three of the six:
++#   10 darkstone (the dirt road)   26 oldbrick (Pollnivneach's paving)
++#   88 viking_mud_overlay          25 sand_rock / 22 l_brownfloor1_bump (Brimhaven)
++# A portal may not stand ON the dirt road - a five-wide loc across it severs the path - but it may
++# stand on a town's broad paving, which is what a plaza is for.
++NEVER_ON = {10}
++PORTAL_W, PORTAL_L = 5, 2
++# Shapes that put something solid on a tile: walls 0-3, diagonal wall 9, and the two ground-object
++# shapes 10 and 11. Wall decorations (4-8) and roof pieces (12-21) hang above it; 22 is ground decor.
++SOLID = {0, 1, 2, 3, 9, 10, 11}
++
++# (name, map square, the OSRS portal tile as a local coord - used only as the anchor to search around)
++TOWNS = [
++    ('Rimmington',   46, 50,  9, 24, {10}),
++    ('Taverley',     45, 53,  4, 60, {10, 16, 22}),
++    ('Pollnivneach', 52, 46, 12, 59, {26}),
++    ('Rellekka',     41, 56, 46, 46, {88, 89}),
++    ('Brimhaven',    43, 49,  6, 42, {25, 22}),
++    ('Yanille',      39, 48, 48, 24, {10}),
++]
++
++def load(mx, mz):
++    path = os.path.join(C, 'maps', 'm%d_%d.jm2' % (mx, mz))
++    txt = open(path).read()
++    tiles, locs = {}, {}
++    sec = None
++    for line in txt.split('\n'):
++        if line.startswith('===='):
++            sec = line.strip('= ').strip(); continue
++        if ':' not in line:
++            continue
++        head, data = line.split(':', 1)
++        parts = head.split()
++        if len(parts) != 3:
++            continue
++        lv, x, z = (int(v) for v in parts)
++        if lv != 0:
++            continue
++        if sec == 'MAP':
++            h = re.search(r'(?:^| )h(\d+)', data)
++            o = re.search(r'(?:^| )o(\d+)', data)
++            f = re.search(r'(?:^| )f(\d+)', data)
++            tiles[(x, z)] = (int(h.group(1)) if h else None,
++                             int(o.group(1)) if o else 0,
++                             int(f.group(1)) if f else 0)
++        elif sec == 'LOC':
++            # "lv x z: id shape rot" - shape defaults to 10, rot to 0.
++            bits = data.split()
++            shape = int(bits[1]) if len(bits) > 1 else 10
++            locs.setdefault((x, z), []).append((int(bits[0]), shape))
++    return tiles, locs
++
++def square(mx, mz):
++    tiles, locs = load(mx, mz)
++    def ground(x, z):
++        t = tiles.get((x, z))
++        if t and t[0] is not None:
++            return t[0]
++        return height_of(mx * 64 + x, mz * 64 + z)
++    def overlay(x, z):
++        t = tiles.get((x, z)); return t[1] if t else 0
++    def flag(x, z):
++        t = tiles.get((x, z)); return t[2] if t else 0
++    return ground, overlay, flag, locs
++
++def footprint(x, z, angle):
++    """loc_add anchors at the south-west corner and width/length SWAP on an odd angle."""
++    w, l = (PORTAL_W, PORTAL_L) if angle % 2 == 0 else (PORTAL_L, PORTAL_W)
++    return [(x + dx, z + dz) for dx in range(w) for dz in range(l)]
++
++def sites(mx, mz, ax, az, paths, radius=14):
++    ground, overlay, flag, locs = square(mx, mz)
++    out = []
++    for x in range(max(0, ax - radius), min(64, ax + radius)):
++        for z in range(max(0, az - radius), min(64, az + radius)):
++            for angle in range(4):
++                fp = footprint(x, z, angle)
++                if any(not (0 <= a < 64 and 0 <= b < 64) for a, b in fp):
++                    continue
++                # Only SOLID locs disqualify a tile. Half the ground in these towns is covered in
++                # locs - grass tufts, twigs, dug-up soil - and every one of them is shape 22 ground
++                # decor, which does not block (GameMap.changeLocCollision only calls changeFloor for
++                # active=1). Filtering on "any loc at all" rejected all 2,576 placements in
++                # Rimmington, including the tile the portal is standing on today.
++                if any(sh in SOLID for t in fp for _, sh in locs.get(t, ())):
++                    continue
++                if any(flag(a, b) & 1 for a, b in fp):
++                    continue
++                if any(overlay(a, b) in NEVER_ON for a, b in fp):
++                    continue      # a five-wide loc across the dirt road severs the path
++                hs = [ground(a, b) for a, b in fp]
++                spread = max(hs) - min(hs)
++                if spread > MAX_SPREAD:
++                    continue
++                # it should be ON the road, not in a field three streets away
++                near = min((abs(a - x) + abs(b - z)
++                            for a in range(max(0, x - 6), min(64, x + 7))
++                            for b in range(max(0, z - 6), min(64, z + 7))
++                            if overlay(a, b) in paths), default=99)
++                if near > 5:
++                    continue
++                dist = abs(x - ax) + abs(z - az)
++                out.append((spread * 3 + near * 2 + dist, spread, near, dist, x, z, angle))
++    out.sort()
++    return out
++
++def heightmap(mx, mz, ax, az, paths, r=7):
++    ground, overlay, flag, locs = square(mx, mz)
++    print('      ' + ''.join('%4d' % x for x in range(ax - r, ax + r + 1)))
++    for z in range(az + r, az - r - 1, -1):
++        row = ''
++        for x in range(ax - r, ax + r + 1):
++            if not (0 <= x < 64 and 0 <= z < 64):
++                row += '   .'; continue
++            solid = any(sh in SOLID for _, sh in locs.get((x, z), ()))
++            mark = '/' if overlay(x, z) in paths else ('*' if solid else ' ')
++            row += '%s%3d' % (mark, ground(x, z))
++        print('z%-4d %s' % (z, row))
++    print('  / = the town path, * = something solid already stands here')
++
++def main():
++    want = sys.argv[1] if len(sys.argv) > 1 else None
++    for name, mx, mz, ax, az, paths in TOWNS:
++        if want and want.lower() != name.lower():
++            continue
++        found = sites(mx, mz, ax, az, paths)
++        print('\n=== %s  m%d_%d  anchor %d,%d (abs %d,%d) - %d candidate placements'
++              % (name, mx, mz, ax, az, mx * 64 + ax, mz * 64 + az, len(found)))
++        for _, spread, near, dist, x, z, angle in found[:6]:
++            print('    %2d,%-2d angle %d   spread %d   %d from the road   %2d from the anchor'
++                  % (x, z, angle, spread, near, dist))
++        if want:
++            print()
++            heightmap(mx, mz, ax, az, paths)
++
++if __name__ == '__main__':
++    main()
+-- 
+2.43.0
+
