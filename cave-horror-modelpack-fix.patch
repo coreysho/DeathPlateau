@@ -1,0 +1,116 @@
+From a43cf118fcaa02c3b7348deb386b7deb143a32c8 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Mon, 14 Sep 2026 04:04:52 +0000
+Subject: [PATCH] Register the two cave horror models, and check that can't
+ happen again
+
+The build failed on `Invalid property value: model1=npc_cave_horror_1`, which reads like the npc
+config is wrong. It was not. The npc importer wrote models/npc/npc_cave_horror_1.ob2 and _2.ob2
+and the .npc that names them, and never added either to pack/model.pack - so the name resolved to
+nothing. The obj importer in the same round got it right for all three witchwood icon models,
+which is why this only bit the npc.
+
+Nothing in the tree could have caught it. model.pack is not a script, so rs2check never looked at
+it, and the packer's message points at the config rather than at the missing registration.
+
+So rule 16: every .ob2 in models/{npc,obj,loc,com,idk,spot} has a model.pack entry, every entry
+has a file, and no id or name appears twice. It compares FILENAMES to pack names, not config
+model= names - loc models carry a shape suffix in the pack (`model=100_bubbleb` in the .loc,
+`13670=100_bubbleb_8` in model.pack), so comparing config names reports 7,150 false positives and
+is worse than no check at all. Filenames match pack names exactly in all six directories.
+
+Verified by breaking it both ways: deleting the new pack line reports the orphaned .ob2, and
+adding a line for a file that does not exist reports the phantom. Across the whole repo it finds
+nothing else - these two were the only unregistered models, and no entry is missing its file.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01Dc7giZ7Qnh4qy1CYPTDrmH
+---
+ pack/model.pack   |  2 ++
+ tools/rs2check.py | 46 ++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 48 insertions(+)
+
+diff --git a/pack/model.pack b/pack/model.pack
+index 56419782..335bbdad 100644
+--- a/pack/model.pack
++++ b/pack/model.pack
+@@ -16209,3 +16209,5 @@
+ 16214=loc474_15795_0
+ 16215=loc474_15796_0
+ 16216=loc474_15797_0
++16217=npc_cave_horror_1
++16218=npc_cave_horror_2
+diff --git a/tools/rs2check.py b/tools/rs2check.py
+index 91498731..72cf4d8b 100644
+--- a/tools/rs2check.py
++++ b/tools/rs2check.py
+@@ -31,6 +31,7 @@ mistakes shipped with an off-by-one mistake, and only a probe file with a known
+ answer found it. There is a --selftest for that reason.
+ """
+ 
++import io
+ import os
+ import re
+ import sys
+@@ -539,6 +540,50 @@ def check_config(path, T):
+ 
+ # --------------------------------------------------------------------------- duplicate triggers
+ 
++def check_models():
++    """Rule 16: every .ob2 on disk is registered in model.pack, and every entry has a file.
++
++    A config's model= name is NOT the check here. Loc models get a shape suffix in the pack
++    (`model=100_bubbleb` in the .loc, `13670=100_bubbleb_8` in model.pack), so comparing config
++    names against pack names reports thousands of false positives. Filenames match pack names
++    exactly, in every one of the six model directories, so that is what is compared.
++
++    This exists because an importer wrote models/npc/npc_cave_horror_1.ob2 and a .npc that
++    references it and never touched model.pack. Nothing in the content tree catches that: it is
++    not a script, so no rule here looked at it, and the packer's message is
++    "Invalid property value: model1=npc_cave_horror_1", which reads like the config is wrong.
++    """
++    import glob
++    pack_path = os.path.join(CONTENT, "pack", "model.pack")
++    if not os.path.exists(pack_path):
++        return
++    names, ids = {}, {}
++    for n, line in enumerate(io.open(pack_path, encoding="utf-8", errors="replace"), 1):
++        line = line.strip()
++        if "=" not in line:
++            continue
++        i, nm = line.split("=", 1)
++        if nm in names:
++            report("ERROR", "pack/model.pack", n, 16, "duplicate model name %s" % nm)
++        if i in ids:
++            report("ERROR", "pack/model.pack", n, 16, "duplicate model id %s" % i)
++        names[nm] = n
++        ids[i] = n
++
++    for d in ("npc", "obj", "loc", "com", "idk", "spot"):
++        for f in sorted(glob.glob(os.path.join(CONTENT, "models", d, "*.ob2"))):
++            nm = os.path.basename(f)[:-4]
++            if nm not in names:
++                report("ERROR", "models/%s/%s.ob2" % (d, nm), 0, 16,
++                       "on disk but NOT in pack/model.pack - any config naming it fails the build")
++
++    on_disk = {os.path.basename(f)[:-4]
++               for f in glob.glob(os.path.join(CONTENT, "models", "*", "*.ob2"))}
++    for nm, n in sorted(names.items()):
++        if nm not in on_disk:
++            report("ERROR", "pack/model.pack", n, 16, "%s is registered but no .ob2 exists" % nm)
++
++
+ def check_duplicates(T):
+     for trig, places in sorted(T["triggers"].items()):
+         if len(places) > 1:
+@@ -617,6 +662,7 @@ def main(argv):
+         check_config(p, T)
+     if not targets:
+         check_duplicates(T)
++        check_models()
+ 
+     errors = [f for f in findings if f[0] == "ERROR"]
+     checks = [f for f in findings if f[0] == "CHECK"]
+-- 
+2.43.0
+
