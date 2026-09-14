@@ -28921,7 +28921,7 @@ index d723c5b7..91498731 100644
 2.43.0
 
 
-From afcf2825ba956bb8925a975e1192f62709d24e00 Mon Sep 17 00:00:00 2001
+From f6ad4ae7a49d3b64ee5de35e3bd71a4e9712a4d4 Mon Sep 17 00:00:00 2001
 From: Claude <noreply@anthropic.com>
 Date: Mon, 14 Sep 2026 03:50:59 +0000
 Subject: [PATCH 4/4] Ignore python bytecode from tools/
