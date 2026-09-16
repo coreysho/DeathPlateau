@@ -1,0 +1,1729 @@
+From 80615eabd596617c33a16756942fb6522f0e2a41 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Tue, 15 Sep 2026 12:43:47 +0000
+Subject: [PATCH] The fence, the throne room floor, the chapel windows - and a
+ dead click on every window
+
+51 -> 37 dead Build ops, and one dead Remove that was never counted and is probably the most clicked
+of the lot.
+
+THE WINDOWS EVERY HOUSE ALREADY HAD. poh_dynamic_window is the shell the templates place 116 times
+per house. The round that resolved it into a 54-child multiloc turned every hole in the walls into a
+window - and a multiloc shows its ACTIVE CHILD's options, and all 54 children carry op5=Remove. So
+every window in every house has had a Remove that nothing answered, which is the engine's "Nothing
+interesting happens" in the most ordinary thing a player clicks.
+
+Check 56 could not see it: it sweeps the locs the SPEC places, and a shell the TEMPLATE places is not
+one of those - nor are the ops, which live on the children. Group 61 adds the sweep that was missing:
+every op a placed multiloc shows through its children has to be answered. Both ends are answered now
+- a window on a chapel Window space is furniture and comes out, a window in any other wall is part of
+the house and says so.
+
+My own audit script had the same blind spot for a different reason: it matched the config key as
+multiloc0, multiloc1 and so on when the key is literally "multiloc" repeated, so every multiloc in
+the repo read as having no options at all.
+
+WHAT YOU CAN BUILD. The garden's fencing, seven tiers from boundary stones to a marble wall; the
+throne room's floor decoration; and the chapel's nine glazings - shuttered, four decorative, four
+stained glass. OSRS's own numbers, including the window experience, which really is 4 and 5 for the
+two high tiers and was checked twice because it looks wrong. Nothing new had to be created: soft
+clay, planks, limestone, iron, oak, teak, steel, marble, nails and molten glass were all here.
+
+Two deliberate omissions. The throne floor's other four OSRS options drop the loser into an oubliette
+this build does not have and want clockwork and magic stones it does not have either. And the Hedging
+hotspots beside the fencing need seven bagged hedges that are not objs in this cache - their own
+round.
+
+THREE MORE MULTI-TILE PIECES, through the doors the combat ring opened: the "show" hand-off and an
+anchor, sharing the ring's rotation maths. The throne floor and the chapel windows are the first
+pieces whose ART DEPENDS ON THE HOUSE YOU LIVE IN - six floor decorations and 54 windows, one set per
+style, named after the same six towns poh_styles.enum read off the template walls.
+
+Building a chapel window reglazes the whole house: %poh_window is style x 9 + choice and the nine are
+exactly what the cache has per style, so the chapel is where that choice is made and all 116 windows
+follow. The 54-case table is in poh_dynamic_window's own child order because that order IS the low
+digit of the varp, and group 61 checks the two against each other.
+
+AND THE ANCHOR LIVES IN ONE PLACE. The rug round put it in furnspec.json and in a constant, and a
+mutation caught them drifting. Here the generator reads it out of the spec and writes the numbers
+into the file, so there is one source and nothing to drift.
+
+rs2check 0 ERROR / 0 CHECK over 1,672 scripts and 459 configs; poh_battery ALL PASS (61 groups);
+poh_mutate every one of this round's eight mutations caught, each by both the in-step check and the
+specific check it was written for.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01Dc7giZ7Qnh4qy1CYPTDrmH
+---
+ .../configs/construction.constant             |   7 +-
+ .../configs/construction.varp                 |   2 +-
+ .../configs/poh_furniture.enum                | 191 ++++++++++-
+ .../skill_construction/scripts/poh_decor.rs2  | 264 ++++++++++++++++
+ .../scripts/poh_furn_ops.rs2                  |   2 +-
+ .../scripts/poh_furniture.rs2                 | 134 +++++++-
+ .../skill_construction/scripts/poh_menus.rs2  |  17 +
+ tools/furnspec.json                           | 298 ++++++++++++++++++
+ tools/gendecor.py                             | 286 +++++++++++++++++
+ tools/poh_battery.py                          | 132 +++++++-
+ tools/poh_mutate.py                           |  36 +++
+ 11 files changed, 1353 insertions(+), 16 deletions(-)
+ create mode 100644 scripts/skill_construction/scripts/poh_decor.rs2
+ create mode 100644 tools/gendecor.py
+
+diff --git a/scripts/skill_construction/configs/construction.constant b/scripts/skill_construction/configs/construction.constant
+index e655b5ed..7c1fd196 100644
+--- a/scripts/skill_construction/configs/construction.constant
++++ b/scripts/skill_construction/configs/construction.constant
+@@ -146,7 +146,7 @@
+ //
+ // How many pieces one house can hold, and how many buildable things there are.
+ ^poh_furn_slots = 256
+-^poh_furn_items = 305
++^poh_furn_items = 322
+ 
+ // The bit layout of one packed piece. 30 bits, so it fits an int with room to spare.
+ ^poh_furn_bit_rx = 0
+@@ -159,7 +159,7 @@
+ ^poh_furn_bit_item_hi = 23
+ 
+ // Construction experience per plank. OSRS's furniture xp is very nearly planks x this, so it
+-// is one rule rather than 305 rows of remembered numbers - and it is the obvious thing to tune.
++// is one rule rather than 322 rows of remembered numbers - and it is the obvious thing to tune.
+ ^poh_xp_plank = 29
+ ^poh_xp_oak = 60
+ ^poh_xp_teak = 90
+@@ -247,6 +247,9 @@
+ ^poh_fam_rug = 68
+ ^poh_fam_curtain = 69
+ ^poh_fam_walldecor = 70
++^poh_fam_fence = 71
++^poh_fam_thronefloor = 72
++^poh_fam_chapelwindow = 73
+ 
+ // The exit portal, as a piece of furniture. It is the garden's level-1 centrepiece, which
+ // is where OSRS puts it, and ~poh_ensure_exit hands one out free to any house that has no
+diff --git a/scripts/skill_construction/configs/construction.varp b/scripts/skill_construction/configs/construction.varp
+index 5aa0e0f3..9eaa8e59 100644
+--- a/scripts/skill_construction/configs/construction.varp
++++ b/scripts/skill_construction/configs/construction.varp
+@@ -107,7 +107,7 @@ scope=perm
+ // ---- furniture (skill_construction/scripts/poh_furniture.rs2) ----
+ //
+ // One piece each, packed into 30 bits: the room cell in the grid (3+3), the tile inside that
+-// room (3+3), the angle (2) and which of the 305 buildable things it is (8 low bits plus 7
++// room (3+3), the angle (2) and which of the 322 buildable things it is (8 low bits plus 7
+ // above the lit bit - see the note in tools/genfurn.py).
+ //
+ // 256 of them, which is the ceiling on how much furniture one house can hold. The save writes
+diff --git a/scripts/skill_construction/configs/poh_furniture.enum b/scripts/skill_construction/configs/poh_furniture.enum
+index 7bc821a4..8c80115d 100644
+--- a/scripts/skill_construction/configs/poh_furniture.enum
++++ b/scripts/skill_construction/configs/poh_furniture.enum
+@@ -1,7 +1,7 @@
+ // Everything that can be built into a furniture hotspot, one row per buildable thing.
+ //
+-// GENERATED by tools/genfurn.py from tools/furnspec.json - 305 pieces across 70 families is
+-// six tables that have to agree with each other, with 116 hotspot triggers and with 305
++// GENERATED by tools/genfurn.py from tools/furnspec.json - 322 pieces across 73 families is
++// six tables that have to agree with each other, with 129 hotspot triggers and with 322
+ // removal triggers. Edit the spec, not this file.
+ //
+ // poh_furn_name is the loc's OWN name= out of poh.loc - the 474 import brought the furniture
+@@ -323,6 +323,23 @@ val=302,69
+ val=303,70
+ val=304,70
+ val=305,70
++val=306,71
++val=307,71
++val=308,71
++val=309,71
++val=310,71
++val=311,71
++val=312,71
++val=313,72
++val=314,73
++val=315,73
++val=316,73
++val=317,73
++val=318,73
++val=319,73
++val=320,73
++val=321,73
++val=322,73
+ 
+ [poh_furn_name]
+ inputtype=int
+@@ -632,6 +649,23 @@ val=302,Opulent curtains
+ val=303,Oak decoration
+ val=304,Teak decoration
+ val=305,Gilded decoration
++val=306,Boundary stones
++val=307,Wooden fence
++val=308,Stone wall
++val=309,Iron railings
++val=310,Picket fence
++val=311,Garden fence
++val=312,Marble wall
++val=313,Floor decoration
++val=314,Shuttered window
++val=315,Decorative (Bob)
++val=316,Decorative (Sara)
++val=317,Decorative (Guthix)
++val=318,Decorative (Zamorak)
++val=319,Stained (Bob)
++val=320,Stained (Sara)
++val=321,Stained (Guthix)
++val=322,Stained (Zamorak)
+ 
+ [poh_furn_level]
+ inputtype=int
+@@ -941,6 +975,23 @@ val=302,40
+ val=303,16
+ val=304,36
+ val=305,56
++val=306,55
++val=307,59
++val=308,63
++val=309,67
++val=310,71
++val=311,75
++val=312,79
++val=313,61
++val=314,49
++val=315,69
++val=316,69
++val=317,69
++val=318,69
++val=319,89
++val=320,89
++val=321,89
++val=322,89
+ 
+ [poh_furn_wood]
+ inputtype=int
+@@ -1250,6 +1301,23 @@ val=302,0
+ val=303,0
+ val=304,0
+ val=305,0
++val=306,0
++val=307,0
++val=308,0
++val=309,0
++val=310,0
++val=311,0
++val=312,0
++val=313,0
++val=314,0
++val=315,0
++val=316,0
++val=317,0
++val=318,0
++val=319,0
++val=320,0
++val=321,0
++val=322,0
+ 
+ // How many planks a piece costs, or 0 for the garden, whose materials are not planks.
+ // What is actually spent is poh_furn_mat1/mat2 below; this is kept because the plank
+@@ -1562,6 +1630,23 @@ val=302,0
+ val=303,0
+ val=304,0
+ val=305,0
++val=306,0
++val=307,0
++val=308,0
++val=309,0
++val=310,0
++val=311,0
++val=312,0
++val=313,0
++val=314,0
++val=315,0
++val=316,0
++val=317,0
++val=318,0
++val=319,0
++val=320,0
++val=321,0
++val=322,0
+ 
+ // The Construction experience for building one. For a plank family this is planks x the
+ // per-plank value; for the garden it is OSRS's own number for that piece. One table either
+@@ -1874,6 +1959,23 @@ val=302,315
+ val=303,120
+ val=304,180
+ val=305,1020
++val=306,100
++val=307,280
++val=308,200
++val=309,220
++val=310,640
++val=311,940
++val=312,4000
++val=313,700
++val=314,228
++val=315,4
++val=316,4
++val=317,4
++val=318,4
++val=319,5
++val=320,5
++val=321,5
++val=322,5
+ 
+ // WHAT A PIECE COSTS. Two materials are enough for everything the game asks for: planks for
+ // the inside of a house, a bagged plant for a tree, and the two-material centrepieces
+@@ -2190,6 +2292,23 @@ val=302,teak_plank
+ val=303,oak_plank
+ val=304,teak_plank
+ val=305,mahogany_plank
++val=306,softclay
++val=307,plank
++val=308,limestonebrick
++val=309,iron_bar
++val=310,oak_plank
++val=311,teak_plank
++val=312,poh_marble_block
++val=313,mahogany_plank
++val=314,plank
++val=315,molten_glass
++val=316,molten_glass
++val=317,molten_glass
++val=318,molten_glass
++val=319,molten_glass
++val=320,molten_glass
++val=321,molten_glass
++val=322,molten_glass
+ 
+ [poh_furn_mat1n]
+ inputtype=int
+@@ -2499,6 +2618,23 @@ val=302,3
+ val=303,2
+ val=304,2
+ val=305,3
++val=306,10
++val=307,10
++val=308,10
++val=309,10
++val=310,10
++val=311,10
++val=312,8
++val=313,5
++val=314,8
++val=315,8
++val=316,8
++val=317,8
++val=318,8
++val=319,16
++val=320,16
++val=321,16
++val=322,16
+ 
+ // The second material, for the few pieces that need one. Absent rows answer null, which is
+ // what ~poh_furn_have and ~poh_furn_take test for - so "one material" needs no flag.
+@@ -2517,6 +2653,10 @@ val=300,bolt_of_cloth
+ val=301,bolt_of_cloth
+ val=302,bolt_of_cloth
+ val=305,gold_leaf
++val=309,limestonebrick
++val=310,steel_bar
++val=311,steel_bar
++val=314,nails
+ 
+ [poh_furn_mat2n]
+ inputtype=int
+@@ -2532,6 +2672,10 @@ val=300,3
+ val=301,3
+ val=302,3
+ val=305,2
++val=309,6
++val=310,2
++val=311,2
++val=314,8
+ 
+ // The materials as the window writes them, measured against its 126px column by the
+ // generator. "4 oak planks", "1 bagged yew tree", "5 limestone, 5 soft clay".
+@@ -2843,6 +2987,23 @@ val=302,3 teak, 3 cloth
+ val=303,2 oak planks
+ val=304,2 teak planks
+ val=305,3 mahogany, 2 gold leaf
++val=306,10 soft clay
++val=307,10 planks
++val=308,10 limestone
++val=309,10 iron, 6 limestone
++val=310,10 oak, 2 steel
++val=311,10 teak, 2 steel
++val=312,8 marble blocks
++val=313,5 mahogany planks
++val=314,8 planks, 8 nails
++val=315,8 molten glass
++val=316,8 molten glass
++val=317,8 molten glass
++val=318,8 molten glass
++val=319,16 molten glass
++val=320,16 molten glass
++val=321,16 molten glass
++val=322,16 molten glass
+ 
+ // Which step of its own family a piece is, 1-based. The altar reads it to work out what it
+ // pays for a set of bones.
+@@ -3154,6 +3315,23 @@ val=302,3
+ val=303,1
+ val=304,2
+ val=305,3
++val=306,1
++val=307,2
++val=308,3
++val=309,4
++val=310,5
++val=311,6
++val=312,7
++val=313,1
++val=314,1
++val=315,2
++val=316,3
++val=317,4
++val=318,5
++val=319,6
++val=320,7
++val=321,8
++val=322,9
+ 
+ // The plank type a piece is made of, worded for a sentence ("4 oak planks"). The garden is
+ // not made of planks and has no row here; what the window actually prints is poh_furn_need.
+@@ -3474,6 +3652,9 @@ val=67,Storage space
+ val=68,Rug space
+ val=69,Curtain space
+ val=70,Decoration space
++val=71,Fencing
++val=72,Floor space
++val=73,Window space
+ 
+ // The first and last piece of each family. ~poh_furn_nth adds the row number to the first
+ // and stops at the last, so paging the Furniture window costs the same whatever family it is
+@@ -3552,6 +3733,9 @@ val=67,296
+ val=68,297
+ val=69,300
+ val=70,303
++val=71,306
++val=72,313
++val=73,314
+ 
+ [poh_fam_last]
+ inputtype=int
+@@ -3626,6 +3810,9 @@ val=67,296
+ val=68,299
+ val=69,302
+ val=70,305
++val=71,312
++val=72,313
++val=73,322
+ 
+ // The flatpackable families, numbered 1..n, for the Work-at grid to page through.
+ // NO default= here and that is deliberate: this one is an int table and 0 is the answer
+diff --git a/scripts/skill_construction/scripts/poh_decor.rs2 b/scripts/skill_construction/scripts/poh_decor.rs2
+new file mode 100644
+index 00000000..d9a93a12
+--- /dev/null
++++ b/scripts/skill_construction/scripts/poh_decor.rs2
+@@ -0,0 +1,264 @@
++// Fencing, the throne room floor and the chapel windows.
++//
++// GENERATED by tools/gendecor.py from the six template squares and tools/furnspec.json.
++// Do not edit by hand. Each of the three is one piece over several tiles, so each goes
++// through the "show" hand-off and an anchor, the way the combat ring and the rugs do, and
++// each shares their rotation maths - ~poh_ring_tile and ~poh_ring_angle in
++// poh_combat_ring.rs2, which are the engine's own zone arithmetic.
++//
++// THE ANCHOR IS IN furnspec.json AND NOWHERE ELSE. The click reads it there and the numbers
++// below are written from it, so the two cannot drift - which is the mistake the rug round
++// left open and a mutation caught.
++
++// =========================================================================== the fence
++
++// Seven tiers, one loc each, over the garden's twenty perimeter tiles - sixteen straight and
++// four corners, which is why there are two helpers: the shape picks the LAYER a loc goes on.
++[proc,poh_fence_loc](int $tier)(loc)
++switch_int ($tier) {
++    case 1 : return(loc_13449);
++    case 2 : return(loc_13450);
++    case 3 : return(loc_13451);
++    case 4 : return(loc_13452);
++    case 5 : return(loc_13453);
++    case 6 : return(loc_13454);
++    case 7 : return(loc_13455);
++    case default : return(null);
++}
++
++[proc,poh_fence_wall](coord $base, int $rot, int $x, int $z, int $angle, int $tier)
++loc_add(~poh_ring_tile($base, $rot, $x, $z), ~poh_fence_loc($tier), ~poh_ring_angle($angle, $rot), wall_straight, ^poh_loc_duration);
++
++[proc,poh_fence_corner](coord $base, int $rot, int $x, int $z, int $angle, int $tier)
++loc_add(~poh_ring_tile($base, $rot, $x, $z), ~poh_fence_loc($tier), ~poh_ring_angle($angle, $rot), wall_l, ^poh_loc_duration);
++
++[proc,poh_fence_place](coord $spot, int $angle, int $tier)
++def_coord $base = movecoord($spot, -1, 0, -3);
++def_int $rot = ~poh_ring_room_rot($base);
++~poh_fence_corner($base, $rot, 0, 0, 3, $tier);
++~poh_fence_wall($base, $rot, 0, 1, 0, $tier);
++~poh_fence_wall($base, $rot, 0, 2, 0, $tier);
++~poh_fence_wall($base, $rot, 0, 5, 0, $tier);
++~poh_fence_wall($base, $rot, 0, 6, 0, $tier);
++~poh_fence_corner($base, $rot, 0, 7, 0, $tier);
++~poh_fence_wall($base, $rot, 1, 0, 3, $tier);
++~poh_fence_wall($base, $rot, 1, 7, 1, $tier);
++~poh_fence_wall($base, $rot, 2, 0, 3, $tier);
++~poh_fence_wall($base, $rot, 2, 7, 1, $tier);
++~poh_fence_wall($base, $rot, 5, 0, 3, $tier);
++~poh_fence_wall($base, $rot, 5, 7, 1, $tier);
++~poh_fence_wall($base, $rot, 6, 0, 3, $tier);
++~poh_fence_wall($base, $rot, 6, 7, 1, $tier);
++~poh_fence_corner($base, $rot, 7, 0, 2, $tier);
++~poh_fence_wall($base, $rot, 7, 1, 2, $tier);
++~poh_fence_wall($base, $rot, 7, 2, 2, $tier);
++~poh_fence_wall($base, $rot, 7, 5, 2, $tier);
++~poh_fence_wall($base, $rot, 7, 6, 2, $tier);
++~poh_fence_corner($base, $rot, 7, 7, 1, $tier);
++
++[proc,poh_fence_remove]
++~poh_decor_remove(1, 3);
++
++// =========================================================================== the throne floor
++
++// One tier - OSRS's other four are a steel cage, a trapdoor and two magic cages, and all of
++// them drop the loser into an oubliette this one-storey build does not have. The ART is your
++// house style's: six floor decorations, one per style, named after the same six towns the
++// windows are.
++[proc,poh_thronefloor_loc](int $style)(loc)
++switch_int ($style) {
++    case 0 : return(poh_floordecor_rimmington);   // rimmington
++    case 1 : return(poh_floordecor_lumbridge);   // lumbridge
++    case 2 : return(poh_floordecor_pollnivneach);   // pollnivneach
++    case 3 : return(poh_floordecor_rellekka);   // rellekka
++    case 4 : return(poh_floordecor_brimhaven);   // brimhaven
++    case 5 : return(poh_floordecor_yanille);   // yanille
++    case default : return(poh_floordecor_rimmington);
++}
++
++[proc,poh_thronefloor_mat](coord $base, int $rot, int $x, int $z, int $angle)
++loc_add(~poh_ring_tile($base, $rot, $x, $z), ~poh_thronefloor_loc(%poh_style), ~poh_ring_angle($angle, $rot), grounddecor, ^poh_loc_duration);
++
++[proc,poh_thronefloor_place](coord $spot, int $angle, int $tier)
++def_coord $base = movecoord($spot, 0, 0, -6);
++def_int $rot = ~poh_ring_room_rot($base);
++~poh_thronefloor_mat($base, $rot, 3, 3, 3);
++~poh_thronefloor_mat($base, $rot, 3, 4, 0);
++~poh_thronefloor_mat($base, $rot, 4, 3, 2);
++~poh_thronefloor_mat($base, $rot, 4, 4, 1);
++
++[proc,poh_thronefloor_remove]
++~poh_decor_remove(0, 6);
++
++// =========================================================================== the windows
++
++// Fifty-four: six styles times nine glazings, in poh_dynamic_window's own child order,
++// because that order IS the low digit of %poh_window.
++[proc,poh_window_loc](int $style, int $choice)(loc)
++switch_int (calc($style * ^poh_window_kinds + $choice)) {
++    case 0 : return(poh_rimmington_window_shutters);
++    case 1 : return(poh_rimmington_window_bob);
++    case 2 : return(poh_rimmington_window_saradomin);
++    case 3 : return(poh_rimmington_window_guthix);
++    case 4 : return(poh_rimmington_window_zamorak);
++    case 5 : return(poh_rimmington_window_bob2);
++    case 6 : return(poh_rimmington_window_saradomin2);
++    case 7 : return(poh_rimmington_window_guthix2);
++    case 8 : return(poh_rimmington_window_zamorak2);
++    case 9 : return(poh_lumbridge_window_shutters);
++    case 10 : return(poh_lumbridge_window_bob);
++    case 11 : return(poh_lumbridge_window_saradomin);
++    case 12 : return(poh_lumbridge_window_guthix);
++    case 13 : return(poh_lumbridge_window_zamorak);
++    case 14 : return(poh_lumbridge_window_bob2);
++    case 15 : return(poh_lumbridge_window_saradomin2);
++    case 16 : return(poh_lumbridge_window_guthix2);
++    case 17 : return(poh_lumbridge_window_zamorak2);
++    case 18 : return(poh_pollnivneach_window_shutters);
++    case 19 : return(poh_pollnivneach_window_bob);
++    case 20 : return(poh_pollnivneach_window_saradomin);
++    case 21 : return(poh_pollnivneach_window_guthix);
++    case 22 : return(poh_pollnivneach_window_zamorak);
++    case 23 : return(poh_pollnivneach_window_bob2);
++    case 24 : return(poh_pollnivneach_window_saradomin2);
++    case 25 : return(poh_pollnivneach_window_guthix2);
++    case 26 : return(poh_pollnivneach_window_zamorak2);
++    case 27 : return(poh_rellekka_window_shutters);
++    case 28 : return(poh_rellekka_window_bob);
++    case 29 : return(poh_rellekka_window_saradomin);
++    case 30 : return(poh_rellekka_window_guthix);
++    case 31 : return(poh_rellekka_window_zamorak);
++    case 32 : return(poh_rellekka_window_bob2);
++    case 33 : return(poh_rellekka_window_saradomin2);
++    case 34 : return(poh_rellekka_window_guthix2);
++    case 35 : return(poh_rellekka_window_zamorak2);
++    case 36 : return(poh_brimhaven_window_shutters);
++    case 37 : return(poh_brimhaven_window_bob);
++    case 38 : return(poh_brimhaven_window_saradomin);
++    case 39 : return(poh_brimhaven_window_guthix);
++    case 40 : return(poh_brimhaven_window_zamorak);
++    case 41 : return(poh_brimhaven_window_bob2);
++    case 42 : return(poh_brimhaven_window_saradomin2);
++    case 43 : return(poh_brimhaven_window_guthix2);
++    case 44 : return(poh_brimhaven_window_zamorak2);
++    case 45 : return(poh_yanille_window_shutters);
++    case 46 : return(poh_yanille_window_bob);
++    case 47 : return(poh_yanille_window_saradomin);
++    case 48 : return(poh_yanille_window_guthix);
++    case 49 : return(poh_yanille_window_zamorak);
++    case 50 : return(poh_yanille_window_bob2);
++    case 51 : return(poh_yanille_window_saradomin2);
++    case 52 : return(poh_yanille_window_guthix2);
++    case 53 : return(poh_yanille_window_zamorak2);
++    case default : return(poh_rimmington_window_shutters);
++}
++
++[proc,poh_window_pane](coord $base, int $rot, int $x, int $z, int $angle, int $choice)
++loc_add(~poh_ring_tile($base, $rot, $x, $z), ~poh_window_loc(%poh_style, $choice), ~poh_ring_angle($angle, $rot), wall_straight, ^poh_loc_duration);
++
++// The tier IS the choice, one to nine, so the whole house reglazes to whatever was built
++// here. That is what %poh_window is for, and ~poh_window_refresh already carries the choice
++// across a redecorate while swapping the style.
++[proc,poh_window_place](coord $spot, int $angle, int $tier)
++def_coord $base = movecoord($spot, 0, 0, -6);
++def_int $rot = ~poh_ring_room_rot($base);
++def_int $choice = calc($tier - 1);
++%poh_window = calc(%poh_style * ^poh_window_kinds + $choice);
++~poh_window_pane($base, $rot, 0, 2, 0, $choice);
++~poh_window_pane($base, $rot, 0, 5, 0, $choice);
++~poh_window_pane($base, $rot, 2, 7, 1, $choice);
++~poh_window_pane($base, $rot, 5, 7, 1, $choice);
++~poh_window_pane($base, $rot, 7, 2, 2, $choice);
++~poh_window_pane($base, $rot, 7, 5, 2, $choice);
++
++[proc,poh_window_remove]
++~poh_decor_remove(0, 6);
++
++// A window in any other wall of the house is the shell, not a piece of furniture. It has
++// carried a Remove since the shell was resolved - a multiloc shows its active child's ops -
++// and until now nothing answered it, which is the engine's "Nothing interesting happens" on
++// every window in the house.
++[oploc5,poh_dynamic_window]
++mes("The windows are part of the house itself.");
++mes("Build a window in a chapel to change them, or ask the estate agent to redecorate.");
++
++// =========================================================================== shared
++
++// All three are stored at their room's anchor rather than under the tile that was clicked,
++// so all three come out the same way: find the slot at the anchor, clear it, re-lay the room.
++[proc,poh_decor_remove](int $ax, int $az)
++if (%poh_instance = null | instance_find(loc_coord) ! %poh_instance) {
++    return;
++}
++def_int $gx = calc(coordx(loc_coord) - coordx(%poh_instance));
++def_int $gz = calc(coordz(loc_coord) - coordz(%poh_instance));
++def_int $rx = calc(divide($gx, 8) - ^poh_grid_origin);
++def_int $rz = calc(divide($gz, 8) - ^poh_grid_origin);
++def_int $slot = ~poh_furn_at($rx, $rz, $ax, $az);
++if ($slot < 0) {
++    mes("That isn't yours to take out.");
++    return;
++}
++def_int $item = ~poh_furn_item(~poh_furn_get($slot));
++def_int $option = ~p_choice2("Take out the <enum(int, string, poh_furn_name, $item)>.", 1, "Leave it.", 2);
++if ($option ! 1) {
++    return;
++}
++~poh_furn_set($slot, 0);
++~poh_furn_relay($rx, $rz);
++mes("You take out the <enum(int, string, poh_furn_name, $item)>.");
++
++// =========================================================================== the triggers
++
++
++[oploc5,poh_floordecor_lumbridge] ~poh_thronefloor_remove;
++[oploc5,poh_floordecor_pollnivneach] ~poh_thronefloor_remove;
++[oploc5,poh_floordecor_rellekka] ~poh_thronefloor_remove;
++[oploc5,poh_floordecor_brimhaven] ~poh_thronefloor_remove;
++[oploc5,poh_floordecor_yanille] ~poh_thronefloor_remove;
++
++[oploc5,poh_lumbridge_window_shutters] ~poh_window_remove;
++[oploc5,poh_lumbridge_window_bob] ~poh_window_remove;
++[oploc5,poh_lumbridge_window_saradomin] ~poh_window_remove;
++[oploc5,poh_lumbridge_window_guthix] ~poh_window_remove;
++[oploc5,poh_lumbridge_window_zamorak] ~poh_window_remove;
++[oploc5,poh_lumbridge_window_bob2] ~poh_window_remove;
++[oploc5,poh_lumbridge_window_saradomin2] ~poh_window_remove;
++[oploc5,poh_lumbridge_window_guthix2] ~poh_window_remove;
++[oploc5,poh_lumbridge_window_zamorak2] ~poh_window_remove;
++[oploc5,poh_pollnivneach_window_shutters] ~poh_window_remove;
++[oploc5,poh_pollnivneach_window_bob] ~poh_window_remove;
++[oploc5,poh_pollnivneach_window_saradomin] ~poh_window_remove;
++[oploc5,poh_pollnivneach_window_guthix] ~poh_window_remove;
++[oploc5,poh_pollnivneach_window_zamorak] ~poh_window_remove;
++[oploc5,poh_pollnivneach_window_bob2] ~poh_window_remove;
++[oploc5,poh_pollnivneach_window_saradomin2] ~poh_window_remove;
++[oploc5,poh_pollnivneach_window_guthix2] ~poh_window_remove;
++[oploc5,poh_pollnivneach_window_zamorak2] ~poh_window_remove;
++[oploc5,poh_rellekka_window_shutters] ~poh_window_remove;
++[oploc5,poh_rellekka_window_bob] ~poh_window_remove;
++[oploc5,poh_rellekka_window_saradomin] ~poh_window_remove;
++[oploc5,poh_rellekka_window_guthix] ~poh_window_remove;
++[oploc5,poh_rellekka_window_zamorak] ~poh_window_remove;
++[oploc5,poh_rellekka_window_bob2] ~poh_window_remove;
++[oploc5,poh_rellekka_window_saradomin2] ~poh_window_remove;
++[oploc5,poh_rellekka_window_guthix2] ~poh_window_remove;
++[oploc5,poh_rellekka_window_zamorak2] ~poh_window_remove;
++[oploc5,poh_brimhaven_window_shutters] ~poh_window_remove;
++[oploc5,poh_brimhaven_window_bob] ~poh_window_remove;
++[oploc5,poh_brimhaven_window_saradomin] ~poh_window_remove;
++[oploc5,poh_brimhaven_window_guthix] ~poh_window_remove;
++[oploc5,poh_brimhaven_window_zamorak] ~poh_window_remove;
++[oploc5,poh_brimhaven_window_bob2] ~poh_window_remove;
++[oploc5,poh_brimhaven_window_saradomin2] ~poh_window_remove;
++[oploc5,poh_brimhaven_window_guthix2] ~poh_window_remove;
++[oploc5,poh_brimhaven_window_zamorak2] ~poh_window_remove;
++[oploc5,poh_yanille_window_shutters] ~poh_window_remove;
++[oploc5,poh_yanille_window_bob] ~poh_window_remove;
++[oploc5,poh_yanille_window_saradomin] ~poh_window_remove;
++[oploc5,poh_yanille_window_guthix] ~poh_window_remove;
++[oploc5,poh_yanille_window_zamorak] ~poh_window_remove;
++[oploc5,poh_yanille_window_bob2] ~poh_window_remove;
++[oploc5,poh_yanille_window_saradomin2] ~poh_window_remove;
++[oploc5,poh_yanille_window_guthix2] ~poh_window_remove;
++[oploc5,poh_yanille_window_zamorak2] ~poh_window_remove;
+diff --git a/scripts/skill_construction/scripts/poh_furn_ops.rs2 b/scripts/skill_construction/scripts/poh_furn_ops.rs2
+index da982da9..75193877 100644
+--- a/scripts/skill_construction/scripts/poh_furn_ops.rs2
++++ b/scripts/skill_construction/scripts/poh_furn_ops.rs2
+@@ -1,7 +1,7 @@
+ // What the furniture DOES. One [oploc1] per piece, generated from the op1 block of each family in
+ // tools/furnspec.json.
+ //
+-// Every op these locs carry sits at op1 - checked across all 305 pieces - so the trigger is always
++// Every op these locs carry sits at op1 - checked across all 322 pieces - so the trigger is always
+ // oploc1 and there is no per-family index to get wrong. The op's WORDS are in the spec too: a
+ // generator that invents flavour text is a generator nobody can review.
+ //
+diff --git a/scripts/skill_construction/scripts/poh_furniture.rs2 b/scripts/skill_construction/scripts/poh_furniture.rs2
+index 6b4a042a..e4cabfeb 100644
+--- a/scripts/skill_construction/scripts/poh_furniture.rs2
++++ b/scripts/skill_construction/scripts/poh_furniture.rs2
+@@ -1,12 +1,12 @@
+ // Furniture: building into a hotspot, and remembering what was built.
+ //
+-// GENERATED by tools/genfurn.py from tools/furnspec.json. 305 pieces across 70 families means a
+-// 305-case switch for the loc, another for the model, 305 removal triggers and six enum tables of
+-// 305 rows, all of which have to agree with each other and with the 116 hotspot triggers. Twelve
++// GENERATED by tools/genfurn.py from tools/furnspec.json. 322 pieces across 73 families means a
++// 322-case switch for the loc, another for the model, 322 removal triggers and six enum tables of
++// 322 rows, all of which have to agree with each other and with the 129 hotspot triggers. Twelve
+ // families were hand-checkable; fifty-one are not. Edit the spec, not this file.
+ //
+ // WHERE IT LIVES. 256 perm varps, one piece each, packed into 30 bits - the room cell (3+3), the
+-// tile inside that room (3+3), the angle (2) and which of the 305 buildable things it is (8+7). The
++// tile inside that room (3+3), the angle (2) and which of the 322 buildable things it is (8+7). The
+ // tile inside the zone is what identifies the hotspot, and it is exactly what loc_coord gives, so
+ // nothing has to enumerate hotspots or number them. Same trick as the room grid: the save writes
+ // varps sparsely by id, so an unfurnished house costs nothing. No engine change, no save bump.
+@@ -988,6 +988,23 @@ switch_int ($item) {
+     case 303 : loc_add($spot, loc_13606, $angle, walldecor_straight_offset, ^poh_loc_duration);
+     case 304 : loc_add($spot, loc_13607, $angle, walldecor_straight_offset, ^poh_loc_duration);
+     case 305 : loc_add($spot, loc_13608, $angle, walldecor_straight_offset, ^poh_loc_duration);
++    case 306 : ~poh_fence_place($spot, $angle, 1);
++    case 307 : ~poh_fence_place($spot, $angle, 2);
++    case 308 : ~poh_fence_place($spot, $angle, 3);
++    case 309 : ~poh_fence_place($spot, $angle, 4);
++    case 310 : ~poh_fence_place($spot, $angle, 5);
++    case 311 : ~poh_fence_place($spot, $angle, 6);
++    case 312 : ~poh_fence_place($spot, $angle, 7);
++    case 313 : ~poh_thronefloor_place($spot, $angle, 1);
++    case 314 : ~poh_window_place($spot, $angle, 1);
++    case 315 : ~poh_window_place($spot, $angle, 2);
++    case 316 : ~poh_window_place($spot, $angle, 3);
++    case 317 : ~poh_window_place($spot, $angle, 4);
++    case 318 : ~poh_window_place($spot, $angle, 5);
++    case 319 : ~poh_window_place($spot, $angle, 6);
++    case 320 : ~poh_window_place($spot, $angle, 7);
++    case 321 : ~poh_window_place($spot, $angle, 8);
++    case 322 : ~poh_window_place($spot, $angle, 9);
+     case default : return;
+ }
+ 
+@@ -1039,7 +1056,7 @@ while ($i < ^poh_furn_slots) {
+ // family and dims the tiers above you - see ~poh_furn_slot0 - so the level is not a filter here.
+ //
+ // Two lookups, because a family's pieces are consecutive (poh_fam_first/last, asserted by the
+-// generator and by battery check 51). The walk this replaces read all 305 rows per window row per
++// generator and by battery check 51). The walk this replaces read all 322 rows per window row per
+ // page, which is the shape that cost the room window its instruction budget.
+ [proc,poh_furn_nth](int $fam, int $n)(int)
+ def_int $item = calc(enum(int, int, poh_fam_first, $fam) + $n);
+@@ -1361,6 +1378,23 @@ switch_int ($item) {
+     case 303 : return(12174);   // loc_13606_q
+     case 304 : return(12172);   // loc_13607_q
+     case 305 : return(12173);   // loc_13608_q
++    case 306 : return(13150);   // loc_13449_1
++    case 307 : return(13152);   // loc_13450_1
++    case 308 : return(13156);   // loc_13451_1
++    case 309 : return(13158);   // loc_13452_1
++    case 310 : return(13154);   // loc_13453_1
++    case 311 : return(13161);   // loc_13454_1
++    case 312 : return(13163);   // loc_13455_1
++    case 313 : return(12480);   // poh_floordecor_rimmington_0
++    case 314 : return(13271);   // poh_rimmington_window_shutters_1
++    case 315 : return(13266);   // poh_rimmington_window_bob_1
++    case 316 : return(13270);   // poh_rimmington_window_saradomin_1
++    case 317 : return(13268);   // poh_rimmington_window_guthix_1
++    case 318 : return(13273);   // poh_rimmington_window_zamorak_1
++    case 319 : return(13265);   // poh_rimmington_window_bob2_1
++    case 320 : return(13269);   // poh_rimmington_window_saradomin2_1
++    case 321 : return(13267);   // poh_rimmington_window_guthix2_1
++    case 322 : return(13272);   // poh_rimmington_window_zamorak2_1
+     case default : return(0);
+ }
+ 
+@@ -1838,6 +1872,45 @@ mes("You take out the <enum(int, string, poh_furn_name, $item)>. The materials a
+ [oploc5,loc474_15303]
+ ~poh_furn_click(^poh_fam_walldecor);
+ 
++[oploc5,loc474_15369]
++~poh_furn_click_at(^poh_fam_fence, 1, 3);
++
++[oploc5,loc474_15427]
++~poh_furn_click_at(^poh_fam_thronefloor, 0, 6);
++
++[oploc5,loc474_15428]
++~poh_furn_click_at(^poh_fam_thronefloor, 0, 6);
++
++[oploc5,loc474_15429]
++~poh_furn_click_at(^poh_fam_thronefloor, 0, 6);
++
++[oploc5,loc474_15430]
++~poh_furn_click_at(^poh_fam_thronefloor, 0, 6);
++
++[oploc5,loc474_15431]
++~poh_furn_click_at(^poh_fam_thronefloor, 0, 6);
++
++[oploc5,loc474_15432]
++~poh_furn_click_at(^poh_fam_thronefloor, 0, 6);
++
++[oploc5,loc474_13728]
++~poh_furn_click_at(^poh_fam_chapelwindow, 0, 6);
++
++[oploc5,loc474_13729]
++~poh_furn_click_at(^poh_fam_chapelwindow, 0, 6);
++
++[oploc5,loc474_13730]
++~poh_furn_click_at(^poh_fam_chapelwindow, 0, 6);
++
++[oploc5,loc474_13731]
++~poh_furn_click_at(^poh_fam_chapelwindow, 0, 6);
++
++[oploc5,loc474_13732]
++~poh_furn_click_at(^poh_fam_chapelwindow, 0, 6);
++
++[oploc5,loc474_13733]
++~poh_furn_click_at(^poh_fam_chapelwindow, 0, 6);
++
+ // One per buildable LOC: every piece keeps its own op5=Remove from poh.loc. Per loc and not
+ // per piece, because a loc can be buildable in two hotspots (the exit portal is the
+ // centrepiece of both gardens) and a trigger declared twice does not compile.
+@@ -2753,3 +2826,54 @@ mes("You take out the <enum(int, string, poh_furn_name, $item)>. The materials a
+ 
+ [oploc5,loc_13608]
+ ~poh_furn_remove;
++
++[oploc5,loc_13449]
++~poh_fence_remove;
++
++[oploc5,loc_13450]
++~poh_fence_remove;
++
++[oploc5,loc_13451]
++~poh_fence_remove;
++
++[oploc5,loc_13452]
++~poh_fence_remove;
++
++[oploc5,loc_13453]
++~poh_fence_remove;
++
++[oploc5,loc_13454]
++~poh_fence_remove;
++
++[oploc5,loc_13455]
++~poh_fence_remove;
++
++[oploc5,poh_floordecor_rimmington]
++~poh_thronefloor_remove;
++
++[oploc5,poh_rimmington_window_shutters]
++~poh_window_remove;
++
++[oploc5,poh_rimmington_window_bob]
++~poh_window_remove;
++
++[oploc5,poh_rimmington_window_saradomin]
++~poh_window_remove;
++
++[oploc5,poh_rimmington_window_guthix]
++~poh_window_remove;
++
++[oploc5,poh_rimmington_window_zamorak]
++~poh_window_remove;
++
++[oploc5,poh_rimmington_window_bob2]
++~poh_window_remove;
++
++[oploc5,poh_rimmington_window_saradomin2]
++~poh_window_remove;
++
++[oploc5,poh_rimmington_window_guthix2]
++~poh_window_remove;
++
++[oploc5,poh_rimmington_window_zamorak2]
++~poh_window_remove;
+diff --git a/scripts/skill_construction/scripts/poh_menus.rs2 b/scripts/skill_construction/scripts/poh_menus.rs2
+index a9199533..e897e256 100644
+--- a/scripts/skill_construction/scripts/poh_menus.rs2
++++ b/scripts/skill_construction/scripts/poh_menus.rs2
+@@ -612,6 +612,23 @@ switch_int ($item) {
+     case 303 : return(3804);   // loc_13606_q
+     case 304 : return(3817);   // loc_13607_q
+     case 305 : return(3923);   // loc_13608_q
++    case 306 : return(2126);   // loc_13449_1
++    case 307 : return(2808);   // loc_13450_1
++    case 308 : return(3470);   // loc_13451_1
++    case 309 : return(5309);   // loc_13452_1
++    case 310 : return(2887);   // loc_13453_1
++    case 311 : return(5178);   // loc_13454_1
++    case 312 : return(2190);   // loc_13455_1
++    case 313 : return(2133);   // poh_floordecor_rimmington_0
++    case 314 : return(4788);   // poh_rimmington_window_shutters_1
++    case 315 : return(4788);   // poh_rimmington_window_bob_1
++    case 316 : return(4788);   // poh_rimmington_window_saradomin_1
++    case 317 : return(4788);   // poh_rimmington_window_guthix_1
++    case 318 : return(4788);   // poh_rimmington_window_zamorak_1
++    case 319 : return(4788);   // poh_rimmington_window_bob2_1
++    case 320 : return(4788);   // poh_rimmington_window_saradomin2_1
++    case 321 : return(4788);   // poh_rimmington_window_guthix2_1
++    case 322 : return(4788);   // poh_rimmington_window_zamorak2_1
+     case default : return(1883);
+ }
+ 
+diff --git a/tools/furnspec.json b/tools/furnspec.json
+index 41601a47..6d89ea61 100644
+--- a/tools/furnspec.json
++++ b/tools/furnspec.json
+@@ -2260,6 +2260,304 @@
+      "need": "3 mahogany, 2 gold leaf"
+     }
+    ]
++  },
++  {
++   "key": "fence",
++   "label": "Fencing",
++   "room": "formal garden",
++   "hotspots": [
++    15173
++   ],
++   "shape": "grounddecor",
++   "show": "poh_fence_place",
++   "anchor": [
++    1,
++    3
++   ],
++   "remove": "poh_fence_remove",
++   "pieces": [
++    {
++     "loc": "loc_13449",
++     "label": "Boundary stones",
++     "level": 55,
++     "xp": 100,
++     "mats": [
++      [
++       "softclay",
++       10
++      ]
++     ],
++     "need": "10 soft clay"
++    },
++    {
++     "loc": "loc_13450",
++     "label": "Wooden fence",
++     "level": 59,
++     "xp": 280,
++     "mats": [
++      [
++       "plank",
++       10
++      ]
++     ],
++     "need": "10 planks"
++    },
++    {
++     "loc": "loc_13451",
++     "label": "Stone wall",
++     "level": 63,
++     "xp": 200,
++     "mats": [
++      [
++       "limestonebrick",
++       10
++      ]
++     ],
++     "need": "10 limestone"
++    },
++    {
++     "loc": "loc_13452",
++     "label": "Iron railings",
++     "level": 67,
++     "xp": 220,
++     "mats": [
++      [
++       "iron_bar",
++       10
++      ],
++      [
++       "limestonebrick",
++       6
++      ]
++     ],
++     "need": "10 iron, 6 limestone"
++    },
++    {
++     "loc": "loc_13453",
++     "label": "Picket fence",
++     "level": 71,
++     "xp": 640,
++     "mats": [
++      [
++       "oak_plank",
++       10
++      ],
++      [
++       "steel_bar",
++       2
++      ]
++     ],
++     "need": "10 oak, 2 steel"
++    },
++    {
++     "loc": "loc_13454",
++     "label": "Garden fence",
++     "level": 75,
++     "xp": 940,
++     "mats": [
++      [
++       "teak_plank",
++       10
++      ],
++      [
++       "steel_bar",
++       2
++      ]
++     ],
++     "need": "10 teak, 2 steel"
++    },
++    {
++     "loc": "loc_13455",
++     "label": "Marble wall",
++     "level": 79,
++     "xp": 4000,
++     "mats": [
++      [
++       "poh_marble_block",
++       8
++      ]
++     ],
++     "need": "8 marble blocks"
++    }
++   ]
++  },
++  {
++   "key": "thronefloor",
++   "label": "Floor space",
++   "room": "throne room",
++   "hotspots": [
++    15230,
++    15231,
++    15232,
++    15233,
++    15234,
++    15235
++   ],
++   "shape": "grounddecor",
++   "show": "poh_thronefloor_place",
++   "anchor": [
++    0,
++    6
++   ],
++   "remove": "poh_thronefloor_remove",
++   "pieces": [
++    {
++     "loc": "poh_floordecor_rimmington",
++     "label": "Floor decoration",
++     "level": 61,
++     "xp": 700,
++     "mats": [
++      [
++       "mahogany_plank",
++       5
++      ]
++     ],
++     "need": "5 mahogany planks"
++    }
++   ]
++  },
++  {
++   "key": "chapelwindow",
++   "label": "Window space",
++   "room": "chapel",
++   "hotspots": [
++    15073,
++    15074,
++    15075,
++    15076,
++    15077,
++    15078
++   ],
++   "shape": "grounddecor",
++   "show": "poh_window_place",
++   "anchor": [
++    0,
++    6
++   ],
++   "remove": "poh_window_remove",
++   "pieces": [
++    {
++     "loc": "poh_rimmington_window_shutters",
++     "label": "Shuttered window",
++     "level": 49,
++     "xp": 228,
++     "mats": [
++      [
++       "plank",
++       8
++      ],
++      [
++       "nails",
++       8
++      ]
++     ],
++     "need": "8 planks, 8 nails"
++    },
++    {
++     "loc": "poh_rimmington_window_bob",
++     "label": "Decorative (Bob)",
++     "level": 69,
++     "xp": 4,
++     "mats": [
++      [
++       "molten_glass",
++       8
++      ]
++     ],
++     "need": "8 molten glass"
++    },
++    {
++     "loc": "poh_rimmington_window_saradomin",
++     "label": "Decorative (Sara)",
++     "level": 69,
++     "xp": 4,
++     "mats": [
++      [
++       "molten_glass",
++       8
++      ]
++     ],
++     "need": "8 molten glass"
++    },
++    {
++     "loc": "poh_rimmington_window_guthix",
++     "label": "Decorative (Guthix)",
++     "level": 69,
++     "xp": 4,
++     "mats": [
++      [
++       "molten_glass",
++       8
++      ]
++     ],
++     "need": "8 molten glass"
++    },
++    {
++     "loc": "poh_rimmington_window_zamorak",
++     "label": "Decorative (Zamorak)",
++     "level": 69,
++     "xp": 4,
++     "mats": [
++      [
++       "molten_glass",
++       8
++      ]
++     ],
++     "need": "8 molten glass"
++    },
++    {
++     "loc": "poh_rimmington_window_bob2",
++     "label": "Stained (Bob)",
++     "level": 89,
++     "xp": 5,
++     "mats": [
++      [
++       "molten_glass",
++       16
++      ]
++     ],
++     "need": "16 molten glass"
++    },
++    {
++     "loc": "poh_rimmington_window_saradomin2",
++     "label": "Stained (Sara)",
++     "level": 89,
++     "xp": 5,
++     "mats": [
++      [
++       "molten_glass",
++       16
++      ]
++     ],
++     "need": "16 molten glass"
++    },
++    {
++     "loc": "poh_rimmington_window_guthix2",
++     "label": "Stained (Guthix)",
++     "level": 89,
++     "xp": 5,
++     "mats": [
++      [
++       "molten_glass",
++       16
++      ]
++     ],
++     "need": "16 molten glass"
++    },
++    {
++     "loc": "poh_rimmington_window_zamorak2",
++     "label": "Stained (Zamorak)",
++     "level": 89,
++     "xp": 5,
++     "mats": [
++      [
++       "molten_glass",
++       16
++      ]
++     ],
++     "need": "16 molten glass"
++    }
++   ]
+   }
+  ],
+  "shape_allowances": [
+diff --git a/tools/gendecor.py b/tools/gendecor.py
+new file mode 100644
+index 00000000..5702b45b
+--- /dev/null
++++ b/tools/gendecor.py
+@@ -0,0 +1,286 @@
++#!/usr/bin/env python3
++"""Generate scripts/skill_construction/scripts/poh_decor.rs2 - three multi-tile pieces.
++
++  the Formal garden's FENCING       20 tiles of perimeter, seven tiers, one loc each
++  the Throne room's FLOOR           a 2x2 in the middle, and the art is your house style's
++  the Chapel's WINDOWS              six tiles, and the art is your style's and your choice of nine
++
++All three are one piece over several tiles, so all three go through the "show" hand-off and an
++anchor, the way the combat ring and the rugs do. The tile tables and the anchors are read from the
++templates and from tools/furnspec.json - the anchor is in the spec and NOWHERE ELSE, so the click
++and the removal cannot drift apart.
++
++THE WINDOWS ARE THE INTERESTING ONE. poh_dynamic_window is the shell the templates place 116 times
++per house, and its children are the 54 windows - six styles times nine glazings. The children carry
++op5=Remove, a multiloc shell shows its active child's ops, and NOTHING ANSWERED IT: every window in
++every house has had a Remove that did nothing since the shell was resolved. Both ends are answered
++here. A window on a chapel Window space is a piece of furniture and comes out; a window in the wall
++of any other room is part of the house and says so.
++
++Building one also sets %poh_window, so the whole house reglazes - which is what that varp is for
++and what ~poh_window_refresh already preserves across a redecorate.
++
++    python3 tools/gendecor.py
++"""
++import os, re, sys, json, collections
++
++ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
++OUT = 'scripts/skill_construction/scripts/poh_decor.rs2'
++SQUARES = [('m29_79', (0, 1, 2, 3)), ('m30_79', (0, 1))]
++SHAPE = {0: 'wall_straight', 2: 'wall_l', 22: 'grounddecor'}
++
++# The six styles in %poh_style order, and the town each one's art is named after. Read out of
++# poh_styles.enum's own comment block, which read it out of the template squares' wall sets.
++STYLE_TOWN = ['rimmington', 'lumbridge', 'pollnivneach', 'rellekka', 'brimhaven', 'yanille']
++# The nine glazings, in the order poh_dynamic_window's multiloc table lists them - that order IS
++# %poh_window's low digit, so it cannot be reordered here without reordering the shell.
++GLAZING = ['shutters', 'bob', 'saradomin', 'guthix', 'zamorak',
++           'bob2', 'saradomin2', 'guthix2', 'zamorak2']
++FENCE = ['loc_13449', 'loc_13450', 'loc_13451', 'loc_13452', 'loc_13453', 'loc_13454', 'loc_13455']
++
++
++def read(p):
++    return open(os.path.join(ROOT, p), newline='').read().replace('\r\n', '\n')
++
++
++def crlf(p):
++    raw = open(os.path.join(ROOT, p), 'rb').read()
++    return raw.count(b'\r\n') > raw.count(b'\n') / 2
++
++
++def write(p, lines):
++    path = os.path.join(ROOT, p)
++    nl = '\r\n' if (os.path.exists(path) and crlf(p)) else '\n'
++    open(path, 'wb').write((nl.join(lines).rstrip('\r\n') + nl).encode('utf-8'))
++
++
++def cfg(path):
++    out, cur = {}, None
++    for l in read(path).split('\n'):
++        l = l.strip()
++        m = re.match(r'^\[(\w+)\]$', l)
++        if m:
++            cur = m.group(1); out[cur] = {}
++        elif cur and '=' in l and not l.startswith('//'):
++            k, v = l.split('=', 1)
++            out[cur].setdefault(k, []).append(v)
++    return out
++
++
++def tiles(name, room):
++    """Every placement of a named hotspot in a named room, per style square, as template tiles."""
++    packname = {}
++    for l in read('pack/loc.pack').split('\n'):
++        if '=' in l:
++            i, n = l.split('=', 1)
++            packname[int(i)] = n
++    T = cfg('scripts/skill_construction/configs/poh_templates.loc')
++    zone2room, roomname = {}, {}
++    sec = None
++    for l in read('scripts/skill_construction/configs/poh_rooms.enum').split('\n'):
++        l = l.strip()
++        if l.startswith('['):
++            sec = l[1:-1]; continue
++        if l.startswith('val='):
++            a, b = l[4:].split(',', 1)
++            if sec == 'poh_room_zone':
++                zone2room[int(b)] = int(a)
++            if sec == 'poh_room_name':
++                roomname[int(a)] = b
++    per = collections.defaultdict(dict)
++    for sq, levels in SQUARES:
++        sec = None
++        for l in read('maps/%s.jm2' % sq).split('\n'):
++            if l.startswith('===='):
++                sec = l.strip('= '); continue
++            if sec != 'LOC' or ':' not in l:
++                continue
++            head, rest = l.split(':', 1)
++            lv, x, z = (int(v) for v in head.split())
++            p = rest.split()
++            n = packname.get(int(p[0]))
++            if lv not in levels:
++                continue
++            if roomname.get(zone2room.get((x // 8) * 8 + (z // 8))) != room:
++                continue
++            if (T.get(n, {}).get('name') or [''])[0] != name:
++                continue
++            shape = int(p[1]) if len(p) > 1 else 10
++            angle = int(p[2]) if len(p) > 2 else 0
++            per[(sq, lv)][(x % 8, z % 8)] = (shape, angle)
++    sigs = {k: sorted(v.items()) for k, v in per.items()}
++    first = sorted(sigs)[0]
++    bad = [k for k, v in sigs.items() if v != sigs[first]]
++    return sorted(per[first].items()), bad
++
++
++def main():
++    spec = json.load(open(os.path.join(ROOT, 'tools/furnspec.json')))
++    fam = {f['key']: f for f in spec['families']}
++    err = []
++    for k in ('fence', 'thronefloor', 'chapelwindow'):
++        if k not in fam:
++            err.append('furnspec.json has no %s family yet' % k)
++    if err:
++        print('\n'.join('  ERROR ' + e for e in err)); sys.exit(1)
++
++    fence, bad1 = tiles('Fencing', 'Formal garden')
++    floor, bad2 = tiles('Floor space', 'Throne room')
++    window, bad3 = tiles('Window space', 'Chapel')
++    for what, bad in (('fencing', bad1), ('the throne room floor', bad2), ('the chapel windows', bad3)):
++        if bad:
++            err.append('%s is laid differently in %s' % (what, bad))
++    if len(fence) != 20:
++        err.append('the garden fence is %d tiles, not 20' % len(fence))
++    if len(floor) != 4:
++        err.append('the throne room floor is %d tiles, not 4' % len(floor))
++    if len(window) != 6:
++        err.append('the chapel has %d window tiles, not 6' % len(window))
++    P = cfg('scripts/skill_construction/configs/poh.loc')
++    for style in STYLE_TOWN:
++        if 'poh_floordecor_%s' % style not in P:
++            err.append('no floor decoration for %s' % style)
++        for g in GLAZING:
++            if 'poh_%s_window_%s' % (style, g) not in P:
++                err.append('no %s window for %s' % (g, style))
++    # the glazing order has to be the shell's own, or building one picks a different window
++    shell = re.findall(r'^multiloc=(\d+),(\w+)$', '\n'.join(
++        read('scripts/skill_construction/configs/poh.loc')
++        .split('[poh_dynamic_window]')[1].split('\n[')[0].split('\n')), re.M)
++    want = ['poh_%s_window_%s' % (s, g) for s in STYLE_TOWN for g in GLAZING]
++    if [n for _, n in shell] != want:
++        err.append('poh_dynamic_window lists its children in a different order from this table')
++    if err:
++        print('\n'.join('  ERROR ' + e for e in err)); sys.exit(1)
++
++    def lay(proc, rows, extra):
++        o = []
++        for (x, z), (shape, angle) in rows:
++            args = '$base, $rot, %d, %d, %d' % (x, z, angle)
++            if extra:
++                args += ', ' + extra
++            o.append('~%s(%s);' % (proc[SHAPE[shape]], args))
++        return o
++
++    FA = fam['fence']['anchor']; TA = fam['thronefloor']['anchor']; WA = fam['chapelwindow']['anchor']
++    o = ['// Fencing, the throne room floor and the chapel windows.',
++         '//',
++         '// GENERATED by tools/gendecor.py from the six template squares and tools/furnspec.json.',
++         '// Do not edit by hand. Each of the three is one piece over several tiles, so each goes',
++         '// through the "show" hand-off and an anchor, the way the combat ring and the rugs do, and',
++         '// each shares their rotation maths - ~poh_ring_tile and ~poh_ring_angle in',
++         '// poh_combat_ring.rs2, which are the engine\'s own zone arithmetic.',
++         '//',
++         '// THE ANCHOR IS IN furnspec.json AND NOWHERE ELSE. The click reads it there and the numbers',
++         '// below are written from it, so the two cannot drift - which is the mistake the rug round',
++         '// left open and a mutation caught.',
++         '', '// =========================================================================== the fence', '',
++         '// Seven tiers, one loc each, over the garden\'s twenty perimeter tiles - sixteen straight and',
++         '// four corners, which is why there are two helpers: the shape picks the LAYER a loc goes on.',
++         '[proc,poh_fence_loc](int $tier)(loc)', 'switch_int ($tier) {']
++    for i, loc in enumerate(FENCE, start=1):
++        o.append('    case %d : return(%s);' % (i, loc))
++    o += ['    case default : return(null);', '}', '',
++          '[proc,poh_fence_wall](coord $base, int $rot, int $x, int $z, int $angle, int $tier)',
++          'loc_add(~poh_ring_tile($base, $rot, $x, $z), ~poh_fence_loc($tier), '
++          '~poh_ring_angle($angle, $rot), wall_straight, ^poh_loc_duration);', '',
++          '[proc,poh_fence_corner](coord $base, int $rot, int $x, int $z, int $angle, int $tier)',
++          'loc_add(~poh_ring_tile($base, $rot, $x, $z), ~poh_fence_loc($tier), '
++          '~poh_ring_angle($angle, $rot), wall_l, ^poh_loc_duration);', '',
++          '[proc,poh_fence_place](coord $spot, int $angle, int $tier)',
++          'def_coord $base = movecoord($spot, %d, 0, %d);' % (-FA[0], -FA[1]),
++          'def_int $rot = ~poh_ring_room_rot($base);']
++    o += lay({'wall_straight': 'poh_fence_wall', 'wall_l': 'poh_fence_corner'}, fence, '$tier')
++    o += ['',
++          '[proc,poh_fence_remove]',
++          '~poh_decor_remove(%d, %d);' % (FA[0], FA[1]), '',
++          '// =========================================================================== the throne floor', '',
++          '// One tier - OSRS\'s other four are a steel cage, a trapdoor and two magic cages, and all of',
++          '// them drop the loser into an oubliette this one-storey build does not have. The ART is your',
++          '// house style\'s: six floor decorations, one per style, named after the same six towns the',
++          '// windows are.',
++          '[proc,poh_thronefloor_loc](int $style)(loc)', 'switch_int ($style) {']
++    for i, town in enumerate(STYLE_TOWN):
++        o.append('    case %d : return(poh_floordecor_%s);   // %s' % (i, town, town))
++    o += ['    case default : return(poh_floordecor_%s);' % STYLE_TOWN[0], '}', '',
++          '[proc,poh_thronefloor_mat](coord $base, int $rot, int $x, int $z, int $angle)',
++          'loc_add(~poh_ring_tile($base, $rot, $x, $z), ~poh_thronefloor_loc(%poh_style), '
++          '~poh_ring_angle($angle, $rot), grounddecor, ^poh_loc_duration);', '',
++          '[proc,poh_thronefloor_place](coord $spot, int $angle, int $tier)',
++          'def_coord $base = movecoord($spot, %d, 0, %d);' % (-TA[0], -TA[1]),
++          'def_int $rot = ~poh_ring_room_rot($base);']
++    o += lay({'grounddecor': 'poh_thronefloor_mat'}, floor, '')
++    o += ['',
++          '[proc,poh_thronefloor_remove]',
++          '~poh_decor_remove(%d, %d);' % (TA[0], TA[1]), '',
++          '// =========================================================================== the windows', '',
++          '// Fifty-four: six styles times nine glazings, in poh_dynamic_window\'s own child order,',
++          '// because that order IS the low digit of %poh_window.',
++          '[proc,poh_window_loc](int $style, int $choice)(loc)',
++          'switch_int (calc($style * ^poh_window_kinds + $choice)) {']
++    for si, town in enumerate(STYLE_TOWN):
++        for gi, g in enumerate(GLAZING):
++            o.append('    case %d : return(poh_%s_window_%s);' % (si * 9 + gi, town, g))
++    o += ['    case default : return(poh_%s_window_%s);' % (STYLE_TOWN[0], GLAZING[0]), '}', '',
++          '[proc,poh_window_pane](coord $base, int $rot, int $x, int $z, int $angle, int $choice)',
++          'loc_add(~poh_ring_tile($base, $rot, $x, $z), ~poh_window_loc(%poh_style, $choice), '
++          '~poh_ring_angle($angle, $rot), wall_straight, ^poh_loc_duration);', '',
++          '// The tier IS the choice, one to nine, so the whole house reglazes to whatever was built',
++          '// here. That is what %poh_window is for, and ~poh_window_refresh already carries the choice',
++          '// across a redecorate while swapping the style.',
++          '[proc,poh_window_place](coord $spot, int $angle, int $tier)',
++          'def_coord $base = movecoord($spot, %d, 0, %d);' % (-WA[0], -WA[1]),
++          'def_int $rot = ~poh_ring_room_rot($base);',
++          'def_int $choice = calc($tier - 1);',
++          '%poh_window = calc(%poh_style * ^poh_window_kinds + $choice);']
++    o += lay({'wall_straight': 'poh_window_pane'}, window, '$choice')
++    o += ['',
++          '[proc,poh_window_remove]',
++          '~poh_decor_remove(%d, %d);' % (WA[0], WA[1]), '',
++          '// A window in any other wall of the house is the shell, not a piece of furniture. It has',
++          '// carried a Remove since the shell was resolved - a multiloc shows its active child\'s ops -',
++          '// and until now nothing answered it, which is the engine\'s "Nothing interesting happens" on',
++          '// every window in the house.',
++          '[oploc5,poh_dynamic_window]',
++          'mes("The windows are part of the house itself.");',
++          'mes("Build a window in a chapel to change them, or ask the estate agent to redecorate.");', '',
++          '// =========================================================================== shared', '',
++          '// All three are stored at their room\'s anchor rather than under the tile that was clicked,',
++          '// so all three come out the same way: find the slot at the anchor, clear it, re-lay the room.',
++          '[proc,poh_decor_remove](int $ax, int $az)',
++          'if (%poh_instance = null | instance_find(loc_coord) ! %poh_instance) {', '    return;', '}',
++          'def_int $gx = calc(coordx(loc_coord) - coordx(%poh_instance));',
++          'def_int $gz = calc(coordz(loc_coord) - coordz(%poh_instance));',
++          'def_int $rx = calc(divide($gx, 8) - ^poh_grid_origin);',
++          'def_int $rz = calc(divide($gz, 8) - ^poh_grid_origin);',
++          'def_int $slot = ~poh_furn_at($rx, $rz, $ax, $az);',
++          'if ($slot < 0) {', '    mes("That isn\'t yours to take out.");', '    return;', '}',
++          'def_int $item = ~poh_furn_item(~poh_furn_get($slot));',
++          'def_int $option = ~p_choice2("Take out the <enum(int, string, poh_furn_name, $item)>.", 1, "Leave it.", 2);',
++          'if ($option ! 1) {', '    return;', '}',
++          '~poh_furn_set($slot, 0);',
++          '~poh_furn_relay($rx, $rz);',
++          'mes("You take out the <enum(int, string, poh_furn_name, $item)>.");', '',
++          '// =========================================================================== the triggers', '']
++    claimed = {p['loc'] for k in ('fence', 'thronefloor', 'chapelwindow') for p in fam[k]['pieces']}
++    for loc in FENCE:
++        if loc not in claimed:
++            o.append('[oploc5,%s] ~poh_fence_remove;' % loc)
++    o.append('')
++    for town in STYLE_TOWN:
++        loc = 'poh_floordecor_%s' % town
++        if loc not in claimed:
++            o.append('[oploc5,%s] ~poh_thronefloor_remove;' % loc)
++    o.append('')
++    for town in STYLE_TOWN:
++        for g in GLAZING:
++            loc = 'poh_%s_window_%s' % (town, g)
++            if loc not in claimed:
++                o.append('[oploc5,%s] ~poh_window_remove;' % loc)
++    o.append('')
++    write(OUT, o)
++    print('%s: fence %d tiles, throne floor %d, chapel windows %d' % (OUT, len(fence), len(floor), len(window)))
++    print('  anchors from furnspec: fence %s, floor %s, window %s' % (FA, TA, WA))
++
++
++main()
+diff --git a/tools/poh_battery.py b/tools/poh_battery.py
+index d6c6266e..891cafe2 100644
+--- a/tools/poh_battery.py
++++ b/tools/poh_battery.py
+@@ -12,7 +12,8 @@ FILES = ['scripts/skill_construction/scripts/poh.rs2', 'scripts/skill_constructi
+          'scripts/skill_construction/scripts/poh_portal_chamber.rs2',
+          'scripts/skill_construction/scripts/poh_combat_ring.rs2',
+          'scripts/skill_construction/scripts/poh_combat.rs2',
+-         'scripts/skill_construction/scripts/poh_rug.rs2']
++         'scripts/skill_construction/scripts/poh_rug.rs2',
++         'scripts/skill_construction/scripts/poh_decor.rs2']
+ fails = 0
+ def check(ok, what):
+     global fails
+@@ -1863,10 +1864,13 @@ if spots:
+ 
+ print('49. the formal garden room, and what goes in it')
+ FGFAMS = [f for f in FSPEC['families'] if f.get('room') == 'formal garden']
+-check(len(FGFAMS) == 5, 'five formal garden families: %s' % [f['key'] for f in FGFAMS])
++check(len(FGFAMS) == 6, 'six formal garden families: %s' % [f['key'] for f in FGFAMS])
+ FGHOT = {h for f in FGFAMS for h in f['hotspots']}
+-check(FGHOT == {LOCS['loc474_15368']} | {LOCS['loc474_1537%d' % n] for n in (3, 4, 5, 6)},
+-      'they claim the formal garden\'s centrepiece and its four flower spaces')
++# the fencing joined the centrepiece and the four flower spaces; the three Hedging hotspots are
++# still unclaimed, and they need seven bagged hedges that are not objs in this cache yet
++check(FGHOT == {LOCS['loc474_15368'], LOCS['loc474_15369']}
++              | {LOCS['loc474_1537%d' % n] for n in (3, 4, 5, 6)},
++      'they claim the centrepiece, the four flower spaces and the fencing')
+ # the room is real: its zone, its doors and its price
+ check(const('poh_room_formal_garden') == 16 and COUNT == 16,
+       'the formal garden is room type %s of %s' % (const('poh_room_formal_garden'), COUNT))
+@@ -2614,7 +2618,7 @@ for _sq, _levels in (('m29_79', (0, 1, 2, 3)), ('m30_79', (0, 1))):
+         if _lv in _levels and (TEMPL2.get(_n, {}).get('category') or [''])[0] == 'poh_hotspot':
+             _famroomhot.setdefault((_x // 8) * 8 + (_z // 8), set()).add((_x % 8, _z % 8))
+ anchored = [f for f in _spec['families'] if f.get('anchor')]
+-check(sorted(f['key'] for f in anchored) == ['combat_ring', 'rug'],
++check(sorted(f['key'] for f in anchored) == ['chapelwindow', 'combat_ring', 'fence', 'rug', 'thronefloor'],
+       'the anchored families are %s' % sorted(f['key'] for f in anchored))
+ _zoneof = {}
+ for _l in read('scripts/skill_construction/configs/poh_rooms.enum').split('\n'):
+@@ -2817,6 +2821,124 @@ _gold = [p['label'] for f in _spec['families'] for p in f.get('pieces', [])
+ check(sorted(_gold) == ['Gilded decoration', 'Opulent rug'],
+       'gold leaf is what the gilded pieces are made of: %s' % sorted(_gold))
+ 
++
++print('61. the fence, the throne room floor, the chapel windows - and every multiloc\'s ops')
++DC = read('scripts/skill_construction/scripts/poh_decor.rs2')
++
++_before = open(os.path.join(C, 'scripts/skill_construction/scripts/poh_decor.rs2'), 'rb').read()
++r = _sp.run([sys.executable, os.path.join(C, 'tools/gendecor.py')], capture_output=True, text=True, cwd=C)
++check(r.returncode == 0, 'tools/gendecor.py runs clean'
++      + ('' if r.returncode == 0 else ': ' + (r.stdout + r.stderr)[-400:]))
++_after = open(os.path.join(C, 'scripts/skill_construction/scripts/poh_decor.rs2'), 'rb').read()
++if _after != _before:
++    open(os.path.join(C, 'scripts/skill_construction/scripts/poh_decor.rs2'), 'wb').write(_before)
++check(_after == _before, 're-running it changes nothing: byte-identical' if _after == _before
++      else 're-running it CHANGES the file - it is out of step with the templates')
++
++# THE CLASS THIS ROUND FOUND. A multiloc shell shows its ACTIVE CHILD's options, so a child with
++# op5=Remove gives the shell a Remove - and poh_dynamic_window is placed 116 times in every house.
++# Nothing answered it, so every window in every house has been printing the engine's "Nothing
++# interesting happens". Check 56 could not see it: it sweeps the locs the SPEC places, and a shell
++# the template places is not one of those.
++_shells = {}
++for _n, _d in POHLOC2.items():
++    _kids = [v.split(',', 1)[1] for v in (_d.get('multiloc') or [])]
++    if _kids:
++        _shells[_n] = _kids
++check(len(_shells) >= 1, 'poh.loc has %d multiloc shells' % len(_shells))
++_placed_ids = set()
++for _sq, _levels in (('m29_79', (0, 1, 2, 3)), ('m30_79', (0, 1))):
++    _sec = None
++    for _l in read('maps/%s.jm2' % _sq).split('\n'):
++        if _l.startswith('===='):
++            _sec = _l.strip('= '); continue
++        if _sec == 'LOC' and ':' in _l:
++            _placed_ids.add(int(_l.split(':', 1)[1].split()[0]))
++_dead = []
++for _n, _kids in _shells.items():
++    if LOCS.get(_n) not in _placed_ids:
++        continue
++    _ops = set()
++    for _k in _kids:
++        for _key, _v in (POHLOC2.get(_k) or {}).items():
++            _m = re.match(r'^op([1-5])$', _key)
++            if _m and _v[0] != 'hidden':
++                _ops.add((_m.group(1), _v[0]))
++    for _num, _label in sorted(_ops):
++        if (_num, _n) not in TRIG and not any((_num, _k) in TRIG for _k in _kids):
++            _dead.append('%s op%s=%s (from a child)' % (_n, _num, _label))
++check(not _dead, 'every op a placed multiloc shows through its children is answered: %s'
++      % (_dead[:4] or '%d shells checked' % len([n for n in _shells if LOCS.get(n) in _placed_ids])))
++check('[oploc5,poh_dynamic_window]' in DC, 'and the house windows answer their own Remove')
++
++# the three new pieces, back against the templates
++def _tilesof(name, room):
++    out = {}
++    for _sq, _levels in (('m29_79', (0, 1, 2, 3)), ('m30_79', (0, 1))):
++        _sec = None
++        for _l in read('maps/%s.jm2' % _sq).split('\n'):
++            if _l.startswith('===='):
++                _sec = _l.strip('= '); continue
++            if _sec != 'LOC' or ':' not in _l:
++                continue
++            _h, _r = _l.split(':', 1)
++            _lv, _x, _z = (int(v) for v in _h.split())
++            _p = _r.split()
++            _n = {v: k for k, v in LOCS.items()}.get(int(_p[0]))
++            if _lv in _levels and (TEMPL2.get(_n, {}).get('name') or [''])[0] == name:
++                out[(_x % 8, _z % 8)] = (int(_p[1]) if len(_p) > 1 else 10,
++                                         int(_p[2]) if len(_p) > 2 else 0)
++    return out
++SH = {'poh_fence_wall': 0, 'poh_fence_corner': 2, 'poh_thronefloor_mat': 22, 'poh_window_pane': 0}
++for _proc, _name, _want in (('poh_fence_wall|poh_fence_corner', 'Fencing', 20),
++                            ('poh_thronefloor_mat', 'Floor space', 4),
++                            ('poh_window_pane', 'Window space', 6)):
++    _t = _tilesof(_name, {'Fencing': 'Formal garden', 'Floor space': 'Throne room',
++                          'Window space': 'Chapel'}[_name])
++    _calls = re.findall(r'~(' + _proc + r')\(\$base, \$rot, (\d+), (\d+), (\d+)', DC)
++    check(len(_calls) == _want, '%s lays %d tiles: %d' % (_name, _want, len(_calls)))
++    _bad = []
++    for _p, _x, _z, _a in _calls:
++        _k = (int(_x), int(_z))
++        if _k not in _t:
++            _bad.append((_k, 'not a template tile')); continue
++        if _t[_k][1] != int(_a):
++            _bad.append((_k, 'angle %s, template says %d' % (_a, _t[_k][1]))); continue
++        if SH[_p] != _t[_k][0]:
++            _bad.append((_k, '%s, template shape %d' % (_p, _t[_k][0])))
++    check(not _bad, 'and every one is the template\'s tile, shape and angle: %s' % (_bad[:3] or 'all of them'))
++
++# the window table is the shell's own child order, or building one picks a different window
++_wl = dict((int(a), b) for a, b in re.findall(r'^    case (\d+) : return\((poh_\w+_window_\w+)\);', DC, re.M))
++_kids = [v.split(',', 1)[1] for v in (POHLOC2['poh_dynamic_window'].get('multiloc') or [])]
++check(len(_wl) == 54 and [_wl.get(i) for i in range(54)] == _kids,
++      'the 54-window table is poh_dynamic_window\'s own child order: %s'
++      % ('yes' if [_wl.get(i) for i in range(54)] == _kids else 'NO'))
++check('%poh_window = calc(%poh_style * ^poh_window_kinds + $choice);' in DC,
++      'building a chapel window reglazes the whole house')
++
++# the throne floor art is one per style, named after the same six towns the windows are
++_fl = dict((int(a), b) for a, b in re.findall(r'^    case (\d+) : return\((poh_floordecor_\w+)\);', DC, re.M))
++check(len(_fl) == 6 and all(_fl[i] == 'poh_floordecor_' + t for i, t in enumerate(
++    ['rimmington', 'lumbridge', 'pollnivneach', 'rellekka', 'brimhaven', 'yanille'])),
++    'the throne room floor has one piece per house style, in %%poh_style order: %s' % _fl)
++
++# every loc the three can put down comes out again, by its own remover, and none twice
++for _key, _proc, _n in (('fence', 'poh_fence_remove', 7), ('thronefloor', 'poh_thronefloor_remove', 6),
++                        ('chapelwindow', 'poh_window_remove', 54)):
++    _here = set(re.findall(r'^\[oploc5,(\w+)\] ~%s;' % _proc, DC, re.M))
++    _there = set(re.findall(r'^\[oploc5,(\w+)\]\s*\n~%s;' % _proc, fu, re.M))
++    check(len(_here | _there) == _n, '%s: all %d locs are removable: %d' % (_key, _n, len(_here | _there)))
++    check(not (_here & _there), '%s: none of them is wired in both files' % _key)
++
++# the anchors are the spec's, written into the generated file from there and nowhere else
++for _key, _proc in (('fence', 'poh_fence_place'), ('thronefloor', 'poh_thronefloor_place'),
++                    ('chapelwindow', 'poh_window_place')):
++    _a = next(f for f in _spec['families'] if f['key'] == _key)['anchor']
++    check('movecoord($spot, %d, 0, %d);' % (-_a[0], -_a[1]) in
++          DC.split('[proc,%s]' % _proc, 1)[1].split('\n[', 1)[0],
++          '%s steps back from the spec\'s own anchor %s' % (_key, tuple(_a)))
++
+ print()
+ print('ALL PASS' if fails == 0 else '%d FAILED' % fails)
+ sys.exit(1 if fails else 0)
+diff --git a/tools/poh_mutate.py b/tools/poh_mutate.py
+index afc3d33f..9c64b225 100644
+--- a/tools/poh_mutate.py
++++ b/tools/poh_mutate.py
+@@ -498,6 +498,42 @@ if (inv_total(inv, coins) < $cost) {
+  # and the stonemason no longer stocking it, which makes two pieces unbuildable
+  ('scripts/skill_construction/configs/poh_stone.inv',
+   'stock3=gold_leaf,20,100' + chr(10), '', '26 he stocks three things'),
++
++ # --- 61, the fence, the throne floor, the windows and the multiloc sweep ---
++ # the check that would have caught the dead Remove on every window in the house
++ ('scripts/skill_construction/scripts/poh_decor.rs2',
++  '[oploc5,poh_dynamic_window]' + chr(10)
++  + 'mes("The windows are part of the house itself.");' + chr(10)
++  + 'mes("Build a window in a chapel to change them, or ask the estate agent to redecorate.");' + chr(10),
++  '', '61 every op a placed multiloc shows is answered'),
++ # a fence post one square off the perimeter
++ ('scripts/skill_construction/scripts/poh_decor.rs2',
++  '~poh_fence_wall($base, $rot, 0, 1, 0, $tier);', '~poh_fence_wall($base, $rot, 1, 1, 0, $tier);',
++  '61 Fencing every one is the template\'s tile'),
++ # a fence corner laid on the straight-wall layer, which leaves the hotspot standing in it
++ ('scripts/skill_construction/scripts/poh_decor.rs2',
++  '~poh_fence_corner($base, $rot, 0, 0, 3, $tier);', '~poh_fence_wall($base, $rot, 0, 0, 3, $tier);',
++  '61 Fencing tile, shape and angle'),
++ # the window table reordered, so building Saradomin glass gives you Guthix
++ ('scripts/skill_construction/scripts/poh_decor.rs2',
++  'case 2 : return(poh_rimmington_window_saradomin);', 'case 2 : return(poh_rimmington_window_guthix);',
++  '61 the 54-window table is the shell\'s child order'),
++ # a chapel window that no longer reglazes the house, so the six panes disagree with the other 110
++ ('scripts/skill_construction/scripts/poh_decor.rs2',
++  '%poh_window = calc(%poh_style * ^poh_window_kinds + $choice);' + chr(10), '',
++  '61 building a chapel window reglazes the house'),
++ # the throne floor wearing another style's art
++ ('scripts/skill_construction/scripts/poh_decor.rs2',
++  'case 3 : return(poh_floordecor_rellekka);', 'case 3 : return(poh_floordecor_yanille);',
++  '61 one piece per house style'),
++ # a window nobody can take out again
++ ('scripts/skill_construction/scripts/poh_decor.rs2',
++  '[oploc5,poh_yanille_window_zamorak2] ~poh_window_remove;' + chr(10), '',
++  '61 chapelwindow all 54 locs are removable'),
++ # the anchor written into the generated file drifting from the spec's
++ ('scripts/skill_construction/scripts/poh_decor.rs2',
++  'def_coord $base = movecoord($spot, -1, 0, -3);', 'def_coord $base = movecoord($spot, -1, 0, -4);',
++  '61 fence steps back from the spec\'s own anchor'),
+ ]
+ 
+ def checker_for(why):
+-- 
+2.43.0
+

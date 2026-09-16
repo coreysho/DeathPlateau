@@ -1,0 +1,1794 @@
+From 3b5c43ecbda63afc368fae9674021a282cf58838 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Mon, 14 Sep 2026 21:34:16 +0000
+Subject: [PATCH] The Combat room: 36 tiles under one piece
+
+The other room that contained nothing. 25,000 coins and 32 Construction bought a painted square on
+the floor and sixteen clicks that said "Nothing interesting happens".
+
+Boxing ring, Fencing ring, Combat ring and the Balance beam, at OSRS's levels, materials and
+experience, plus the Glove rack on the storage hotspot. Ranging pedestals are NOT here: the template
+keeps four tiles for them and this cache has no art for any of it.
+
+THE BOLT OF CLOTH did not exist and three of the four rings are made of it. New obj, sold by the
+Sawmill operator for 650 - which is both where OSRS sells it and where the planks already come from,
+so it went into his dialogue beside the saw and the hammer. 377's existing "Cloth" whose description
+is literally "A bolt of cloth" is the Regicide quest item, gated behind the quest and eaten by it.
+
+A RING IS ONE PIECE STANDING ON 36 TILES, which the furniture system could not express: ~poh_furn_show
+has one loc_add per item. Two things made it fit. The placement is a proc, through the same "show"
+hand-off the portal frames use. And the piece is ANCHORED: sixteen hotspots and one ring, so a new
+"anchor" key stores it at the room's own (0,0) - a tile nothing is ever built on, because the ring
+starts at (1,1) - rather than at whichever tile was clicked. ~poh_furn_click is now a door into
+~poh_furn_click_at. Removal is the ring's own for the same reason, and a family can now name its
+removal proc.
+
+THE ROTATION IS DONE AT RUNTIME because a room can be built at any of four rotations. The table is in
+template space and the arithmetic is transcribed from the engine rather than worked out again -
+GameMap.rotateZoneX/rotateZoneZ and the newAngle line beside them. Group 59 checks all four cases
+literally: a ring that lays itself sideways in a turned room is invisible until someone builds a room
+the other way round.
+
+WHAT SAID WHICH TILE IS WHICH. Nineteen hotspot locs, all named "Combat ring space", and nothing in
+the config distinguishing them. Their MODEL SIZES do, matched against the pieces in poh.loc: 1785 is
+the ring wall, 577 a corner mat, 335 a side mat, 45 a middle mat. The geometry says the same thing and
+the generator refuses to write if the two readings disagree.
+
+AND THREE OF THE NINETEEN ARE EMPTY - zero-length .ob2 files that render nothing and cannot be
+clicked. They were never dead hotspots: they are placement targets. loc474_15285's three tiles are
+where the balance beam goes, loc474_15283/15284's four are the ranging pedestals. So the room had
+sixteen dead clicks, not nineteen, and the audit figure of 93 is really 89. The repo-wide count is
+now 68.
+
+ONE INFERENCE, labelled as one: boxing's white and corner locs are byte-identical and red and blue
+are rope recolours, and which tile wears which is recorded nowhere. Red corner, blue corner opposite,
+two neutral, white rope between - what a boxing ring looks like. One table in gencombatring.py.
+
+Climbing in and out is real and had to be, or the ring is a box you cannot get into. Everything else
+OSRS does in a ring needs a second player, so the beam and the ring say so - the answer the games
+room and the throne room lever already give.
+
+rs2check 0 ERROR / 0 CHECK over 1,670 scripts and 459 configs; poh_battery ALL PASS (59 groups);
+poh_mutate every mutation caught, eleven of them new.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01Dc7giZ7Qnh4qy1CYPTDrmH
+---
+ pack/obj.pack                                 |   2 +
+ .../configs/construction.constant             |   8 +-
+ .../configs/construction.obj                  |  25 ++
+ .../configs/construction.varp                 |   2 +-
+ .../configs/poh_furniture.enum                |  68 +++-
+ .../skill_construction/scripts/poh_combat.rs2 |  77 ++++
+ .../scripts/poh_combat_ring.rs2               | 244 +++++++++++++
+ .../scripts/poh_furn_ops.rs2                  |   6 +-
+ .../scripts/poh_furniture.rs2                 |  99 +++++-
+ .../skill_construction/scripts/poh_menus.rs2  |   5 +
+ .../skill_construction/scripts/sawmill.rs2    |  15 +-
+ tools/furnspec.json                           | 131 +++++++
+ tools/gencombatring.py                        | 333 ++++++++++++++++++
+ tools/genfurn.py                              |  29 +-
+ tools/poh_battery.py                          | 195 +++++++++-
+ tools/poh_mutate.py                           |  44 +++
+ 16 files changed, 1253 insertions(+), 30 deletions(-)
+ create mode 100644 scripts/skill_construction/scripts/poh_combat.rs2
+ create mode 100644 scripts/skill_construction/scripts/poh_combat_ring.rs2
+ create mode 100644 tools/gencombatring.py
+
+diff --git a/pack/obj.pack b/pack/obj.pack
+index 745afe41..ec985d50 100644
+--- a/pack/obj.pack
++++ b/pack/obj.pack
+@@ -8306,3 +8306,5 @@
+ 8305=poh_flat_treasurechest_2
+ 8306=poh_flat_treasurechest_3
+ 8307=poh_flat_treasurechest_4
++8308=bolt_of_cloth
++8309=cert_bolt_of_cloth
+diff --git a/scripts/skill_construction/configs/construction.constant b/scripts/skill_construction/configs/construction.constant
+index 0a11e19d..cd31fa5d 100644
+--- a/scripts/skill_construction/configs/construction.constant
++++ b/scripts/skill_construction/configs/construction.constant
+@@ -124,6 +124,8 @@
+ // than what a player pays; both are priced to be a non-event next to a 1000-coin house.
+ ^sawmill_cost_saw = 100
+ ^sawmill_cost_hammer = 100
++// A bolt of cloth, the same 650 OSRS charges for one at this same shop.
++^sawmill_cost_cloth = 650
+ 
+ // ---- furniture (poh_furniture.rs2) ----
+ // GENERATED by tools/genfurn.py from tools/furnspec.json, along with the varps, the enum
+@@ -131,7 +133,7 @@
+ //
+ // How many pieces one house can hold, and how many buildable things there are.
+ ^poh_furn_slots = 256
+-^poh_furn_items = 291
++^poh_furn_items = 296
+ 
+ // The bit layout of one packed piece. 30 bits, so it fits an int with room to spare.
+ ^poh_furn_bit_rx = 0
+@@ -144,7 +146,7 @@
+ ^poh_furn_bit_item_hi = 23
+ 
+ // Construction experience per plank. OSRS's furniture xp is very nearly planks x this, so it
+-// is one rule rather than 291 rows of remembered numbers - and it is the obvious thing to tune.
++// is one rule rather than 296 rows of remembered numbers - and it is the obvious thing to tune.
+ ^poh_xp_plank = 29
+ ^poh_xp_oak = 60
+ ^poh_xp_teak = 90
+@@ -227,6 +229,8 @@
+ ^poh_fam_formalsmallplant2 = 63
+ ^poh_fam_portal_focus = 64
+ ^poh_fam_portal = 65
++^poh_fam_combat_ring = 66
++^poh_fam_combat_storage = 67
+ 
+ // The exit portal, as a piece of furniture. It is the garden's level-1 centrepiece, which
+ // is where OSRS puts it, and ~poh_ensure_exit hands one out free to any house that has no
+diff --git a/scripts/skill_construction/configs/construction.obj b/scripts/skill_construction/configs/construction.obj
+index 1fabdac2..284ed3bb 100644
+--- a/scripts/skill_construction/configs/construction.obj
++++ b/scripts/skill_construction/configs/construction.obj
+@@ -84,3 +84,28 @@ wearpos=righthand
+ weight=1000g
+ cost=10
+ members=yes
++
++// Bolt of cloth. OSRS builds beds, curtains, rugs and the combat room's rings out of it and sells
++// it at the Sawmill operator for 650 - which is where this one is stocked, because that shop is
++// already here and is already where the planks come from.
++//
++// The 377 cache has no Construction bolt of cloth. It DOES have obj 3224 "Cloth", whose
++// description is literally "A bolt of cloth" - but that is the Regicide quest item, gated behind
++// the quest and spent by it, so this is its own obj on the same model rather than a second use of
++// a quest item.
++[bolt_of_cloth]
++name=Bolt of cloth
++desc=A bolt of cloth.
++model=obj_childs_blanket
++recol1s=27412
++recol1d=25372
++2dyof=-15
++2dzoom=1360
++2dxan=368
++cost=650
++members=yes
++weight=12oz
++
++[cert_bolt_of_cloth]
++certlink=bolt_of_cloth
++certtemplate=template_for_cert
+diff --git a/scripts/skill_construction/configs/construction.varp b/scripts/skill_construction/configs/construction.varp
+index 7659bf72..94a91365 100644
+--- a/scripts/skill_construction/configs/construction.varp
++++ b/scripts/skill_construction/configs/construction.varp
+@@ -107,7 +107,7 @@ scope=perm
+ // ---- furniture (skill_construction/scripts/poh_furniture.rs2) ----
+ //
+ // One piece each, packed into 30 bits: the room cell in the grid (3+3), the tile inside that
+-// room (3+3), the angle (2) and which of the 291 buildable things it is (8 low bits plus 7
++// room (3+3), the angle (2) and which of the 296 buildable things it is (8 low bits plus 7
+ // above the lit bit - see the note in tools/genfurn.py).
+ //
+ // 256 of them, which is the ceiling on how much furniture one house can hold. The save writes
+diff --git a/scripts/skill_construction/configs/poh_furniture.enum b/scripts/skill_construction/configs/poh_furniture.enum
+index f00f3e0e..5ad4b7e6 100644
+--- a/scripts/skill_construction/configs/poh_furniture.enum
++++ b/scripts/skill_construction/configs/poh_furniture.enum
+@@ -1,7 +1,7 @@
+ // Everything that can be built into a furniture hotspot, one row per buildable thing.
+ //
+-// GENERATED by tools/genfurn.py from tools/furnspec.json - 291 pieces across 65 families is
+-// six tables that have to agree with each other, with 81 hotspot triggers and with 291
++// GENERATED by tools/genfurn.py from tools/furnspec.json - 296 pieces across 67 families is
++// six tables that have to agree with each other, with 98 hotspot triggers and with 296
+ // removal triggers. Edit the spec, not this file.
+ //
+ // poh_furn_name is the loc's OWN name= out of poh.loc - the 474 import brought the furniture
+@@ -309,6 +309,11 @@ val=288,64
+ val=289,65
+ val=290,65
+ val=291,65
++val=292,66
++val=293,66
++val=294,66
++val=295,66
++val=296,67
+ 
+ [poh_furn_name]
+ inputtype=int
+@@ -604,6 +609,11 @@ val=288,Scrying pool
+ val=289,Teak portal
+ val=290,Mahogany portal
+ val=291,Marble portal
++val=292,Boxing ring
++val=293,Fencing ring
++val=294,Combat ring
++val=295,Balance beam
++val=296,Glove rack
+ 
+ [poh_furn_level]
+ inputtype=int
+@@ -899,6 +909,11 @@ val=288,80
+ val=289,50
+ val=290,65
+ val=291,80
++val=292,32
++val=293,41
++val=294,51
++val=295,81
++val=296,34
+ 
+ [poh_furn_wood]
+ inputtype=int
+@@ -1194,6 +1209,11 @@ val=288,0
+ val=289,0
+ val=290,0
+ val=291,0
++val=292,0
++val=293,0
++val=294,0
++val=295,0
++val=296,0
+ 
+ // How many planks a piece costs, or 0 for the garden, whose materials are not planks.
+ // What is actually spent is poh_furn_mat1/mat2 below; this is kept because the plank
+@@ -1492,6 +1512,11 @@ val=288,0
+ val=289,0
+ val=290,0
+ val=291,0
++val=292,0
++val=293,0
++val=294,0
++val=295,0
++val=296,0
+ 
+ // The Construction experience for building one. For a plank family this is planks x the
+ // per-plank value; for the garden it is OSRS's own number for that piece. One table either
+@@ -1790,6 +1815,11 @@ val=288,2000
+ val=289,270
+ val=290,420
+ val=291,1500
++val=292,420
++val=293,570
++val=294,630
++val=295,1000
++val=296,120
+ 
+ // WHAT A PIECE COSTS. Two materials are enough for everything the game asks for: planks for
+ // the inside of a house, a bagged plant for a tree, and the two-material centrepieces
+@@ -2092,6 +2122,11 @@ val=288,poh_marble_block
+ val=289,teak_plank
+ val=290,mahogany_plank
+ val=291,poh_marble_block
++val=292,oak_plank
++val=293,oak_plank
++val=294,teak_plank
++val=295,teak_plank
++val=296,oak_plank
+ 
+ [poh_furn_mat1n]
+ inputtype=int
+@@ -2387,6 +2422,11 @@ val=288,4
+ val=289,3
+ val=290,3
+ val=291,3
++val=292,6
++val=293,8
++val=294,6
++val=295,10
++val=296,2
+ 
+ // The second material, for the few pieces that need one. Absent rows answer null, which is
+ // what ~poh_furn_have and ~poh_furn_take test for - so "one material" needs no flag.
+@@ -2396,12 +2436,20 @@ outputtype=namedobj
+ default=null
+ val=242,softclay
+ val=270,steel_bar
++val=292,bolt_of_cloth
++val=293,bolt_of_cloth
++val=294,bolt_of_cloth
++val=295,steel_bar
+ 
+ [poh_furn_mat2n]
+ inputtype=int
+ outputtype=int
+ val=242,5
+ val=270,4
++val=292,4
++val=293,6
++val=294,6
++val=295,5
+ 
+ // The materials as the window writes them, measured against its 126px column by the
+ // generator. "4 oak planks", "1 bagged yew tree", "5 limestone, 5 soft clay".
+@@ -2699,6 +2747,11 @@ val=288,4 marble blocks
+ val=289,3 teak planks
+ val=290,3 mahogany planks
+ val=291,3 marble blocks
++val=292,6 oak, 4 cloth
++val=293,8 oak, 6 cloth
++val=294,6 teak, 6 cloth
++val=295,10 teak, 5 steel bars
++val=296,2 oak planks
+ 
+ // Which step of its own family a piece is, 1-based. The altar reads it to work out what it
+ // pays for a set of bones.
+@@ -2996,6 +3049,11 @@ val=288,3
+ val=289,1
+ val=290,2
+ val=291,3
++val=292,1
++val=293,2
++val=294,3
++val=295,4
++val=296,1
+ 
+ // The plank type a piece is made of, worded for a sentence ("4 oak planks"). The garden is
+ // not made of planks and has no row here; what the window actually prints is poh_furn_need.
+@@ -3311,6 +3369,8 @@ val=62,Small plant space
+ val=63,Small plant space
+ val=64,Centrepiece space
+ val=65,Portal space
++val=66,Combat ring space
++val=67,Storage space
+ 
+ // The first and last piece of each family. ~poh_furn_nth adds the row number to the first
+ // and stops at the last, so paging the Furniture window costs the same whatever family it is
+@@ -3384,6 +3444,8 @@ val=62,280
+ val=63,283
+ val=64,286
+ val=65,289
++val=66,292
++val=67,296
+ 
+ [poh_fam_last]
+ inputtype=int
+@@ -3453,6 +3515,8 @@ val=62,282
+ val=63,285
+ val=64,288
+ val=65,291
++val=66,295
++val=67,296
+ 
+ // The flatpackable families, numbered 1..n, for the Work-at grid to page through.
+ // NO default= here and that is deliberate: this one is an int table and 0 is the answer
+diff --git a/scripts/skill_construction/scripts/poh_combat.rs2 b/scripts/skill_construction/scripts/poh_combat.rs2
+new file mode 100644
+index 00000000..e7c9eeb8
+--- /dev/null
++++ b/scripts/skill_construction/scripts/poh_combat.rs2
+@@ -0,0 +1,77 @@
++// What the Combat room's ring does once it is built.
++//
++// The ring itself - which loc goes on which of its 36 tiles, and how that turns with the room - is
++// generated into poh_combat_ring.rs2 by tools/gencombatring.py. This file is the behaviour, which
++// is hand-written because none of it is table-shaped.
++//
++// THE HONEST PART. Everything OSRS does inside a combat ring needs a second player: you challenge
++// someone, the ring keeps you both in, and the loser walks out. There is nobody else in this world
++// yet, so these say so rather than doing nothing - the same answer the games room, the throne room
++// lever and the attack stone give (claude/poh-no-dead-clicks.md).
++//
++// Climbing in and out is real, though, and worth having on its own: the ring wall is a wall loc, so
++// without it the ring is a box you cannot get into.
++
++// =========================================================================== the ring wall
++
++[proc,poh_ring_climb]
++if (%poh_instance = null | instance_find(loc_coord) ! %poh_instance) {
++    return;
++}
++// Over the wall, not around it: the wall is between the tile the player is standing on and the one
++// on its other side, so the step is two squares in the direction the player is facing the wall from.
++def_coord $wall = loc_coord;
++def_coord $to = ~poh_ring_across($wall);
++if ($to = null) {
++    mes("You can't climb over from here.");
++    return;
++}
++anim(human_pickupfloor, 0);
++p_delay(1);
++p_teleport($to);
++mes("You climb over the ropes.");
++
++// The tile on the far side of a ring wall from where the player is standing. The wall sits on its
++// own tile's edge, so the player is on one side of it and the answer is the tile mirrored through
++// the wall - one step further in the direction they were already moving.
++[proc,poh_ring_across](coord $wall)(coord)
++def_int $dx = calc(coordx($wall) - coordx(coord));
++def_int $dz = calc(coordz($wall) - coordz(coord));
++if ($dx = 0 & $dz = 0) {
++    return(null);
++}
++if (abs($dx) > abs($dz)) {
++    if ($dx > 0) return(movecoord($wall, 1, 0, 0));
++    return(movecoord($wall, -1, 0, 0));
++}
++if ($dz > 0) return(movecoord($wall, 0, 0, 1));
++return(movecoord($wall, 0, 0, -1));
++
++// =========================================================================== the balance beam
++
++// Standing on the beam is a pose, not a state the engine holds - 377 has no way to keep a player
++// in an animation, which is the same wall the seated chairs ran into. So it is the emote and the
++// message, and Get-down answers for symmetry rather than being needed.
++[proc,poh_ring_beam_stand]
++if (%poh_instance = null | instance_find(loc_coord) ! %poh_instance) {
++    return;
++}
++p_walk(loc_coord);
++p_delay(1);
++if (~poh_ring_arrived(loc_coord) = false) {
++    return;
++}
++anim(human_pickupfloor, 0);
++mes("You balance on the beam. It would take another person to make a contest of it.");
++
++[proc,poh_ring_beam_down]
++mes("You step off the beam.");
++
++// p_walk does not block, so anything that has to happen ON the tile has to check it got there -
++// the same shape ~poh_furn_sit uses for the chairs.
++[proc,poh_ring_arrived](coord $spot)(boolean)
++if (coord = $spot) {
++    return(true);
++}
++mes("You can't reach that.");
++return(false);
+diff --git a/scripts/skill_construction/scripts/poh_combat_ring.rs2 b/scripts/skill_construction/scripts/poh_combat_ring.rs2
+new file mode 100644
+index 00000000..098079e8
+--- /dev/null
++++ b/scripts/skill_construction/scripts/poh_combat_ring.rs2
+@@ -0,0 +1,244 @@
++// The Combat room's ring: four things to build, and 36 tiles under each of them.
++//
++// GENERATED by tools/gencombatring.py from the six template squares. Do not edit by hand -
++// every tile, shape and rotation below is the template's own, and the generator refuses to
++// write if the six styles ever stop agreeing about where the ring is.
++//
++// A ring is ONE piece of furniture standing on 36 tiles, which is not something the furniture
++// system could express: ~poh_furn_show has one loc_add per item. It goes through the "show"
++// hand-off in tools/furnspec.json instead - the same door the portal frames use - and the
++// piece is anchored at the room's local (0,0) rather than at the tile that was clicked, so
++// that whichever of the sixteen hotspots you click, the ring is stored, found and removed in
++// the same place. Nothing is ever built at (0,0): the ring starts at (1,1).
++//
++// THE ROTATION IS DONE HERE, not baked in, because a room can be built at any of four
++// rotations. ~poh_ring_tile and ~poh_ring_angle are transcriptions of the engine's own
++// GameMap.rotateZoneX/rotateZoneZ and the newAngle line beside them.
++
++// =========================================================================== the arithmetic
++
++[proc,poh_ring_tile](coord $base, int $rot, int $x, int $z)(coord)
++switch_int ($rot) {
++    case 1 : return(movecoord($base, $z, 0, calc(7 - $x)));
++    case 2 : return(movecoord($base, calc(7 - $x), 0, calc(7 - $z)));
++    case 3 : return(movecoord($base, calc(7 - $z), 0, $x));
++    case default : return(movecoord($base, $x, 0, $z));
++}
++
++[proc,poh_ring_angle](int $angle, int $rot)(int)
++return(modulo(calc($angle + $rot), 4));
++
++// One per shape, because the shape decides the LAYER a loc goes on and a proc cannot take
++// a locshape. Getting one wrong leaves the hotspot standing in the same tile as the piece.
++[proc,poh_ring_wall](coord $base, int $rot, int $x, int $z, int $angle, loc $loc)
++loc_add(~poh_ring_tile($base, $rot, $x, $z), $loc, ~poh_ring_angle($angle, $rot), wall_straight, ^poh_loc_duration);
++
++[proc,poh_ring_corner](coord $base, int $rot, int $x, int $z, int $angle, loc $loc)
++loc_add(~poh_ring_tile($base, $rot, $x, $z), $loc, ~poh_ring_angle($angle, $rot), wall_squarecorner, ^poh_loc_duration);
++
++[proc,poh_ring_mat](coord $base, int $rot, int $x, int $z, int $angle, loc $loc)
++loc_add(~poh_ring_tile($base, $rot, $x, $z), $loc, ~poh_ring_angle($angle, $rot), grounddecor, ^poh_loc_duration);
++
++// =========================================================================== the four rings
++
++[proc,poh_ring_boxing](coord $base, int $rot)
++~poh_ring_wall($base, $rot, 2, 1, 1, poh_boxing_ringwall_white);
++~poh_ring_wall($base, $rot, 3, 1, 1, poh_boxing_ringwall_white);
++~poh_ring_wall($base, $rot, 4, 1, 1, poh_boxing_ringwall_white);
++~poh_ring_wall($base, $rot, 5, 1, 1, poh_boxing_ringwall_white);
++~poh_ring_wall($base, $rot, 1, 2, 2, poh_boxing_ringwall_white);
++~poh_ring_wall($base, $rot, 6, 2, 0, poh_boxing_ringwall_white);
++~poh_ring_wall($base, $rot, 1, 3, 2, poh_boxing_ringwall_white);
++~poh_ring_wall($base, $rot, 6, 3, 0, poh_boxing_ringwall_white);
++~poh_ring_wall($base, $rot, 1, 4, 2, poh_boxing_ringwall_white);
++~poh_ring_wall($base, $rot, 6, 4, 0, poh_boxing_ringwall_white);
++~poh_ring_wall($base, $rot, 1, 5, 2, poh_boxing_ringwall_white);
++~poh_ring_wall($base, $rot, 6, 5, 0, poh_boxing_ringwall_white);
++~poh_ring_wall($base, $rot, 2, 6, 3, poh_boxing_ringwall_white);
++~poh_ring_wall($base, $rot, 3, 6, 3, poh_boxing_ringwall_white);
++~poh_ring_wall($base, $rot, 4, 6, 3, poh_boxing_ringwall_white);
++~poh_ring_wall($base, $rot, 5, 6, 3, poh_boxing_ringwall_white);
++~poh_ring_corner($base, $rot, 1, 1, 1, poh_boxing_ringwall_red);
++~poh_ring_corner($base, $rot, 6, 1, 0, poh_boxing_ringwall_corner);
++~poh_ring_corner($base, $rot, 1, 6, 2, poh_boxing_ringwall_corner);
++~poh_ring_corner($base, $rot, 6, 6, 3, poh_boxing_ringwall_blue);
++~poh_ring_mat($base, $rot, 2, 2, 0, poh_boxing_ring_mat_corner);
++~poh_ring_mat($base, $rot, 3, 2, 3, poh_boxing_ring_mat_side);
++~poh_ring_mat($base, $rot, 4, 2, 3, poh_boxing_ring_mat_side);
++~poh_ring_mat($base, $rot, 5, 2, 3, poh_boxing_ring_mat_corner);
++~poh_ring_mat($base, $rot, 2, 3, 0, poh_boxing_ring_mat_side);
++~poh_ring_mat($base, $rot, 3, 3, 0, poh_boxing_ring_mat_middle);
++~poh_ring_mat($base, $rot, 4, 3, 0, poh_boxing_ring_mat_middle);
++~poh_ring_mat($base, $rot, 5, 3, 2, poh_boxing_ring_mat_side);
++~poh_ring_mat($base, $rot, 2, 4, 0, poh_boxing_ring_mat_side);
++~poh_ring_mat($base, $rot, 3, 4, 0, poh_boxing_ring_mat_middle);
++~poh_ring_mat($base, $rot, 4, 4, 0, poh_boxing_ring_mat_middle);
++~poh_ring_mat($base, $rot, 5, 4, 2, poh_boxing_ring_mat_side);
++~poh_ring_mat($base, $rot, 2, 5, 1, poh_boxing_ring_mat_corner);
++~poh_ring_mat($base, $rot, 3, 5, 1, poh_boxing_ring_mat_side);
++~poh_ring_mat($base, $rot, 4, 5, 1, poh_boxing_ring_mat_side);
++~poh_ring_mat($base, $rot, 5, 5, 2, poh_boxing_ring_mat_corner);
++
++[proc,poh_ring_fencing](coord $base, int $rot)
++~poh_ring_wall($base, $rot, 2, 1, 1, poh_fencing_ringwall);
++~poh_ring_wall($base, $rot, 3, 1, 1, poh_fencing_ringwall);
++~poh_ring_wall($base, $rot, 4, 1, 1, poh_fencing_ringwall);
++~poh_ring_wall($base, $rot, 5, 1, 1, poh_fencing_ringwall);
++~poh_ring_wall($base, $rot, 1, 2, 2, poh_fencing_ringwall);
++~poh_ring_wall($base, $rot, 6, 2, 0, poh_fencing_ringwall);
++~poh_ring_wall($base, $rot, 1, 3, 2, poh_fencing_ringwall);
++~poh_ring_wall($base, $rot, 6, 3, 0, poh_fencing_ringwall);
++~poh_ring_wall($base, $rot, 1, 4, 2, poh_fencing_ringwall);
++~poh_ring_wall($base, $rot, 6, 4, 0, poh_fencing_ringwall);
++~poh_ring_wall($base, $rot, 1, 5, 2, poh_fencing_ringwall);
++~poh_ring_wall($base, $rot, 6, 5, 0, poh_fencing_ringwall);
++~poh_ring_wall($base, $rot, 2, 6, 3, poh_fencing_ringwall);
++~poh_ring_wall($base, $rot, 3, 6, 3, poh_fencing_ringwall);
++~poh_ring_wall($base, $rot, 4, 6, 3, poh_fencing_ringwall);
++~poh_ring_wall($base, $rot, 5, 6, 3, poh_fencing_ringwall);
++~poh_ring_corner($base, $rot, 1, 1, 1, poh_fencing_ringwall);
++~poh_ring_corner($base, $rot, 6, 1, 0, poh_fencing_ringwall);
++~poh_ring_corner($base, $rot, 1, 6, 2, poh_fencing_ringwall);
++~poh_ring_corner($base, $rot, 6, 6, 3, poh_fencing_ringwall);
++~poh_ring_mat($base, $rot, 2, 2, 0, poh_fencing_ring_mat_corner);
++~poh_ring_mat($base, $rot, 3, 2, 3, poh_fencing_ring_mat_side);
++~poh_ring_mat($base, $rot, 4, 2, 3, poh_fencing_ring_mat_side);
++~poh_ring_mat($base, $rot, 5, 2, 3, poh_fencing_ring_mat_corner);
++~poh_ring_mat($base, $rot, 2, 3, 0, poh_fencing_ring_mat_side);
++~poh_ring_mat($base, $rot, 3, 3, 0, poh_fencing_ring_mat_middle);
++~poh_ring_mat($base, $rot, 4, 3, 0, poh_fencing_ring_mat_middle);
++~poh_ring_mat($base, $rot, 5, 3, 2, poh_fencing_ring_mat_side);
++~poh_ring_mat($base, $rot, 2, 4, 0, poh_fencing_ring_mat_side);
++~poh_ring_mat($base, $rot, 3, 4, 0, poh_fencing_ring_mat_middle);
++~poh_ring_mat($base, $rot, 4, 4, 0, poh_fencing_ring_mat_middle);
++~poh_ring_mat($base, $rot, 5, 4, 2, poh_fencing_ring_mat_side);
++~poh_ring_mat($base, $rot, 2, 5, 1, poh_fencing_ring_mat_corner);
++~poh_ring_mat($base, $rot, 3, 5, 1, poh_fencing_ring_mat_side);
++~poh_ring_mat($base, $rot, 4, 5, 1, poh_fencing_ring_mat_side);
++~poh_ring_mat($base, $rot, 5, 5, 2, poh_fencing_ring_mat_corner);
++
++[proc,poh_ring_combat](coord $base, int $rot)
++~poh_ring_wall($base, $rot, 2, 1, 1, poh_combat_ringwall);
++~poh_ring_wall($base, $rot, 3, 1, 1, poh_combat_ringwall);
++~poh_ring_wall($base, $rot, 4, 1, 1, poh_combat_ringwall);
++~poh_ring_wall($base, $rot, 5, 1, 1, poh_combat_ringwall);
++~poh_ring_wall($base, $rot, 1, 2, 2, poh_combat_ringwall);
++~poh_ring_wall($base, $rot, 6, 2, 0, poh_combat_ringwall);
++~poh_ring_wall($base, $rot, 1, 3, 2, poh_combat_ringwall);
++~poh_ring_wall($base, $rot, 6, 3, 0, poh_combat_ringwall);
++~poh_ring_wall($base, $rot, 1, 4, 2, poh_combat_ringwall);
++~poh_ring_wall($base, $rot, 6, 4, 0, poh_combat_ringwall);
++~poh_ring_wall($base, $rot, 1, 5, 2, poh_combat_ringwall);
++~poh_ring_wall($base, $rot, 6, 5, 0, poh_combat_ringwall);
++~poh_ring_wall($base, $rot, 2, 6, 3, poh_combat_ringwall);
++~poh_ring_wall($base, $rot, 3, 6, 3, poh_combat_ringwall);
++~poh_ring_wall($base, $rot, 4, 6, 3, poh_combat_ringwall);
++~poh_ring_wall($base, $rot, 5, 6, 3, poh_combat_ringwall);
++~poh_ring_corner($base, $rot, 1, 1, 1, poh_combat_ringwall);
++~poh_ring_corner($base, $rot, 6, 1, 0, poh_combat_ringwall);
++~poh_ring_corner($base, $rot, 1, 6, 2, poh_combat_ringwall);
++~poh_ring_corner($base, $rot, 6, 6, 3, poh_combat_ringwall);
++~poh_ring_mat($base, $rot, 2, 2, 0, poh_combat_mat_corner);
++~poh_ring_mat($base, $rot, 3, 2, 3, poh_combat_mat_side);
++~poh_ring_mat($base, $rot, 4, 2, 3, poh_combat_mat_side);
++~poh_ring_mat($base, $rot, 5, 2, 3, poh_combat_mat_corner);
++~poh_ring_mat($base, $rot, 2, 3, 0, poh_combat_mat_side);
++~poh_ring_mat($base, $rot, 3, 3, 0, poh_combat_mat_middle);
++~poh_ring_mat($base, $rot, 4, 3, 0, poh_combat_mat_middle);
++~poh_ring_mat($base, $rot, 5, 3, 2, poh_combat_mat_side);
++~poh_ring_mat($base, $rot, 2, 4, 0, poh_combat_mat_side);
++~poh_ring_mat($base, $rot, 3, 4, 0, poh_combat_mat_middle);
++~poh_ring_mat($base, $rot, 4, 4, 0, poh_combat_mat_middle);
++~poh_ring_mat($base, $rot, 5, 4, 2, poh_combat_mat_side);
++~poh_ring_mat($base, $rot, 2, 5, 1, poh_combat_mat_corner);
++~poh_ring_mat($base, $rot, 3, 5, 1, poh_combat_mat_side);
++~poh_ring_mat($base, $rot, 4, 5, 1, poh_combat_mat_side);
++~poh_ring_mat($base, $rot, 5, 5, 2, poh_combat_mat_corner);
++
++// The beam is three tiles of the seven the template keeps blank inside the ring. The other
++// four are OSRS's Ranging pedestals, and this cache has no art for them.
++[proc,poh_ring_beam](coord $base, int $rot)
++~poh_ring_wall($base, $rot, 3, 4, 1, poh_balancebeam_endl);
++~poh_ring_wall($base, $rot, 4, 4, 1, poh_balancebeam_middle);
++~poh_ring_wall($base, $rot, 5, 4, 1, poh_balancebeam_endr);
++
++// =========================================================================== show and remove
++
++// $base is the room's local (0,0) - the anchor the piece is stored at - so the whole ring is
++// laid from it without needing to know which hotspot was clicked.
++[proc,poh_combat_ring_place](coord $base, int $angle, int $tier)
++def_int $rot = ~poh_ring_room_rot($base);
++switch_int ($tier) {
++    case 1 : ~poh_ring_boxing($base, $rot);
++    case 2 : ~poh_ring_fencing($base, $rot);
++    case 3 : ~poh_ring_combat($base, $rot);
++    case 4 : ~poh_ring_beam($base, $rot);
++}
++
++// The room a coord is in, and how that room was turned. The ring is laid in template space
++// and turned to match, so this is the only thing the table needs from the house.
++[proc,poh_ring_room_rot](coord $spot)(int)
++if (%poh_instance = null) {
++    return(0);
++}
++def_int $gx = calc(coordx($spot) - coordx(%poh_instance));
++def_int $gz = calc(coordz($spot) - coordz(%poh_instance));
++return(~poh_room_rot(calc(divide($gx, 8) - ^poh_grid_origin), calc(divide($gz, 8) - ^poh_grid_origin)));
++
++// Taking one out. Any tile of the ring is a valid click, so the slot is looked up at the
++// anchor rather than under the piece that was clicked - which is the whole reason for the
++// anchor. ~poh_furn_relay then re-lays the room, which clears all 36 locs at once.
++[proc,poh_combat_ring_remove]
++if (%poh_instance = null | instance_find(loc_coord) ! %poh_instance) {
++    return;
++}
++def_int $gx = calc(coordx(loc_coord) - coordx(%poh_instance));
++def_int $gz = calc(coordz(loc_coord) - coordz(%poh_instance));
++def_int $rx = calc(divide($gx, 8) - ^poh_grid_origin);
++def_int $rz = calc(divide($gz, 8) - ^poh_grid_origin);
++def_int $slot = ~poh_furn_at($rx, $rz, 0, 0);
++if ($slot < 0) {
++    mes("That isn't yours to take out.");
++    return;
++}
++def_int $item = ~poh_furn_item(~poh_furn_get($slot));
++def_int $option = ~p_choice2("Take out the <enum(int, string, poh_furn_name, $item)>.", 1, "Leave it.", 2);
++if ($option ! 1) {
++    return;
++}
++~poh_furn_set($slot, 0);
++~poh_furn_relay($rx, $rz);
++mes("You take out the <enum(int, string, poh_furn_name, $item)>.");
++
++// =========================================================================== the triggers
++
++[oploc5,poh_balancebeam_endl] ~poh_combat_ring_remove;
++[oploc5,poh_balancebeam_endr] ~poh_combat_ring_remove;
++[oploc5,poh_boxing_ring_mat_corner] ~poh_combat_ring_remove;
++[oploc5,poh_boxing_ring_mat_middle] ~poh_combat_ring_remove;
++[oploc5,poh_boxing_ring_mat_side] ~poh_combat_ring_remove;
++[oploc5,poh_boxing_ringwall_blue] ~poh_combat_ring_remove;
++[oploc5,poh_boxing_ringwall_corner] ~poh_combat_ring_remove;
++[oploc5,poh_boxing_ringwall_red] ~poh_combat_ring_remove;
++[oploc5,poh_combat_mat_corner] ~poh_combat_ring_remove;
++[oploc5,poh_combat_mat_middle] ~poh_combat_ring_remove;
++[oploc5,poh_combat_mat_side] ~poh_combat_ring_remove;
++[oploc5,poh_fencing_ring_mat_corner] ~poh_combat_ring_remove;
++[oploc5,poh_fencing_ring_mat_middle] ~poh_combat_ring_remove;
++[oploc5,poh_fencing_ring_mat_side] ~poh_combat_ring_remove;
++
++// Climbing into the ring. Every ring type has the same wall op, and the wall is what you
++// climb - the mats have no op of their own.
++[oploc1,poh_boxing_ringwall_blue] ~poh_ring_climb;
++[oploc1,poh_boxing_ringwall_corner] ~poh_ring_climb;
++[oploc1,poh_boxing_ringwall_red] ~poh_ring_climb;
++[oploc1,poh_boxing_ringwall_white] ~poh_ring_climb;
++[oploc1,poh_combat_ringwall] ~poh_ring_climb;
++[oploc1,poh_fencing_ringwall] ~poh_ring_climb;
++
++[oploc1,poh_balancebeam_endl] ~poh_ring_beam_stand;
++[oploc1,poh_balancebeam_middle] ~poh_ring_beam_stand;
++[oploc1,poh_balancebeam_endr] ~poh_ring_beam_stand;
++[oploc4,poh_balancebeam_endl] ~poh_ring_beam_down;
++[oploc4,poh_balancebeam_middle] ~poh_ring_beam_down;
++[oploc4,poh_balancebeam_endr] ~poh_ring_beam_down;
+diff --git a/scripts/skill_construction/scripts/poh_furn_ops.rs2 b/scripts/skill_construction/scripts/poh_furn_ops.rs2
+index dfb7d5c9..94bf1308 100644
+--- a/scripts/skill_construction/scripts/poh_furn_ops.rs2
++++ b/scripts/skill_construction/scripts/poh_furn_ops.rs2
+@@ -1,7 +1,7 @@
+ // What the furniture DOES. One [oploc1] per piece, generated from the op1 block of each family in
+ // tools/furnspec.json.
+ //
+-// Every op these locs carry sits at op1 - checked across all 291 pieces - so the trigger is always
++// Every op these locs carry sits at op1 - checked across all 296 pieces - so the trigger is always
+ // oploc1 and there is no per-family index to get wrong. The op's WORDS are in the spec too: a
+ // generator that invents flavour text is a generator nobody can review.
+ //
+@@ -551,3 +551,7 @@ mes("The kalphite queen's head clicks its mandibles.");
+ 
+ [oploc1,poh_scrying_pool]
+ ~poh_portal_direct;
++
++[oploc1,poh_weapons_rack_gloves]
++mes("A rack for the gloves you would box in.");
++mes("There are no boxing gloves in this world to hang on it.");
+diff --git a/scripts/skill_construction/scripts/poh_furniture.rs2 b/scripts/skill_construction/scripts/poh_furniture.rs2
+index b547e5c8..3c33c3d5 100644
+--- a/scripts/skill_construction/scripts/poh_furniture.rs2
++++ b/scripts/skill_construction/scripts/poh_furniture.rs2
+@@ -1,12 +1,12 @@
+ // Furniture: building into a hotspot, and remembering what was built.
+ //
+-// GENERATED by tools/genfurn.py from tools/furnspec.json. 291 pieces across 65 families means a
+-// 291-case switch for the loc, another for the model, 291 removal triggers and six enum tables of
+-// 291 rows, all of which have to agree with each other and with the 81 hotspot triggers. Twelve
++// GENERATED by tools/genfurn.py from tools/furnspec.json. 296 pieces across 67 families means a
++// 296-case switch for the loc, another for the model, 296 removal triggers and six enum tables of
++// 296 rows, all of which have to agree with each other and with the 98 hotspot triggers. Twelve
+ // families were hand-checkable; fifty-one are not. Edit the spec, not this file.
+ //
+ // WHERE IT LIVES. 256 perm varps, one piece each, packed into 30 bits - the room cell (3+3), the
+-// tile inside that room (3+3), the angle (2) and which of the 291 buildable things it is (8+7). The
++// tile inside that room (3+3), the angle (2) and which of the 296 buildable things it is (8+7). The
+ // tile inside the zone is what identifies the hotspot, and it is exactly what loc_coord gives, so
+ // nothing has to enumerate hotspots or number them. Same trick as the room grid: the save writes
+ // varps sparsely by id, so an unfurnished house costs nothing. No engine change, no save bump.
+@@ -974,6 +974,11 @@ switch_int ($item) {
+     case 289 : ~poh_portal_place($spot, $angle, 1);
+     case 290 : ~poh_portal_place($spot, $angle, 2);
+     case 291 : ~poh_portal_place($spot, $angle, 3);
++    case 292 : ~poh_combat_ring_place($spot, $angle, 1);
++    case 293 : ~poh_combat_ring_place($spot, $angle, 2);
++    case 294 : ~poh_combat_ring_place($spot, $angle, 3);
++    case 295 : ~poh_combat_ring_place($spot, $angle, 4);
++    case 296 : loc_add($spot, poh_weapons_rack_gloves, $angle, centrepiece_straight, ^poh_loc_duration);
+     case default : return;
+ }
+ 
+@@ -1025,7 +1030,7 @@ while ($i < ^poh_furn_slots) {
+ // family and dims the tiers above you - see ~poh_furn_slot0 - so the level is not a filter here.
+ //
+ // Two lookups, because a family's pieces are consecutive (poh_fam_first/last, asserted by the
+-// generator and by battery check 51). The walk this replaces read all 291 rows per window row per
++// generator and by battery check 51). The walk this replaces read all 296 rows per window row per
+ // page, which is the shape that cost the room window its instruction budget.
+ [proc,poh_furn_nth](int $fam, int $n)(int)
+ def_int $item = calc(enum(int, int, poh_fam_first, $fam) + $n);
+@@ -1333,12 +1338,24 @@ switch_int ($item) {
+     case 289 : return(11241);   // poh_portal_teak_empty_8
+     case 290 : return(11236);   // poh_portal_mag_empty_8
+     case 291 : return(11238);   // poh_portal_marble_empty_8
++    case 292 : return(12909);   // poh_boxing_ringwall_white_1
++    case 293 : return(12966);   // poh_fencing_ringwall_1
++    case 294 : return(12915);   // poh_combat_ringwall_1
++    case 295 : return(12901);   // poh_balancebeam_middle_0
++    case 296 : return(12178);   // poh_weapons_rack_gloves_8
+     case default : return(0);
+ }
+ 
+ // =========================================================================== the click
+ 
+ [proc,poh_furn_click](int $fam)
++~poh_furn_click_at($fam, -1, -1);
++
++// A family with an ANCHOR is stored at a fixed tile of the room rather than at the tile that
++// was clicked. Only a piece that covers more than one tile needs it: the combat ring has
++// sixteen hotspots and one ring, so whichever you click it has to be stored, found and
++// removed in the same place, and the anchor is a tile nothing is ever built on.
++[proc,poh_furn_click_at](int $fam, int $ax, int $az)
+ if (%poh_instance = null) {
+     mes("You can only build in your own house.");
+     return;
+@@ -1359,6 +1376,12 @@ def_int $rx = calc(divide($gx, 8) - ^poh_grid_origin);
+ def_int $rz = calc(divide($gz, 8) - ^poh_grid_origin);
+ def_int $lx = modulo($gx, 8);
+ def_int $lz = modulo($gz, 8);
++if ($ax >= 0) {
++    $spot = movecoord($spot, calc($ax - $lx), 0, calc($az - $lz));
++    $lx = $ax;
++    $lz = $az;
++    $angle = 0;
++}
+ if (~poh_furn_free < 0) {
+     mes("Your house is as full of furniture as it will hold.");
+     return;
+@@ -1692,6 +1715,57 @@ mes("You take out the <enum(int, string, poh_furn_name, $item)>. The materials a
+ [oploc5,loc474_15408]
+ ~poh_furn_click(^poh_fam_portal);
+ 
++[oploc5,loc474_15277]
++~poh_furn_click_at(^poh_fam_combat_ring, 0, 0);
++
++[oploc5,loc474_15278]
++~poh_furn_click_at(^poh_fam_combat_ring, 0, 0);
++
++[oploc5,loc474_15279]
++~poh_furn_click_at(^poh_fam_combat_ring, 0, 0);
++
++[oploc5,loc474_15280]
++~poh_furn_click_at(^poh_fam_combat_ring, 0, 0);
++
++[oploc5,loc474_15281]
++~poh_furn_click_at(^poh_fam_combat_ring, 0, 0);
++
++[oploc5,loc474_15282]
++~poh_furn_click_at(^poh_fam_combat_ring, 0, 0);
++
++[oploc5,loc474_15286]
++~poh_furn_click_at(^poh_fam_combat_ring, 0, 0);
++
++[oploc5,loc474_15287]
++~poh_furn_click_at(^poh_fam_combat_ring, 0, 0);
++
++[oploc5,loc474_15288]
++~poh_furn_click_at(^poh_fam_combat_ring, 0, 0);
++
++[oploc5,loc474_15289]
++~poh_furn_click_at(^poh_fam_combat_ring, 0, 0);
++
++[oploc5,loc474_15290]
++~poh_furn_click_at(^poh_fam_combat_ring, 0, 0);
++
++[oploc5,loc474_15291]
++~poh_furn_click_at(^poh_fam_combat_ring, 0, 0);
++
++[oploc5,loc474_15292]
++~poh_furn_click_at(^poh_fam_combat_ring, 0, 0);
++
++[oploc5,loc474_15293]
++~poh_furn_click_at(^poh_fam_combat_ring, 0, 0);
++
++[oploc5,loc474_15294]
++~poh_furn_click_at(^poh_fam_combat_ring, 0, 0);
++
++[oploc5,loc474_15295]
++~poh_furn_click_at(^poh_fam_combat_ring, 0, 0);
++
++[oploc5,loc474_15296]
++~poh_furn_click(^poh_fam_combat_storage);
++
+ // One per buildable LOC: every piece keeps its own op5=Remove from poh.loc. Per loc and not
+ // per piece, because a loc can be buildable in two hotspots (the exit portal is the
+ // centrepiece of both gardens) and a trigger declared twice does not compile.
+@@ -2565,3 +2639,18 @@ mes("You take out the <enum(int, string, poh_furn_name, $item)>. The materials a
+ 
+ [oploc5,poh_portal_marble_empty]
+ ~poh_furn_remove;
++
++[oploc5,poh_boxing_ringwall_white]
++~poh_combat_ring_remove;
++
++[oploc5,poh_fencing_ringwall]
++~poh_combat_ring_remove;
++
++[oploc5,poh_combat_ringwall]
++~poh_combat_ring_remove;
++
++[oploc5,poh_balancebeam_middle]
++~poh_combat_ring_remove;
++
++[oploc5,poh_weapons_rack_gloves]
++~poh_furn_remove;
+diff --git a/scripts/skill_construction/scripts/poh_menus.rs2 b/scripts/skill_construction/scripts/poh_menus.rs2
+index 2921caa1..5044cff4 100644
+--- a/scripts/skill_construction/scripts/poh_menus.rs2
++++ b/scripts/skill_construction/scripts/poh_menus.rs2
+@@ -598,6 +598,11 @@ switch_int ($item) {
+     case 289 : return(4619);   // poh_portal_teak_empty_8
+     case 290 : return(4619);   // poh_portal_mag_empty_8
+     case 291 : return(4644);   // poh_portal_marble_empty_8
++    case 292 : return(3175);   // poh_boxing_ringwall_white_1
++    case 293 : return(3356);   // poh_fencing_ringwall_1
++    case 294 : return(3227);   // poh_combat_ringwall_1
++    case 295 : return(2160);   // poh_balancebeam_middle_0
++    case 296 : return(3673);   // poh_weapons_rack_gloves_8
+     case default : return(1883);
+ }
+ 
+diff --git a/scripts/skill_construction/scripts/sawmill.rs2 b/scripts/skill_construction/scripts/sawmill.rs2
+index 7a844654..f72c5b9c 100644
+--- a/scripts/skill_construction/scripts/sawmill.rs2
++++ b/scripts/skill_construction/scripts/sawmill.rs2
+@@ -13,12 +13,12 @@
+ 
+ [opnpc1,sawmill_operator]
+ ~chatnpc("<p,happy>Want some planks cut? Bring me logs and I'll saw them for you.");
+-def_int $option = ~p_choice3("Let's see about those planks.", 1, "Can you sell me a saw or a hammer?", 2, "Not just now, thanks.", 3);
++def_int $option = ~p_choice3("Let's see about those planks.", 1, "Can you sell me some supplies?", 2, "Not just now, thanks.", 3);
+ if ($option = 1) {
+     ~chatplayer("<p,neutral>Let's see about those planks.");
+     ~sawmill_buy_planks;
+ } else if ($option = 2) {
+-    ~chatplayer("<p,neutral>Can you sell me a saw or a hammer?");
++    ~chatplayer("<p,neutral>Can you sell me some supplies?");
+     ~sawmill_buy_tool;
+ } else {
+     ~chatplayer("<p,neutral>Not just now, thanks.");
+@@ -68,15 +68,20 @@ if ($cut < $have) {
+ 
+ // =========================================================================== tools
+ 
++// Cloth is here rather than in a shop of its own because OSRS sells it at the sawmill too, and
++// this operator already trades out of his dialogue - there is still no inv behind his Trade op.
++// It is bought one at a time like the tools; a combat ring wants four to six of them.
+ [proc,sawmill_buy_tool]
+-~chatnpc("<p,happy>A saw's <tostring(^sawmill_cost_saw)> coins, a hammer's <tostring(^sawmill_cost_hammer)>. You'll want both if you're building.");
+-def_int $pick = ~p_choice3("A saw, please.", 1, "A hammer, please.", 2, "Neither, thanks.", 3);
++~chatnpc("<p,happy>A saw's <tostring(^sawmill_cost_saw)> coins, a hammer's <tostring(^sawmill_cost_hammer)>, cloth's <tostring(^sawmill_cost_cloth)> a bolt.");
++def_int $pick = ~p_choice4("A saw, please.", 1, "A hammer, please.", 2, "A bolt of cloth, please.", 3, "Nothing, thanks.", 4);
+ if ($pick = 1) {
+     ~sawmill_sell(saw, ^sawmill_cost_saw);
+ } else if ($pick = 2) {
+     ~sawmill_sell(hammer, ^sawmill_cost_hammer);
++} else if ($pick = 3) {
++    ~sawmill_sell(bolt_of_cloth, ^sawmill_cost_cloth);
+ } else {
+-    ~chatplayer("<p,neutral>Neither, thanks.");
++    ~chatplayer("<p,neutral>Nothing, thanks.");
+ }
+ 
+ [proc,sawmill_sell](namedobj $item, int $cost)
+diff --git a/tools/furnspec.json b/tools/furnspec.json
+index 15508063..5a25feec 100644
+--- a/tools/furnspec.json
++++ b/tools/furnspec.json
+@@ -1938,6 +1938,137 @@
+      "need": "3 marble blocks"
+     }
+    ]
++  },
++  {
++   "key": "combat_ring",
++   "label": "Combat ring space",
++   "room": "combat room",
++   "hotspots": [
++    15098,
++    15099,
++    15100,
++    15101,
++    15102,
++    15103,
++    15107,
++    15108,
++    15109,
++    15110,
++    15111,
++    15112,
++    15113,
++    15114,
++    15115,
++    15116
++   ],
++   "shape": "grounddecor",
++   "show": "poh_combat_ring_place",
++   "anchor": [
++    0,
++    0
++   ],
++   "pieces": [
++    {
++     "loc": "poh_boxing_ringwall_white",
++     "label": "Boxing ring",
++     "level": 32,
++     "xp": 420,
++     "mats": [
++      [
++       "oak_plank",
++       6
++      ],
++      [
++       "bolt_of_cloth",
++       4
++      ]
++     ],
++     "need": "6 oak, 4 cloth"
++    },
++    {
++     "loc": "poh_fencing_ringwall",
++     "label": "Fencing ring",
++     "level": 41,
++     "xp": 570,
++     "mats": [
++      [
++       "oak_plank",
++       8
++      ],
++      [
++       "bolt_of_cloth",
++       6
++      ]
++     ],
++     "need": "8 oak, 6 cloth"
++    },
++    {
++     "loc": "poh_combat_ringwall",
++     "label": "Combat ring",
++     "level": 51,
++     "xp": 630,
++     "mats": [
++      [
++       "teak_plank",
++       6
++      ],
++      [
++       "bolt_of_cloth",
++       6
++      ]
++     ],
++     "need": "6 teak, 6 cloth"
++    },
++    {
++     "loc": "poh_balancebeam_middle",
++     "label": "Balance beam",
++     "level": 81,
++     "xp": 1000,
++     "mats": [
++      [
++       "teak_plank",
++       10
++      ],
++      [
++       "steel_bar",
++       5
++      ]
++     ],
++     "need": "10 teak, 5 steel bars"
++    }
++   ],
++   "remove": "poh_combat_ring_remove"
++  },
++  {
++   "key": "combat_storage",
++   "label": "Storage space",
++   "room": "combat room",
++   "hotspots": [
++    15117
++   ],
++   "shape": "centrepiece_straight",
++   "pieces": [
++    {
++     "loc": "poh_weapons_rack_gloves",
++     "label": "Glove rack",
++     "level": 34,
++     "xp": 120,
++     "mats": [
++      [
++       "oak_plank",
++       2
++      ]
++     ],
++     "need": "2 oak planks"
++    }
++   ],
++   "op1": {
++    "kind": "mes",
++    "lines": [
++     "A rack for the gloves you would box in.",
++     "There are no boxing gloves in this world to hang on it."
++    ]
++   }
+   }
+  ],
+  "shape_allowances": [
+diff --git a/tools/gencombatring.py b/tools/gencombatring.py
+new file mode 100644
+index 00000000..07e2ceb1
+--- /dev/null
++++ b/tools/gencombatring.py
+@@ -0,0 +1,333 @@
++#!/usr/bin/env python3
++"""Generate scripts/skill_construction/scripts/poh_combat_ring.rs2 from the template squares.
++
++WHY GENERATED. The combat ring is not one loc on one hotspot. The template lays 43 hotspot
++placements in the Combat room - a 6x6 wall perimeter with floor mats inside it - and building a
++ring has to put a piece on every one of them, each with that tile's own shape and rotation. Four
++ring types times up to 36 tiles is a table nobody should type, and one that has to agree with the
++map exactly or a rope hangs in mid-air.
++
++WHAT THE HOTSPOTS ARE. Nineteen distinct locs, and their MODELS say what each is for - matched by
++size against the pieces in poh.loc rather than guessed:
++
++  1785-byte wall models  the ring wall, 20 tiles: four corners (wall_squarecorner) and sixteen
++                         straights (wall_straight)
++  577-byte mat models    the four corner mats
++  335-byte mat models    the eight side mats
++  45-byte mat model      the four middle mats
++  18-byte models         EMPTY. Three of the nineteen are zero-length .ob2 files, so they render
++                         nothing and cannot be clicked. They are not hotspots at all, they are
++                         placement targets: loc474_15285's three tiles are where the balance beam
++                         goes, and loc474_15283/15284's four are OSRS's Ranging pedestals, which
++                         this cache has no art for. That is why the Combat room looked like it had
++                         nineteen dead hotspots when it really has sixteen.
++
++The geometric reading and the cache's own grouping are cross-checked against each other below: if
++the corner mats are not exactly the four interior corners, this refuses to write.
++
++ROTATION. The table is in TEMPLATE space and the rotation is done at runtime, because a room can
++be built at any of four rotations. The arithmetic is the engine's own, transcribed from
++GameMap.rotateZoneX/Z and the newAngle line beside them:
++
++    rot 0 (x, z)   rot 1 (z, 7-x)   rot 2 (7-x, 7-z)   rot 3 (7-z, x)      angle = (angle + rot) & 3
++
++    python3 tools/gencombatring.py
++"""
++import os, re, sys, collections
++
++ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
++OUT = 'scripts/skill_construction/scripts/poh_combat_ring.rs2'
++ZONE = 28          # the Combat room's template zone, from poh_rooms.enum poh_room_zone val=11,28
++SQUARES = [('m29_79', (0, 1, 2, 3)), ('m30_79', (0, 1))]
++
++# Which piece goes on which kind of tile. All four ring types use the same 36 tiles; the balance
++# beam uses three of the seven invisible ones.
++#
++# BOXING'S FOUR WALL LOCS are one model and three recolours - white and "corner" are byte-identical,
++# red and blue recolour the rope. Which tile wears which is recorded nowhere in the cache, so this
++# is an INFERENCE from what a boxing ring actually looks like: a red corner and a blue corner
++# opposite each other, the other two neutral, white rope between them. If it looks wrong in game,
++# swap names in this table and nothing else changes.
++RINGS = {
++    'boxing': {
++        'corner': {(1, 1): 'poh_boxing_ringwall_red', (6, 6): 'poh_boxing_ringwall_blue',
++                   (6, 1): 'poh_boxing_ringwall_corner', (1, 6): 'poh_boxing_ringwall_corner'},
++        'wall': 'poh_boxing_ringwall_white',
++        'mat_corner': 'poh_boxing_ring_mat_corner',
++        'mat_side': 'poh_boxing_ring_mat_side',
++        'mat_middle': 'poh_boxing_ring_mat_middle',
++    },
++    'fencing': {
++        'corner': {}, 'wall': 'poh_fencing_ringwall',
++        'mat_corner': 'poh_fencing_ring_mat_corner',
++        'mat_side': 'poh_fencing_ring_mat_side',
++        'mat_middle': 'poh_fencing_ring_mat_middle',
++    },
++    'combat': {
++        'corner': {}, 'wall': 'poh_combat_ringwall',
++        'mat_corner': 'poh_combat_mat_corner',
++        'mat_side': 'poh_combat_mat_side',
++        'mat_middle': 'poh_combat_mat_middle',
++    },
++}
++# west to east along the beam's row
++BEAM = ['poh_balancebeam_endl', 'poh_balancebeam_middle', 'poh_balancebeam_endr']
++
++SHAPE = {0: 'wall_straight', 3: 'wall_squarecorner', 22: 'grounddecor'}
++
++
++def read(p):
++    return open(os.path.join(ROOT, p), newline='').read().replace('\r\n', '\n')
++
++
++def crlf(p):
++    raw = open(os.path.join(ROOT, p), 'rb').read()
++    return raw.count(b'\r\n') > raw.count(b'\n') / 2
++
++
++def write(p, lines):
++    path = os.path.join(ROOT, p)
++    nl = '\r\n' if (os.path.exists(path) and crlf(p)) else '\n'
++    open(path, 'wb').write((nl.join(lines).rstrip('\r\n') + nl).encode('utf-8'))
++
++
++def templates():
++    """Every Combat ring space placement in template space, from all six styles."""
++    packname = {}
++    for l in read('pack/loc.pack').split('\n'):
++        if '=' in l:
++            i, n = l.split('=', 1)
++            packname[int(i)] = n
++    tl, cur = {}, None
++    for l in read('scripts/skill_construction/configs/poh_templates.loc').split('\n'):
++        l = l.strip()
++        m = re.match(r'^\[(\w+)\]$', l)
++        if m:
++            cur = m.group(1); tl[cur] = {}
++        elif cur and '=' in l:
++            k, v = l.split('=', 1)
++            tl[cur].setdefault(k, v)
++    per = {}
++    for sq, levels in SQUARES:
++        sec = None
++        for l in read('maps/%s.jm2' % sq).split('\n'):
++            if l.startswith('===='):
++                sec = l.strip('= '); continue
++            if sec != 'LOC' or ':' not in l:
++                continue
++            head, rest = l.split(':', 1)
++            lv, x, z = (int(v) for v in head.split())
++            p = rest.split()
++            lid = int(p[0])
++            shape = int(p[1]) if len(p) > 1 else 10
++            angle = int(p[2]) if len(p) > 2 else 0
++            n = packname.get(lid)
++            if lv in levels and (x // 8) * 8 + (z // 8) == ZONE \
++                    and (tl.get(n, {}).get('name')) == 'Combat ring space':
++                per.setdefault((sq, lv), []).append((n, x % 8, z % 8, shape, angle))
++    return per, tl
++
++
++def main():
++    per, tl = templates()
++    err = []
++    sigs = {k: sorted((r[1], r[2], r[3], r[4]) for r in v) for k, v in per.items()}
++    base_key = ('m29_79', 0)
++    for k, v in sigs.items():
++        if v != sigs[base_key]:
++            err.append('%s lays the ring differently from %s' % (k, base_key))
++    rows = sorted(per[base_key])
++
++    # empty models are placement targets, not hotspots
++    empty, visible = set(), set()
++    for n, _, _, _, _ in rows:
++        mdl = (tl[n].get('model') or '').split(',')[0]
++        sizes = [os.path.getsize(os.path.join(ROOT, 'models/loc', f))
++                 for f in os.listdir(os.path.join(ROOT, 'models/loc'))
++                 if f.startswith(mdl + '_') and f.endswith('.ob2')]
++        (empty if sizes and max(sizes) <= 32 else visible).add(n)
++
++    walls = [r for r in rows if r[3] in (0, 3) and r[0] in visible]
++    mats = [r for r in rows if r[3] == 22]
++    spare = [r for r in rows if r[0] in empty]
++    # The beam is the invisible group whose tiles are three in an unbroken line; the pedestals are
++    # four scattered points. Counting three is not enough - two of the groups have three tiles.
++    def collinear(ts):
++        ts = sorted(ts)
++        xs = {t[0] for t in ts}; zs = {t[1] for t in ts}
++        return (len(xs) == 1 and sorted(zs) == list(range(min(zs), min(zs) + 3))) or \
++               (len(zs) == 1 and sorted(xs) == list(range(min(xs), min(xs) + 3)))
++    beam_locs = {r[0] for r in spare
++                 if collinear({(s[1], s[2]) for s in spare if s[0] == r[0]})}
++    beam = sorted([r for r in spare if r[0] in beam_locs], key=lambda r: (r[2], r[1]))
++    pedestals = [r for r in spare if r[0] not in beam_locs]
++
++    # the ring's own bounds, measured rather than assumed
++    xs = [r[1] for r in walls]; zs = [r[2] for r in walls]
++    x0, x1, z0, z1 = min(xs), max(xs), min(zs), max(zs)
++    if (x1 - x0, z1 - z0) != (5, 5):
++        err.append('the wall perimeter is %dx%d, not 6x6' % (x1 - x0 + 1, z1 - z0 + 1))
++    if len(walls) != 20:
++        err.append('%d perimeter tiles, and a 6x6 ring has 20' % len(walls))
++    if len(mats) != 16:
++        err.append('%d mat tiles, and the inside of a 6x6 ring is 16' % len(mats))
++    if len(beam) != 3:
++        err.append('the balance beam is %d tiles, and there are three beam locs' % len(beam))
++
++    # geometry and the cache's own grouping have to agree about which mat is which
++    corners = {(x0 + 1, z0 + 1), (x1 - 1, z0 + 1), (x0 + 1, z1 - 1), (x1 - 1, z1 - 1)}
++    middles = {(x, z) for x in (x0 + 2, x1 - 2) for z in (z0 + 2, z1 - 2)}
++    kind = {}
++    for n, x, z, shape, angle in mats:
++        kind[(x, z)] = 'mat_corner' if (x, z) in corners else \
++                       'mat_middle' if (x, z) in middles else 'mat_side'
++    bygroup = collections.defaultdict(set)
++    for n, x, z, shape, angle in mats:
++        bygroup[n].add(kind[(x, z)])
++    bad = {n: k for n, k in bygroup.items() if len(k) != 1}
++    if bad:
++        err.append('a mat hotspot loc covers two kinds of tile: %s' % bad)
++
++    if err:
++        print('\n'.join('  ERROR ' + e for e in err))
++        sys.exit(1)
++
++    def lay(x, z, angle, loc, shape):
++        proc = {'wall_straight': 'poh_ring_wall', 'wall_squarecorner': 'poh_ring_corner',
++                'grounddecor': 'poh_ring_mat'}[SHAPE[shape]]
++        return '~%s($base, $rot, %d, %d, %d, %s);' % (proc, x, z, angle, loc)
++
++    o = ['// The Combat room\'s ring: four things to build, and 36 tiles under each of them.',
++         '//',
++         '// GENERATED by tools/gencombatring.py from the six template squares. Do not edit by hand -',
++         '// every tile, shape and rotation below is the template\'s own, and the generator refuses to',
++         '// write if the six styles ever stop agreeing about where the ring is.',
++         '//',
++         '// A ring is ONE piece of furniture standing on 36 tiles, which is not something the furniture',
++         '// system could express: ~poh_furn_show has one loc_add per item. It goes through the "show"',
++         '// hand-off in tools/furnspec.json instead - the same door the portal frames use - and the',
++         '// piece is anchored at the room\'s local (0,0) rather than at the tile that was clicked, so',
++         '// that whichever of the sixteen hotspots you click, the ring is stored, found and removed in',
++         '// the same place. Nothing is ever built at (0,0): the ring starts at (1,1).',
++         '//',
++         '// THE ROTATION IS DONE HERE, not baked in, because a room can be built at any of four',
++         '// rotations. ~poh_ring_tile and ~poh_ring_angle are transcriptions of the engine\'s own',
++         '// GameMap.rotateZoneX/rotateZoneZ and the newAngle line beside them.',
++         '', '// =========================================================================== the arithmetic', '',
++         '[proc,poh_ring_tile](coord $base, int $rot, int $x, int $z)(coord)',
++         'switch_int ($rot) {',
++         '    case 1 : return(movecoord($base, $z, 0, calc(7 - $x)));',
++         '    case 2 : return(movecoord($base, calc(7 - $x), 0, calc(7 - $z)));',
++         '    case 3 : return(movecoord($base, calc(7 - $z), 0, $x));',
++         '    case default : return(movecoord($base, $x, 0, $z));',
++         '}', '',
++         '[proc,poh_ring_angle](int $angle, int $rot)(int)',
++         'return(modulo(calc($angle + $rot), 4));', '',
++         '// One per shape, because the shape decides the LAYER a loc goes on and a proc cannot take',
++         '// a locshape. Getting one wrong leaves the hotspot standing in the same tile as the piece.',
++         '[proc,poh_ring_wall](coord $base, int $rot, int $x, int $z, int $angle, loc $loc)',
++         'loc_add(~poh_ring_tile($base, $rot, $x, $z), $loc, ~poh_ring_angle($angle, $rot), wall_straight, ^poh_loc_duration);', '',
++         '[proc,poh_ring_corner](coord $base, int $rot, int $x, int $z, int $angle, loc $loc)',
++         'loc_add(~poh_ring_tile($base, $rot, $x, $z), $loc, ~poh_ring_angle($angle, $rot), wall_squarecorner, ^poh_loc_duration);', '',
++         '[proc,poh_ring_mat](coord $base, int $rot, int $x, int $z, int $angle, loc $loc)',
++         'loc_add(~poh_ring_tile($base, $rot, $x, $z), $loc, ~poh_ring_angle($angle, $rot), grounddecor, ^poh_loc_duration);', '',
++         '// =========================================================================== the four rings', '']
++
++    for key in ('boxing', 'fencing', 'combat'):
++        r = RINGS[key]
++        o.append('[proc,poh_ring_%s](coord $base, int $rot)' % key)
++        for n, x, z, shape, angle in sorted(walls, key=lambda t: (t[3], t[2], t[1])):
++            loc = r['corner'].get((x, z), r['wall']) if shape == 3 else r['wall']
++            o.append(lay(x, z, angle, loc, shape))
++        for n, x, z, shape, angle in sorted(mats, key=lambda t: (t[2], t[1])):
++            o.append(lay(x, z, angle, r[kind[(x, z)]], shape))
++        o.append('')
++
++    o.append('// The beam is three tiles of the seven the template keeps blank inside the ring. The other')
++    o.append('// four are OSRS\'s Ranging pedestals, and this cache has no art for them.')
++    o.append('[proc,poh_ring_beam](coord $base, int $rot)')
++    for (n, x, z, shape, angle), loc in zip(beam, BEAM):
++        o.append(lay(x, z, angle, loc, shape))
++    o.append('')
++
++    o += ['// =========================================================================== show and remove', '',
++          '// $base is the room\'s local (0,0) - the anchor the piece is stored at - so the whole ring is',
++          '// laid from it without needing to know which hotspot was clicked.',
++          '[proc,poh_combat_ring_place](coord $base, int $angle, int $tier)',
++          'def_int $rot = ~poh_ring_room_rot($base);',
++          'switch_int ($tier) {',
++          '    case 1 : ~poh_ring_boxing($base, $rot);',
++          '    case 2 : ~poh_ring_fencing($base, $rot);',
++          '    case 3 : ~poh_ring_combat($base, $rot);',
++          '    case 4 : ~poh_ring_beam($base, $rot);',
++          '}', '',
++          '// The room a coord is in, and how that room was turned. The ring is laid in template space',
++          '// and turned to match, so this is the only thing the table needs from the house.',
++          '[proc,poh_ring_room_rot](coord $spot)(int)',
++          'if (%poh_instance = null) {',
++          '    return(0);',
++          '}',
++          'def_int $gx = calc(coordx($spot) - coordx(%poh_instance));',
++          'def_int $gz = calc(coordz($spot) - coordz(%poh_instance));',
++          'return(~poh_room_rot(calc(divide($gx, 8) - ^poh_grid_origin), calc(divide($gz, 8) - ^poh_grid_origin)));', '',
++          '// Taking one out. Any tile of the ring is a valid click, so the slot is looked up at the',
++          '// anchor rather than under the piece that was clicked - which is the whole reason for the',
++          '// anchor. ~poh_furn_relay then re-lays the room, which clears all 36 locs at once.',
++          '[proc,poh_combat_ring_remove]',
++          'if (%poh_instance = null | instance_find(loc_coord) ! %poh_instance) {',
++          '    return;',
++          '}',
++          'def_int $gx = calc(coordx(loc_coord) - coordx(%poh_instance));',
++          'def_int $gz = calc(coordz(loc_coord) - coordz(%poh_instance));',
++          'def_int $rx = calc(divide($gx, 8) - ^poh_grid_origin);',
++          'def_int $rz = calc(divide($gz, 8) - ^poh_grid_origin);',
++          'def_int $slot = ~poh_furn_at($rx, $rz, 0, 0);',
++          'if ($slot < 0) {',
++          '    mes("That isn\'t yours to take out.");',
++          '    return;',
++          '}',
++          'def_int $item = ~poh_furn_item(~poh_furn_get($slot));',
++          'def_int $option = ~p_choice2("Take out the <enum(int, string, poh_furn_name, $item)>.", 1, "Leave it.", 2);',
++          'if ($option ! 1) {',
++          '    return;',
++          '}',
++          '~poh_furn_set($slot, 0);',
++          '~poh_furn_relay($rx, $rz);',
++          'mes("You take out the <enum(int, string, poh_furn_name, $item)>.");', '',
++          '// =========================================================================== the triggers', '']
++
++    allocs = sorted({r['wall'] for r in RINGS.values()}
++                    | {v for r in RINGS.values() for v in r['corner'].values()}
++                    | {r[k] for r in RINGS.values() for k in ('mat_corner', 'mat_side', 'mat_middle')}
++                    | set(BEAM))
++    # genfurn.py already wires the family's four PIECE locs to ~poh_combat_ring_remove (the
++    # "remove" key in furnspec.json). Wiring them here too is a duplicate trigger, which does not
++    # compile - so this file covers only the other locs the ring puts down.
++    import json as _json
++    claimed = set()
++    for _f in _json.load(open(os.path.join(ROOT, 'tools/furnspec.json')))['families']:
++        if _f['key'] == 'combat_ring':
++            claimed = {_p['loc'] for _p in _f['pieces']}
++    for loc in allocs:
++        if loc in claimed:
++            continue
++        o.append('[oploc5,%s] ~poh_combat_ring_remove;' % loc)
++    o.append('')
++    o.append('// Climbing into the ring. Every ring type has the same wall op, and the wall is what you')
++    o.append('// climb - the mats have no op of their own.')
++    for loc in sorted({r['wall'] for r in RINGS.values()}
++                      | {v for r in RINGS.values() for v in r['corner'].values()}):
++        o.append('[oploc1,%s] ~poh_ring_climb;' % loc)
++    o.append('')
++    for loc in BEAM:
++        o.append('[oploc1,%s] ~poh_ring_beam_stand;' % loc)
++    for loc in BEAM:
++        o.append('[oploc4,%s] ~poh_ring_beam_down;' % loc)
++    o.append('')
++    write(OUT, o)
++    print('%s: %d perimeter tiles, %d mats, %d beam tiles, %d pedestal tiles with no art'
++          % (OUT, len(walls), len(mats), len(beam), len(pedestals)))
++    print('  %d locs wired for Remove, %d rings + the beam' % (len(allocs), len(RINGS)))
++
++
++main()
+diff --git a/tools/genfurn.py b/tools/genfurn.py
+index d214d377..8f8d5a20 100644
+--- a/tools/genfurn.py
++++ b/tools/genfurn.py
+@@ -786,6 +786,12 @@ def emit_rs2_tail(fams, items, byfam):
+     o += ['    case default : return(0);', '}', '',
+           '// =========================================================================== the click', '',
+           '[proc,poh_furn_click](int $fam)',
++          '~poh_furn_click_at($fam, -1, -1);', '',
++          '// A family with an ANCHOR is stored at a fixed tile of the room rather than at the tile that',
++          '// was clicked. Only a piece that covers more than one tile needs it: the combat ring has',
++          '// sixteen hotspots and one ring, so whichever you click it has to be stored, found and',
++          '// removed in the same place, and the anchor is a tile nothing is ever built on.',
++          '[proc,poh_furn_click_at](int $fam, int $ax, int $az)',
+           'if (%poh_instance = null) {', '    mes("You can only build in your own house.");', '    return;', '}',
+           'def_coord $spot = loc_coord;',
+           'if (instance_find($spot) ! %poh_instance) {',
+@@ -798,6 +804,9 @@ def emit_rs2_tail(fams, items, byfam):
+           'def_int $rx = calc(divide($gx, 8) - ^poh_grid_origin);',
+           'def_int $rz = calc(divide($gz, 8) - ^poh_grid_origin);',
+           'def_int $lx = modulo($gx, 8);', 'def_int $lz = modulo($gz, 8);',
++          'if ($ax >= 0) {',
++          '    $spot = movecoord($spot, calc($ax - $lx), 0, calc($az - $lz));',
++          '    $lx = $ax;', '    $lz = $az;', '    $angle = 0;', '}',
+           'if (~poh_furn_free < 0) {',
+           '    mes("Your house is as full of furniture as it will hold.");', '    return;', '}',
+           'def_int $item = ~poh_furn_pick($fam, "Select what you want to build");',
+@@ -863,12 +872,19 @@ def emit_rs2_tail(fams, items, byfam):
+     byid = {v: k for k, v in packmap('pack/loc.pack').items()}
+     for f in fams:
+         for h in f['hotspots']:
+-            o += ['[oploc5,%s]' % byid[h], '~poh_furn_click(^poh_fam_%s);' % f['key'], '']
++            if f.get('anchor'):
++                o += ['[oploc5,%s]' % byid[h],
++                      '~poh_furn_click_at(^poh_fam_%s, %d, %d);' % (f['key'], *f['anchor']), '']
++            else:
++                o += ['[oploc5,%s]' % byid[h], '~poh_furn_click(^poh_fam_%s);' % f['key'], '']
+     o += ['// One per buildable LOC: every piece keeps its own op5=Remove from poh.loc. Per loc and not',
+           '// per piece, because a loc can be buildable in two hotspots (the exit portal is the',
+           '// centrepiece of both gardens) and a trigger declared twice does not compile.', '']
+-    for loc in dict.fromkeys(i['loc'] for i in items):
+-        o += ['[oploc5,%s]' % loc, '~poh_furn_remove;', '']
++    # A family may name its OWN removal proc. The combat ring does: it stands on 36 tiles and is
++    # stored at the room's anchor rather than under the piece you clicked, so ~poh_furn_remove -
++    # which looks the slot up under the clicked tile - would never find it.
++    for loc, fam in dict((i['loc'], byfam[i['famkey']]) for i in items).items():
++        o += ['[oploc5,%s]' % loc, '~%s;' % fam.get('remove', 'poh_furn_remove'), '']
+     return o
+ 
+ OPS_HEAD = """// What the furniture DOES. One [oploc1] per piece, generated from the op1 block of each family in
+@@ -1036,6 +1052,13 @@ if __name__ == '__main__':
+     shapes = map_shapes()
+     bad = []
+     for f in fams:
++        # A family that hands its placement to a proc does not use its own shape for anything - the
++        # proc lays each tile with that tile's own. The combat ring's sixteen hotspots are walls,
++        # corners and ground decor all at once, so no single shape could be right here; what
++        # replaces this check for it is battery group 59, which reads every emitted loc_add back
++        # against the template and is the stronger test.
++        if f.get('show'):
++            continue
+         for h in f['hotspots']:
+             have = shapes.get(h, set())
+             if f['shape'] not in have:
+diff --git a/tools/poh_battery.py b/tools/poh_battery.py
+index 34e3bb1f..b268c7d2 100644
+--- a/tools/poh_battery.py
++++ b/tools/poh_battery.py
+@@ -1,5 +1,6 @@
+ """Symbol and signature battery for the two new .rs2 files, from claude/rs2-compile-traps.md."""
+ import re, sys, os
++import json as _json
+ C = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ FILES = ['scripts/skill_construction/scripts/poh.rs2', 'scripts/skill_construction/scripts/poh_test.rs2',
+          'scripts/skill_construction/scripts/poh_portal.rs2', 'scripts/skill_construction/scripts/poh_build.rs2',
+@@ -8,7 +9,9 @@ FILES = ['scripts/skill_construction/scripts/poh.rs2', 'scripts/skill_constructi
+          'scripts/skill_construction/scripts/poh_menus.rs2',
+          'scripts/skill_construction/scripts/poh_furn_ops.rs2',
+          'scripts/skill_construction/scripts/poh_tablets.rs2',
+-         'scripts/skill_construction/scripts/poh_portal_chamber.rs2']
++         'scripts/skill_construction/scripts/poh_portal_chamber.rs2',
++         'scripts/skill_construction/scripts/poh_combat_ring.rs2',
++         'scripts/skill_construction/scripts/poh_combat.rs2']
+ fails = 0
+ def check(ok, what):
+     global fails
+@@ -648,8 +651,11 @@ check(rm.index('~poh_furn_count_cell_item') < rm.index('~p_choice2'),
+ print('26. the sawmill: the items, the npc and where he stands')
+ OBJCFG = blocks(read('scripts/skill_construction/configs/construction.obj'))
+ SAWNPC = blocks(read('scripts/skill_construction/configs/sawmill.npc'))
+-check(sorted(OBJCFG) == ['mahogany_plank', 'oak_plank', 'plank', 'saw', 'teak_plank'],
++check(sorted(OBJCFG) == ['bolt_of_cloth', 'cert_bolt_of_cloth', 'mahogany_plank', 'oak_plank',
++                         'plank', 'saw', 'teak_plank'],
+       'construction.obj defines %s' % sorted(OBJCFG))
++check((OBJCFG.get('bolt_of_cloth', {}).get('cost') or [''])[0] == str(const('sawmill_cost_cloth')),
++      'and the bolt of cloth is priced at what the sawmill charges for it')
+ for n in OBJCFG:
+     check(n in OBJS, '%s is in obj.pack' % n)
+     for v in (OBJCFG[n].get('model') or []):
+@@ -839,15 +845,59 @@ for mp in ('maps/m29_79.jm2', 'maps/m30_79.jm2'):
+ # wrong shape and the check would still say every hotspot was verified.
+ itemshape = dict((int(a), b) for a, b in
+     re.findall(r'^    case (\d+) : loc_add\(\$spot, \w+, \$angle, (\w+),', fu, re.M))
++def _proc_body(name):
++    for f in FILES:
++        if '[proc,%s]' % name in clean[f]:
++            return clean[f].split('[proc,%s]' % name, 1)[1].split('\n[', 1)[0]
++    return ''
++def _shapes_reachable(name, seen=None):
++    """Every locshape a proc can place with, following the helpers it calls.
++
++    A hand-off proc does not have to carry a loc_add of its own: the combat ring lays 36 tiles of
++    three different shapes through ~poh_ring_wall / _corner / _mat, so the shapes are one level
++    down. Following the calls is what keeps this a real check rather than a skipped one."""
++    seen = seen if seen is not None else set()
++    if name in seen:
++        return set()
++    seen.add(name)
++    body = _proc_body(name)
++    out = set()
++    for m in re.finditer(r'loc_add\(', body):
++        args, depth, cur, i = [], 0, '', m.end()
++        while i < len(body):
++            ch = body[i]
++            if ch == '(':
++                depth += 1; cur += ch
++            elif ch == ')' and depth == 0:
++                args.append(cur); break
++            elif ch == ')':
++                depth -= 1; cur += ch
++            elif ch == ',' and depth == 0:
++                args.append(cur); cur = ''
++            else:
++                cur += ch
++            i += 1
++        if len(args) > 3:
++            out.add(args[3].strip())
++    for callee in set(re.findall(r'~(\w+)\(', body)):
++        out |= _shapes_reachable(callee, seen)
++    return out
++handoff = {}
+ for a, proc in re.findall(r'^    case (\d+) : ~(\w+)\(\$spot, \$angle,', fu, re.M):
+-    body = next((clean[f].split('[proc,%s]' % proc, 1)[1].split('\n[', 1)[0]
+-                 for f in FILES if '[proc,%s]' % proc in clean[f]), '')
+-    m = re.search(r'loc_add\(\$spot, \$?\w+, \$angle, (\w+),', body)
+-    check(bool(m), '~%s places its piece with a shape this can read' % proc)
+-    itemshape[int(a)] = m.group(1) if m else None
++    sh = _shapes_reachable(proc)
++    check(bool(sh), '~%s places its pieces with a shape this can read' % proc)
++    handoff.setdefault(proc, sh)
++    itemshape[int(a)] = sorted(sh)[0] if len(sh) == 1 else None
+ famshape = {}
+ for i, f in ftab['poh_furn_fam'].items():
+     famshape.setdefault(int(f), set()).add(itemshape[i])
++# A family whose hand-off places more than one shape cannot be held to "one shape per family" -
++# it is held to group 59 instead, which reads every tile it lays back against the template.
++_spec = _json.load(open(os.path.join(C, 'tools/furnspec.json')))
++MULTISHAPE = {const('poh_fam_' + k['key']) for k in _spec['families']
++              if k.get('show') and len(_shapes_reachable(k['show'])) > 1}
++for f in MULTISHAPE:
++    famshape.pop(f, None)
+ ALLOWED = {('chair', 15214), ('chair', 15215)}   # see shape_allowances in tools/furnspec.json
+ bad = []
+ for loc, fam in hot:
+@@ -912,7 +962,12 @@ check(not dup_trig, 'no trigger is declared twice anywhere in the repo: %s'
+       % (dup_trig[:2] or '%d checked' % len(seen_trig)))
+ 
+ print('29. furniture: materials leave before the thing arrives, and a room takes its own with it')
+-clickb = fu.split('[proc,poh_furn_click]')[1].split('\n[')[0]
++# The body lives in ~poh_furn_click_at now: ~poh_furn_click is the unanchored door into it, and
++# an anchored family (the combat ring) passes the tile its piece is stored at instead.
++clickb = fu.split('[proc,poh_furn_click_at]')[1].split('\n[')[0]
++check('~poh_furn_click_at($fam, -1, -1);' in fu.split('[proc,poh_furn_click]')[1].split('\n[')[0],
++      '~poh_furn_click still exists and is the unanchored door')
++check('if ($ax >= 0) {' in clickb, 'and an anchor overrides the clicked tile rather than adding a path')
+ check(clickb.index('~poh_furn_have') < clickb.index('~poh_furn_take'), 'the materials are counted before they are taken')
+ check(clickb.index('~poh_furn_take') < clickb.index('~poh_furn_show'), 'the materials go before the furniture appears')
+ check(clickb.count('~poh_furn_have') >= 2, 'the materials are re-checked after the menu suspends')
+@@ -933,7 +988,6 @@ print('39. what the furniture does: every trigger is on an op the loc really has
+ # A trigger on an op the loc does not carry is not an error - it simply never fires, which is the
+ # quietest kind of broken. The op TEXT has to match the kind too: [oploc1] on a "light" family must
+ # be a loc whose op1 really says Light.
+-import json as _json
+ FSPEC = _json.load(open(os.path.join(C, 'tools/furnspec.json')))
+ KINDOP = {'sit': 'Sit-on', 'light': 'Light', 'altar': 'Pray', 'jingle': 'Play',
+           'observe': 'Observe', 'talk': 'Talk-to', 'preen': 'Preen',
+@@ -2196,7 +2250,9 @@ OPFILES = [read('scripts/skill_construction/scripts/poh_furn_ops.rs2'), GAMES,
+            read('scripts/skill_construction/scripts/poh_tablets.rs2'),
+            read('scripts/skill_construction/scripts/poh_build.rs2'),
+            read('scripts/skill_construction/scripts/poh_portal.rs2'),
+-           read('scripts/skill_construction/scripts/poh_portal_chamber.rs2')]
++           read('scripts/skill_construction/scripts/poh_portal_chamber.rs2'),
++           read('scripts/skill_construction/scripts/poh_combat_ring.rs2'),
++           read('scripts/skill_construction/scripts/poh_combat.rs2')]
+ TRIG = set()
+ for t in OPFILES:
+     TRIG |= set(re.findall(r'^\[oploc([1-5]),(\w+)\]', t, re.M))
+@@ -2212,7 +2268,9 @@ for l in placed:
+     cfg = LOCCFG2.get(l) or TEMPL2.get(l) or {}
+     for k in cfg:
+         m = re.match(r'^op([1-5])$', k)
+-        if m and (m.group(1), l) not in TRIG:
++        # "hidden" is the cache's own word for an option slot that carries no menu entry. There is
++        # nothing to click, so there is nothing to answer.
++        if m and cfg[k][0] != 'hidden' and (m.group(1), l) not in TRIG:
+             dead.append('%s %s=%s' % (l, k, cfg[k][0]))
+ check(not dead, 'no op on a placed piece is a dead click: %s' % (dead[:6] or 'all %d answered' % len(TRIG)))
+ 
+@@ -2472,6 +2530,121 @@ check(ENTER == REMOVE, 'and every one of them can be taken out again')
+ check('~poh_portal_set(~poh_portal_index($spot), 0)' in PC,
+       'taking the last piece out of a Portal space forgets where it led')
+ 
++
++print('59. the combat ring: 36 tiles under one piece, turned with the room')
++CR = read('scripts/skill_construction/scripts/poh_combat_ring.rs2')
++CB = read('scripts/skill_construction/scripts/poh_combat.rs2')
++
++# It is generated, so the first thing to check is that it is in step with the templates it is
++# generated from. Same shape as group 38: re-run in place, compare bytes, put the file back.
++_before = open(os.path.join(C, 'scripts/skill_construction/scripts/poh_combat_ring.rs2'), 'rb').read()
++r = _sp.run([sys.executable, os.path.join(C, 'tools/gencombatring.py')],
++            capture_output=True, text=True, cwd=C)
++check(r.returncode == 0, 'tools/gencombatring.py runs clean'
++      + ('' if r.returncode == 0 else ': ' + (r.stdout + r.stderr)[-400:]))
++_after = open(os.path.join(C, 'scripts/skill_construction/scripts/poh_combat_ring.rs2'), 'rb').read()
++if _after != _before:
++    open(os.path.join(C, 'scripts/skill_construction/scripts/poh_combat_ring.rs2'), 'wb').write(_before)
++check(_after == _before, 're-running it changes nothing: byte-identical'
++      if _after == _before else 're-running it CHANGES the file - it is out of step with the templates')
++
++# THE CHECK THAT MATTERS: every tile the ring lays is a tile the template really has a Combat ring
++# space on, at that shape and that angle. A rope one square out, or a mat placed as a wall, is
++# invisible to every other check here and obvious in game.
++TEMPLATE_RING = set()
++for _sq, _levels in (('m29_79', (0, 1, 2, 3)), ('m30_79', (0, 1))):
++    sec = None
++    for l in read('maps/%s.jm2' % _sq).split('\n'):
++        if l.startswith('===='):
++            sec = l.strip('= '); continue
++        if sec != 'LOC' or ':' not in l:
++            continue
++        head, rest = l.split(':', 1)
++        lv, x, z = (int(v) for v in head.split())
++        pp = rest.split()
++        nm = {v: k for k, v in LOCS.items()}.get(int(pp[0]))
++        shape = int(pp[1]) if len(pp) > 1 else 10
++        angle = int(pp[2]) if len(pp) > 2 else 0
++        if lv in _levels and (x // 8) * 8 + (z // 8) == 28 \
++                and (TEMPL2.get(nm, {}).get('name') or [''])[0] == 'Combat ring space':
++            TEMPLATE_RING.add((x % 8, z % 8, shape, angle))
++SHAPEOF = {'poh_ring_wall': 0, 'poh_ring_corner': 3, 'poh_ring_mat': 22}
++laid = {}
++for proc, x, z, angle, loc in re.findall(
++        r'~(poh_ring_wall|poh_ring_corner|poh_ring_mat)\(\$base, \$rot, (-?\d+), (-?\d+), (\d+), (\w+)\);', CR):
++    ring = CR[:CR.index('~%s($base, $rot, %s, %s, %s, %s);' % (proc, x, z, angle, loc))]
++    ring = ring.rsplit('[proc,poh_ring_', 1)[1].split(']', 1)[0]
++    laid.setdefault(ring, []).append((int(x), int(z), SHAPEOF[proc], int(angle), loc))
++bad = [(k, t[:4]) for k, v in laid.items() for t in v if t[:4] not in TEMPLATE_RING]
++check(not bad, 'every tile laid is a template tile, at its shape and its angle: %s'
++      % (bad[:3] or '%d placements over %d rings' % (sum(len(v) for v in laid.values()), len(laid))))
++for ring in ('boxing', 'fencing', 'combat'):
++    tiles = [(t[0], t[1], t[2]) for t in laid.get(ring, [])]
++    check(len(tiles) == 36 and len(set(tiles)) == 36,
++          '%s covers 36 tiles, each once: %d' % (ring, len(tiles)))
++check(len(laid.get('beam', [])) == 3, 'the balance beam is three tiles: %d' % len(laid.get('beam', [])))
++check(len({t[1] for t in laid.get('beam', [])}) == 1,
++      'and they are in one row, which is what a beam is')
++
++# the rotation is the engine's, not something close to it (GameMap.rotateZoneX/Z + newAngle)
++for want in ('case 1 : return(movecoord($base, $z, 0, calc(7 - $x)));',
++             'case 2 : return(movecoord($base, calc(7 - $x), 0, calc(7 - $z)));',
++             'case 3 : return(movecoord($base, calc(7 - $z), 0, $x));'):
++    check(want in CR, 'the zone rotation matches the engine: %s' % want.split(':')[0].strip())
++check('return(modulo(calc($angle + $rot), 4));' in CR, 'and so does the angle')
++
++# the anchor has to be a tile nothing else can ever occupy, or the ring and a chair fight over a slot
++anchored = [f for f in _spec['families'] if f.get('anchor')]
++check([f['key'] for f in anchored] == ['combat_ring'], 'the combat ring is the only anchored family')
++check(anchored and anchored[0]['anchor'] == [0, 0], 'and it anchors at the room\'s own (0,0)')
++check(not [t for t in TEMPLATE_RING if (t[0], t[1]) == (0, 0)],
++      'nothing in the Combat room template stands on (0,0)')
++check('~poh_furn_at($rx, $rz, 0, 0)' in CR,
++      'removal looks the slot up at the anchor, not under the tile that was clicked')
++
++# every loc the ring can put down can be taken out again, and by the ring's own remover
++RINGLOCS = sorted({t[4] for v in laid.values() for t in v})
++rm = set(re.findall(r'^\[oploc5,(\w+)\] ~poh_combat_ring_remove;', CR, re.M))
++rm |= set(re.findall(r'^\[oploc5,(\w+)\]\s*\n~poh_combat_ring_remove;', fu, re.M))
++check(sorted(rm) == RINGLOCS, 'all %d ring locs are wired to ~poh_combat_ring_remove: %s'
++      % (len(RINGLOCS), sorted(set(RINGLOCS) ^ rm) or 'every one'))
++check(not (set(re.findall(r'^\[oploc5,(\w+)\] ~poh_combat_ring_remove;', CR, re.M))
++           & set(re.findall(r'^\[oploc5,(\w+)\]\s*\n~poh_combat_ring_remove;', fu, re.M))),
++      'and no loc is wired in both files - a trigger declared twice does not compile')
++
++# the sixteen hotspots are the VISIBLE ones. Three of the nineteen are zero-length models: they
++# render nothing and cannot be clicked, so wiring them would be wiring a click that cannot happen.
++_fam = next(f for f in _spec['families'] if f['key'] == 'combat_ring')
++check(len(_fam['hotspots']) == 16, 'the family takes the 16 visible hotspots: %d' % len(_fam['hotspots']))
++_empty = 0
++for _n, _d in TEMPL2.items():
++    if (_d.get('name') or [''])[0] != 'Combat ring space':
++        continue
++    _m = (_d.get('model') or [''])[0].split(',')[0]
++    _sz = [os.path.getsize(os.path.join(C, 'models/loc', _f)) for _f in os.listdir(os.path.join(C, 'models/loc'))
++           if _f.startswith(_m + '_') and _f.endswith('.ob2')]
++    if _sz and max(_sz) <= 32:
++        _empty += 1
++        check(LOCS[_n] not in _fam['hotspots'],
++              '%s has an empty model and is not wired as a hotspot' % _n)
++check(_empty == 3, 'three of the nineteen are empty models - beam and pedestal tiles: %d' % _empty)
++
++# the cloth exists, is sold, and is what the rings are actually built out of
++check('bolt_of_cloth' in {l.split('=', 1)[1] for l in read('pack/obj.pack').split('\n') if '=' in l},
++      'bolt_of_cloth is in obj.pack')
++check('~sawmill_sell(bolt_of_cloth, ^sawmill_cost_cloth);' in read('scripts/skill_construction/scripts/sawmill.rs2'),
++      'and the sawmill operator sells it')
++_mats = {p['loc']: p['mats'] for p in _fam['pieces']}
++check(sum(1 for m in _mats.values() if any(x[0] == 'bolt_of_cloth' for x in m)) == 3,
++      'three of the four ring types are built out of it')
++
++# and the honest ops, which are the point of not leaving them dead
++for _p in ('poh_ring_climb', 'poh_ring_beam_stand', 'poh_ring_beam_down'):
++    check('[proc,%s]' % _p in CB, '%s is answered' % _p)
++_stand = CB.split('[proc,poh_ring_beam_stand]', 1)[1].split('\n[', 1)[0]
++check('p_walk(loc_coord)' in _stand and _stand.index('p_walk') < _stand.index('anim('),
++      'standing on the beam walks onto it before the pose plays, as the chairs do')
++
+ print()
+ print('ALL PASS' if fails == 0 else '%d FAILED' % fails)
+ sys.exit(1 if fails else 0)
+diff --git a/tools/poh_mutate.py b/tools/poh_mutate.py
+index 3998827d..e4d5c93f 100644
+--- a/tools/poh_mutate.py
++++ b/tools/poh_mutate.py
+@@ -410,6 +410,50 @@ if (inv_total(inv, coins) < $cost) {
+   'case 289 : ~poh_portal_place($spot, $angle, 1);',
+   'case 289 : loc_add($spot, poh_portal_teak_empty, $angle, centrepiece_straight, ^poh_loc_duration);',
+   '29 a placed piece is removable / 58 Enter and Remove'),
++
++ # --- 59, the combat ring ---
++ # a rope one square out of the ring
++ ('scripts/skill_construction/scripts/poh_combat_ring.rs2',
++  '~poh_ring_wall($base, $rot, 2, 1, 1, poh_boxing_ringwall_white);',
++  '~poh_ring_wall($base, $rot, 2, 0, 1, poh_boxing_ringwall_white);',
++  '59 every tile laid is a template tile'),
++ # a mat laid on the wall layer, which leaves the hotspot standing in the same tile
++ ('scripts/skill_construction/scripts/poh_combat_ring.rs2',
++  '~poh_ring_mat($base, $rot, 2, 2, 0, poh_boxing_ring_mat_corner);',
++  '~poh_ring_wall($base, $rot, 2, 2, 0, poh_boxing_ring_mat_corner);',
++  '59 at its shape and its angle'),
++ # a tile dropped, so the ring has a hole in it
++ ('scripts/skill_construction/scripts/poh_combat_ring.rs2',
++  '~poh_ring_mat($base, $rot, 3, 3, 0, poh_combat_mat_middle);' + chr(10), '',
++  '59 combat covers 36 tiles'),
++ # the zone rotation drifting off the engine's, so a turned room lays its ring sideways
++ ('scripts/skill_construction/scripts/poh_combat_ring.rs2',
++  'case 1 : return(movecoord($base, $z, 0, calc(7 - $x)));',
++  'case 1 : return(movecoord($base, calc(7 - $x), 0, $z));',
++  '59 the zone rotation matches the engine'),
++ # the angle no longer turning with the room
++ ('scripts/skill_construction/scripts/poh_combat_ring.rs2',
++  'return(modulo(calc($angle + $rot), 4));', 'return($angle);', '59 and so does the angle'),
++ # removal looking under the clicked tile, which is never where the ring is stored
++ ('scripts/skill_construction/scripts/poh_combat_ring.rs2',
++  '~poh_furn_at($rx, $rz, 0, 0)', '~poh_furn_at($rx, $rz, 1, 1)',
++  '59 removal looks the slot up at the anchor'),
++ # a ring loc nobody can take out again
++ ('scripts/skill_construction/scripts/poh_combat_ring.rs2',
++  '[oploc5,poh_boxing_ring_mat_side] ~poh_combat_ring_remove;' + chr(10), '',
++  '59 all ring locs are wired'),
++ # wiring an empty-model hotspot, which is a click that cannot happen
++ ('tools/furnspec.json', '15098,', '15098,\n   15104,', '59 the family takes the 16 visible hotspots'),
++ # the anchor moved onto a tile the ring itself stands on
++ ('tools/furnspec.json', '"anchor": [\n    0,\n    0\n   ],', '"anchor": [\n    1,\n    1\n   ],',
++  '59 nothing in the Combat room template stands on (0,0)'),
++ # cloth that cannot be bought, so three of the four rings are unbuildable
++ ('scripts/skill_construction/scripts/sawmill.rs2',
++  '~sawmill_sell(bolt_of_cloth, ^sawmill_cost_cloth);', '~sawmill_sell(saw, ^sawmill_cost_cloth);',
++  '59 the sawmill operator sells it'),
++ # and the anchor path removed from the click, which loses the ring the moment it is stored
++ ('tools/genfurn.py', "'if ($ax >= 0) {',", "'if ($ax >= 99) {',",
++  '29 an anchor overrides the clicked tile'),
+ ]
+ 
+ def checker_for(why):
+-- 
+2.43.0
+

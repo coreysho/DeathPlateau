@@ -63,7 +63,25 @@ def decode(b):
         elif op == 41:
             for _ in range(r.g1()): o['retex'].append((r.g2(), r.g2()))
         elif op == 42: o['shiftclickdrop'] = r.g1s()   # single byte, not a counted list
-        elif op == 43: o['op43'] = r.g1s()
+        elif op == 43:
+            # A SUB-OPTION MENU hung off one of the item's own options: the Amulet of glory's four
+            # Rub destinations, the Max cape's teleport list, a jewellery charge menu. The layout is
+            # a parent byte (which op the menu belongs to - an index into ops/iops), then (index,
+            # name) pairs ending in a zero index.
+            #
+            # Read as a one-byte flag - which it was - this DESYNCS the rest of the record: the
+            # sub-names land in name= and desc=, and the 2d camera comes out of whatever follows.
+            # That is how "Max cape" imported as "Fishing Guild" with a 2dzoom of 18017. 122 of the
+            # 34,603 items in the OSRS cache carry one and every one of them is a teleport or charge
+            # menu; 474 never emits op 43, so one decoder still serves both caches.
+            parent = r.g1()
+            subs = {}
+            while True:
+                i = r.g1()
+                if i == 0:
+                    break
+                subs[i] = r.gstr()
+            o['subops'] = {'parent': parent, 'names': subs}
         # Modern OSRS moved every model id to a 4-byte opcode in the 44-54 block; ids
         # outgrew 65535 and ops 1/23/24/25/26/78/79/90-93 no longer appear at all.
         elif op == 44: o['model'] = r.g4()
