@@ -14,6 +14,10 @@ Proven rather than assumed: decode the sprite each record points at (index 8), a
 non-transparent pixels, convert the record's HSL16 back to RGB and compare. Median distance
 across all 214 textures is 6 out of 255, against 92 for random pairs of textures.
 
+That check passes whether or not the records are keyed correctly, because it compares each
+record against ITS OWN sprite - which is why it never caught the off-by-one this function
+used to have. See read_records.
+
     python3 tools/models/gentexhsl.py "<osrs cache>" > tools/models/osrstexhsl.py
 """
 import sys, os, struct, datetime
@@ -47,11 +51,20 @@ def read_records(st):
         raise SystemExit('texture file sizes do not account for the group')
     if set(sizes) != {RECORD}:
         raise SystemExit(f'expected {RECORD}-byte texture records, got sizes {sorted(set(sizes))}')
-    off = 0; out = []
-    for s in sizes:
+    # KEYED BY FILE ID, NOT BY POSITION, which is the whole point of this rewrite: the index has
+    # 214 files whose ids run 0 to 214 with id 54 MISSING, so a list indexed by position is off by
+    # one from 55 up. That is how texture 59 - the Infernal cape's molten crust - was read as
+    # texture 60's jungle leaves, and why the cape shipped with an olive-green stripe down it. The
+    # 31 textures 377 shares are all id <= 49, below the gap, which is the only reason nothing
+    # else in this fork was affected.
+    ids = st.reftable(TEXTURE_INDEX).file_ids[0]
+    if len(ids) != n:
+        raise SystemExit('texture index file count does not match its reference table')
+    off = 0; out = {}
+    for fid, s in zip(ids, sizes):
         r = d[off:off + s]; off += s
-        out.append(dict(sprite=int.from_bytes(r[0:2], 'big'), hsl=(r[2] << 8) | r[3],
-                        transparent=r[4], anim_dir=r[5], anim_speed=r[6]))
+        out[fid] = dict(sprite=int.from_bytes(r[0:2], 'big'), hsl=(r[2] << 8) | r[3],
+                        transparent=r[4], anim_dir=r[5], anim_speed=r[6])
     return out
 
 
@@ -69,8 +82,11 @@ def main():
     w('painted with the average colour of the texture it should have carried, instead of one\n')
     w('global stand-in for every texture in the game.\n"""\n\n')
     w('TEXTURE_HSL = {\n')
-    for i, r in enumerate(recs):
-        w(f'    {i}: {r["hsl"]},'.ljust(20) + f'  # sprite {r["sprite"]}\n')
+    for i in sorted(recs):
+        r = recs[i]
+        w(f'    {i}: {r["hsl"]},'.ljust(20) + f'  # sprite {r["sprite"]}'
+          + (f', animated dir {r["anim_dir"]} speed {r["anim_speed"]}' if r['anim_speed'] else '')
+          + '\n')
     w('}\n')
 
 

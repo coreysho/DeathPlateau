@@ -23,6 +23,7 @@ TEXTURED_HSL = 6070           # last-resort colour, for a texture not even in TE
 # gentexhsl.py, straight out of the cache) gives each texture's own average colour, so such a
 # face gets the colour of the texture it should have carried. Before this, every one of them in
 # the game got TEXTURED_HSL - a mid orange-brown, which painted evergreen foliage bright orange.
+# A texture this fork has IMPORTED is kept too - see LOCAL_TEXTURES below.
 MAX_TEX_TRIANGLES = 255       # .ob2 trailer stores the texture triangle count as a g1
 
 # OSRS texture ids whose image is pixel-identical to the 377 texture with the SAME id
@@ -32,6 +33,20 @@ MAX_TEX_TRIANGLES = 255       # .ob2 trailer stores the texture triangle count a
 # 377 client's updateTextures() does for 40, so the flow matches too.
 SHARED_TEXTURES = frozenset({0, 2, 3, 4, 5, 6, 11, 13, 14, 15, 16, 18, 20, 22, 23, 24, 25, 27,
                              31, 32, 35, 36, 37, 38, 39, 40, 44, 46, 47, 48, 49})
+
+# OSRS textures IMPORTED into this fork, and the local id each one was given. These are kept the
+# same way the shared ones are, with the id rewritten on the way out, so a model that names one
+# keeps its texture instead of being painted flat.
+#
+# Adding one is three steps and they must go together: the image into content/textures/<name>.png
+# and a line in content/pack/texture.pack; the id here; and Pix3D.TEXTURE_COUNT in the Java client
+# high enough to hold it. A model naming a texture the client has no slot for is what the client's
+# getTexels() guard exists to survive, and it draws flat - so a missed client build shows up as a
+# grey face rather than a crash.
+#
+#   50  OSRS 59, sprite 318: black crust with molten cracks, animated dir 1 speed 1. The Infernal
+#       cape's own, and used by nothing else in the OSRS item list.
+LOCAL_TEXTURES = {59: 50}
 
 
 # ------------------------------------------------------------------ decode
@@ -143,14 +158,15 @@ def decode(b, textures=SHARED_TEXTURES):
             a = alpha[i] if alpha is not None else 0
             k = tex_coord[i]
             tri = (fa[i], fb[i], fcc[i]) if k == -1 else (tris[k] if k < len(tris) else None)
-            keep = (tex_id[i] in textures and tri is not None and t in (0, 1)
-                    and a not in (254, 255))
+            local = LOCAL_TEXTURES.get(tex_id[i])
+            keep = ((tex_id[i] in textures or local is not None) and tri is not None
+                    and t in (0, 1) and a not in (254, 255))
             if keep:
                 key = ('face', i) if k == -1 else ('tri', k)
                 if key not in tri_map:
                     tri_map[key] = len(out_tris); out_tris.append(tri)
                 if len(out_tris) <= MAX_TEX_TRIANGLES:
-                    colours[i] = tex_id[i]
+                    colours[i] = local if local is not None else tex_id[i]
                     finfo[i] = 2 | t | (tri_map[key] << 2)
                     continue
                 out_tris.pop(); del tri_map[key]

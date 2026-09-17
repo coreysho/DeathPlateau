@@ -1,0 +1,8 @@
+# The OSRS dark beast, and the two superiors whose base monsters exist in this build.
+# The dark beast's own 377 animations are a different, cruder set (1/5/8/9/9 frames against OSRS's
+# 16/16/16/17/38) with names shifted by one, so its five come from OSRS with the models.
+4005 mourning_dark_beast ready=osrs:2730 walk=osrs:2729 attack=osrs:2731 defend=osrs:2732 death=osrs:2733
+7409 superior_night_beast ready=osrs:2730 walk=osrs:2729 attack=osrs:2731 defend=osrs:2732 death=osrs:2733
+# The choke devil borrows the dust devil's 377 seqs, which ARE the OSRS ones: all five match
+# frame-for-frame on count, priority and final delay (8/10/12/6/6, priority 6 and 10, 20000 hold).
+7404 superior_choke_devil ready=dustdevil_ready walk=dustdevil_walk attack=dustdevil_attack defend=dustdevil_defend death=dustdevil_death

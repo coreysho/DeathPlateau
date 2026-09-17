@@ -15,3 +15,4 @@
 7407 superior_marble_gargoyle ready=gargoyle_ready walk=gargoyle_fly  # slayer_gargoyle
 7411 superior_nechryarch ready=demons_ready walk=demons_walk  # slayer_nechryael
 7410 superior_greater_abyssal ready=abyssal_ready walk=abyssal_walk  # slayer_abyssal
+7401 superior_cave_abomination ready=cave_horror_ready walk=cave_horror_walk attack=cave_horror_attack defend=cave_horror_defend death=cave_horror_death  # cave_horror

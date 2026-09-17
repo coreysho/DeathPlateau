@@ -66,7 +66,8 @@ def main():
     recs = read_records(st)
     print(f'{len(recs)} OSRS textures vs {len(ims)} local 377 textures')
     matches = 0
-    for t, rec in enumerate(recs):
+    for t in sorted(recs):
+        rec = recs[t]
         if want and t not in want:
             continue
         im = osrs_image(st, rec['sprite'])
