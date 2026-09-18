@@ -1,0 +1,334 @@
+From bbcc15c84055333bff1f6a1fda3b4c36dd2738d2 Mon Sep 17 00:00:00 2001
+From: Corey <coreysho@gmail.com>
+Date: Fri, 18 Sep 2026 02:55:02 +0000
+Subject: [PATCH] An inv update sends what is in the inv, not the whole grid
+
+THE CEILING THE BANK WAS UNDER. UpdateInvFullEncoder put every slot of the
+component on the wire whether or not anything was in it, and one server
+message is encoded into a single fixed ClientSocket.out buffer whose writes go
+through DataView - which THROWS past the end rather than wrapping. At up to 7
+bytes a slot (the id, the 255 marker, a 4-byte count) a 5000-byte buffer held
+713 slots. So how big the bank could be was not a content decision at all: it
+was decided by a buffer in the network layer, and the cap was invisible until
+a full bank crashed the writer.
+
+Two changes, and the first was the encoder's own todo:
+
+  - the transmitted size is now one past the last OCCUPIED slot. This is safe
+    because the client's UPDATE_INV_FULL handler already zeroes every slot
+    past the size it was given, so a short transmit clears the tail instead of
+    leaving stale icons behind. A placeholder is an Item with count 0, not a
+    null, so it still counts as occupied and its id still reaches the client.
+    An empty 1410-slot bank went from 4234 bytes to 4; a 200-item one costs
+    604.
+
+  - ClientSocket.out is alloc(2) = 30000 bytes, for the case that is genuinely
+    full: 1410 slots of stacks over 255 is 9877 bytes. The client's inbound
+    buffer was raised to match in the companion commit there - one end alone
+    would have been worse than neither.
+
+test() counted three header bytes where encode() writes four. Nothing calls
+test() on this encoder today, but a one-byte-short answer is what bites
+whoever wires it up later.
+
+AND A SEPARATE BUG FOUND ON THE WAY. INV_MOVEITEM_UNCERT dropped the return of
+invAdd, so anything the destination could not fit simply stopped existing -
+invDel had already taken it out of the source. INV_MOVEITEM and
+INV_MOVEITEM_CERT both drop their overflow at the player's feet; this now does
+the same rather than inventing a third answer. The bank's own deposit computes
+its overflow beforehand and so never hit it, but the leprechaun's store is a
+new caller and silent destruction is not a thing to leave armed.
+
+tools/invfullcheck.ts runs the real encoder against the real packed configs:
+the grid has a cell for every bank slot plus the tab padding, an empty bank
+transmits nothing, a gap in the middle is still transmitted, a placeholder
+counts as occupied, the worst case fits, and test() predicts what encode()
+writes. Reverting either change makes it go red.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01WTo3qFuhgbaA3yymZcTW7m
+---
+ src/engine/script/handlers/InvOps.ts          |  21 ++-
+ .../game/server/codec/UpdateInvFullEncoder.ts |  45 +++++-
+ src/server/ClientSocket.ts                    |   7 +-
+ tools/invfullcheck.ts                         | 148 ++++++++++++++++++
+ 4 files changed, 209 insertions(+), 12 deletions(-)
+ create mode 100644 tools/invfullcheck.ts
+
+diff --git a/src/engine/script/handlers/InvOps.ts b/src/engine/script/handlers/InvOps.ts
+index 0059a12..21d24c9 100644
+--- a/src/engine/script/handlers/InvOps.ts
++++ b/src/engine/script/handlers/InvOps.ts
+@@ -604,10 +604,23 @@ const InvOps: CommandHandlers = {
+             return;
+         }
+ 
+-        if (objType.certtemplate >= 0 && objType.certlink >= 0) {
+-            player.invAdd(toInvType.id, objType.certlink, completed);
+-        } else {
+-            player.invAdd(toInvType.id, objType.id, completed);
++        // The obj to actually put in: a note unpacks to what it is a note for.
++        const finalObj = objType.certtemplate >= 0 && objType.certlink >= 0 ? objType.certlink : objType.id;
++
++        // invDel has ALREADY taken them out of the source, so anything invAdd cannot fit has to go
++        // somewhere. It used to go nowhere: the return of invAdd was dropped and the difference
++        // simply stopped existing. INV_MOVEITEM and INV_MOVEITEM_CERT both drop their overflow at
++        // the player's feet, so this does the same rather than inventing a third answer.
++        const overflow = count - player.invAdd(toInvType.id, finalObj, completed);
++        if (overflow > 0) {
++            const finalType = ObjType.get(finalObj);
++            if (!finalType.stackable || overflow === 1) {
++                for (let i = 0; i < overflow; i++) {
++                    World.addObj(new Obj(player.level, player.x, player.z, EntityLifeCycle.DESPAWN, finalObj, 1), player.hash64, 200);
++                }
++            } else {
++                World.addObj(new Obj(player.level, player.x, player.z, EntityLifeCycle.DESPAWN, finalObj, overflow), player.hash64, 200);
++            }
+         }
+     },
+ 
+diff --git a/src/network/game/server/codec/UpdateInvFullEncoder.ts b/src/network/game/server/codec/UpdateInvFullEncoder.ts
+index f23b03d..c4af783 100644
+--- a/src/network/game/server/codec/UpdateInvFullEncoder.ts
++++ b/src/network/game/server/codec/UpdateInvFullEncoder.ts
+@@ -7,13 +7,41 @@ import UpdateInvFull from '#/network/game/server/model/UpdateInvFull.js';
+ export default class UpdateInvFullEncoder extends ServerGameMessageEncoder<UpdateInvFull> {
+     prot = ServerGameProt.UPDATE_INV_FULL;
+ 
+-    encode(buf: Packet, message: UpdateInvFull): void {
++    // The number of slots to actually put on the wire: one past the last slot that holds
++    // something, rather than the whole component every time.
++    //
++    // This is safe because the client's UPDATE_INV_FULL handler already zeroes the rest -
++    // "for (var112 = var109; var112 < var108.invSlotObjId.length; var112++) invSlotObjId[var112] = 0"
++    // - so a short transmit clears the tail instead of leaving stale icons behind. A slot the
++    // engine holds as a placeholder is an Item with count 0, not a null, so it counts as
++    // occupied and its id still reaches the client.
++    //
++    // It matters because of the buffer this is written into. ClientSocket.out is one fixed Packet
++    // and Packet.p1 goes through DataView.setUint8, which THROWS past the end rather than
++    // wrapping, so an inv that encodes larger than the buffer is a hard error in the writer.
++    // At up to 7 bytes a slot (id, the 255 marker, a 4-byte count) a 5000-byte buffer held 713
++    // slots, which is why the bank could not simply be made bigger. Trimming makes the cost of
++    // opening a bank proportional to what is in it - an empty 1410-slot bank went from 4234
++    // bytes to 4 - and the buffer was raised to 30000 for the case that is genuinely full.
++    private static size(message: UpdateInvFull): number {
+         const { component, inv } = message;
+ 
+         const comType = Component.get(component);
+-        const size = Math.min(inv.capacity, comType.width * comType.height);
++        const capacity = Math.min(inv.capacity, comType.width * comType.height);
++
++        for (let slot = capacity - 1; slot >= 0; slot--) {
++            if (inv.get(slot)) {
++                return slot + 1;
++            }
++        }
++        return 0;
++    }
++
++    encode(buf: Packet, message: UpdateInvFull): void {
++        const { component, inv } = message;
++
++        const size = UpdateInvFullEncoder.size(message);
+ 
+-        // todo: size should be the index of the last non-empty slot
+         buf.p2(component);
+         buf.p2(size);
+         for (let slot = 0; slot < size; slot++) {
+@@ -36,13 +64,16 @@ export default class UpdateInvFullEncoder extends ServerGameMessageEncoder<Updat
+     }
+ 
+     test(message: UpdateInvFull): number {
+-        const { component, inv } = message;
++        const { inv } = message;
+ 
+-        const comType = Component.get(component);
+-        const size = Math.min(inv.capacity, comType.width * comType.height);
++        const size = UpdateInvFullEncoder.size(message);
+ 
++        // 4, not 3: encode() writes p2(component) and p2(size) before the first slot. Nothing
++        // calls test() on this encoder today - it is not on ServerGameMessageEncoder and only
++        // rsbuf's renderer ever sizes a Packet from a test() - but a one-byte-short answer is
++        // exactly the sort of thing that bites whoever wires it up later.
+         let length: number = 0;
+-        length += 3;
++        length += 4;
+         for (let slot = 0; slot < size; slot++) {
+             const obj = inv.get(slot);
+             if (obj) {
+diff --git a/src/server/ClientSocket.ts b/src/server/ClientSocket.ts
+index d47ff3e..bd2a4d2 100644
+--- a/src/server/ClientSocket.ts
++++ b/src/server/ClientSocket.ts
+@@ -17,7 +17,12 @@ export default abstract class ClientSocket {
+     decryptor: Isaac | null = null;
+ 
+     in = Packet.alloc(65535); // node won't let us read from the socket as a stream so we buffer it ourselves
+-    out = Packet.alloc(1);
++    // alloc(2) is 30000 bytes, not alloc(1)'s 5000. One server message is encoded into this
++    // buffer and sent, and Packet's writes go through DataView, which THROWS past the end instead
++    // of wrapping - so the largest single message the server can ever send has to fit. That used
++    // to be an inv update, at up to 7 bytes a slot: 5000 bytes held 713 slots and the 1410-slot
++    // bank needs 9873 in the worst case. The client's inbound buffer was raised to match.
++    out = Packet.alloc(2);
+ 
+     opcode = -1; // current opcode being read
+     waiting = 0; // bytes to wait for (if any)
+diff --git a/tools/invfullcheck.ts b/tools/invfullcheck.ts
+new file mode 100644
+index 0000000..105aa29
+--- /dev/null
++++ b/tools/invfullcheck.ts
+@@ -0,0 +1,148 @@
++/**
++ * UPDATE_INV_FULL says what it means, and the biggest one the server can send still fits.
++ *
++ * WHY THIS EXISTS. The encoder used to put every slot of the component on the wire whether or not
++ * anything was in it, and one server message is encoded into a single fixed ClientSocket.out
++ * buffer whose writes go through DataView - which throws past the end instead of wrapping. So the
++ * size of the bank was not a content decision at all: it was capped by a buffer in the network
++ * layer, and the cap was invisible until a full bank crashed the writer. Both halves of that are
++ * checked here against the real encoder and the real packed configs, not a transcription of them:
++ * the trim, and the worst case fitting.
++ *
++ * It reads the BUILT data, so it has to run after a build, and it needs this repo's node_modules.
++ *
++ *   npx tsx tools/invfullcheck.ts [data/pack]
++ */
++import fs from 'fs';
++
++import Component from '#/cache/config/Component.js';
++import InvType from '#/cache/config/InvType.js';
++import { Inventory } from '#/engine/Inventory.js';
++import Packet from '#/io/Packet.js';
++import UpdateInvFull from '#/network/game/server/model/UpdateInvFull.js';
++import UpdateInvFullEncoder from '#/network/game/server/codec/UpdateInvFullEncoder.js';
++
++const dir = process.argv[2] ?? 'data/pack';
++
++if (!fs.existsSync(`${dir}/client/interface`)) {
++    console.log(`no packed interface data at ${dir}/client/interface - build first, or pass the path`);
++    process.exit(2);
++}
++
++Component.load(dir);
++InvType.load(dir);
++
++if (Component.count === 0 || InvType.count === 0) {
++    console.log(`${dir} decoded to no components or no invs at all`);
++    process.exit(2);
++}
++
++let bad = 0;
++const check = (ok: boolean, what: string) => {
++    console.log((ok ? '  ok   ' : '  FAIL ') + what);
++    if (!ok) {
++        bad++;
++    }
++};
++
++// ---- the buffer this all has to fit in, read from the source rather than written down twice
++const socketSrc = fs.readFileSync('src/server/ClientSocket.ts', 'utf8');
++const allocMatch = /^\s*out = Packet\.alloc\((\d+)\);/m.exec(socketSrc);
++if (!allocMatch) {
++    console.log('cannot find "out = Packet.alloc(N)" in src/server/ClientSocket.ts');
++    process.exit(2);
++}
++const ALLOC_SIZES: Record<string, number> = { '0': 100, '1': 5000, '2': 30000, '3': 100000, '4': 500000, '5': 2000000 };
++const outBytes = ALLOC_SIZES[allocMatch[1]] ?? Number(allocMatch[1]);
++// the opcode, the two-byte length of a -2 packet, and then the payload
++const HEADER = 3;
++
++// ---- the bank: the one inv big enough for any of this to matter
++const bankInv = InvType.getByName('bank');
++const bankCom = Component.getByName('bank_main:bank');
++if (!bankInv || !bankCom) {
++    console.log('no bank inv or no bank_main:bank component in the packed data');
++    process.exit(2);
++}
++
++const comId = Component.getId('bank_main:bank');
++const cells = bankCom.width * bankCom.height;
++const TABS = 8;
++const padding = TABS * (bankCom.width - 1);
++
++console.log(`bank: ${bankInv.size} slots, grid ${bankCom.width}x${bankCom.height} = ${cells} cells, ` +
++    `ClientSocket.out = ${outBytes} bytes`);
++
++check(cells >= bankInv.size + padding,
++    `the grid has a cell for every bank slot plus the worst-case tab padding: ` +
++    `${cells} >= ${bankInv.size} + ${padding}`);
++
++const enc = new UpdateInvFullEncoder();
++
++/** encode for real and give back the payload length */
++const bytes = (inv: Inventory): number => {
++    const buf = new Packet(new Uint8Array(outBytes));
++    enc.encode(buf, new UpdateInvFull(comId, inv));
++    return buf.pos;
++};
++/** the size field the client will read */
++const sizeField = (inv: Inventory): number => {
++    const buf = new Packet(new Uint8Array(outBytes));
++    enc.encode(buf, new UpdateInvFull(comId, inv));
++    return (buf.data[2] << 8) | buf.data[3];
++};
++
++const fresh = () => new Inventory(InvType.getId('bank'), bankInv.size);
++
++// ---- the trim
++const empty = fresh();
++check(sizeField(empty) === 0 && bytes(empty) === 4,
++    `an empty bank transmits no slots at all: size ${sizeField(empty)}, ${bytes(empty)} bytes`);
++
++const one = fresh();
++one.items[0] = { id: 1, count: 1 };
++check(sizeField(one) === 1 && bytes(one) === 4 + 3,
++    `one item in slot 0 transmits one slot: size ${sizeField(one)}, ${bytes(one)} bytes`);
++
++const gap = fresh();
++gap.items[0] = { id: 1, count: 1 };
++gap.items[9] = { id: 2, count: 1 };
++check(sizeField(gap) === 10,
++    `a gap in the middle is still transmitted - the trim only cuts the tail: size ${sizeField(gap)}`);
++
++const last = fresh();
++last.items[bankInv.size - 1] = { id: 1, count: 1 };
++check(sizeField(last) === bankInv.size,
++    `an item in the last slot transmits the whole inv: size ${sizeField(last)} of ${bankInv.size}`);
++
++// a placeholder is an Item with count 0. If the trim treated it as empty, a bank whose tail is all
++// placeholders would come back with them silently gone.
++const ph = fresh();
++ph.items[100] = { id: 42, count: 0 };
++check(sizeField(ph) === 101,
++    `a placeholder (count 0) counts as occupied: size ${sizeField(ph)}`);
++
++// ---- the fit
++const full = fresh();
++for (let i = 0; i < bankInv.size; i++) {
++    // the most expensive slot there is: a stack over 255, which costs the 255 marker and a 4-byte count
++    full.items[i] = { id: 4151, count: 2_000_000_000 };
++}
++const worst = bytes(full) + HEADER;
++check(worst <= outBytes,
++    `the worst case - all ${bankInv.size} slots holding a stack over 255 - fits in the buffer: ` +
++    `${worst} <= ${outBytes} bytes`);
++check(enc.test(new UpdateInvFull(comId, full)) === bytes(full),
++    `test() predicts what encode() writes: ${enc.test(new UpdateInvFull(comId, full))} vs ${bytes(full)}`);
++
++// and the reason the trim earns its keep: the common case is nothing like the worst case
++const typical = fresh();
++for (let i = 0; i < 200; i++) {
++    typical.items[i] = { id: 1000 + i, count: 1 };
++}
++check(bytes(typical) === 4 + 200 * 3,
++    `a 200-item bank costs 200 slots, not ${bankInv.size}: ${bytes(typical)} bytes`);
++
++console.log();
++console.log(bad === 0 ? 'ALL PASS' : `${bad} FAILED`);
++process.exit(bad === 0 ? 0 : 1);
+-- 
+2.43.0
+
