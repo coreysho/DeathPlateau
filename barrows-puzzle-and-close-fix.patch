@@ -1,0 +1,2645 @@
+From ff1a4fc7f9ff0ba0f1b0a3d0d02c9f27d3655e63 Mon Sep 17 00:00:00 2001
+From: Corey <coreysho@gmail.com>
+Date: Fri, 18 Sep 2026 06:15:50 +0000
+Subject: [PATCH] The Barrows puzzle is pictures, and the chest stops crashing
+ on close
+
+TWO THINGS, one of them a class of bug.
+
+THE CRASH. Looting the chest and closing the window threw
+"inv_moveitem $inv requires protected access: barrows_reward_store" and
+disconnected the player. Player.closeModal runs an [if_close] script with
+executeScript(script, FALSE) - the second argument is `protect`, so an
+if_close handler has NO protected access; the client is what asked for the
+close and the server may be in the middle of anything. barrows_reward_store
+and bank are both protect=yes (InvType's default) and INV_MOVEITEM checks
+BOTH ends, so the first move threw.
+
+Player.processQueue runs a queued script with executeScript(script, TRUE), so
+the banking is queued and happens a tick later. The trailing 0 is the unused
+int argument a no-parameter queue takes, as the thieving stalls do it.
+
+No loot was lost: barrows_reward_store is scope=perm and
+~barrows_chest_search flushes the store before the next chest rolls. That
+backstop was written for the disconnect case and caught the one nobody
+expected.
+
+protect=no on the store would not have been enough and would have been worse
+anyway - the other end is the BANK, which is exactly the inv that should
+require protected access.
+
+Every [if_close] in the tree was swept, following ~proc and @label calls.
+Eight reach an inv write; seven are fine because the invs they touch are
+protect=no (tradeoffer, inv, skillguide - trade, duel, party chest, skill
+guide). Barrows was the only one writing a protected inv.
+
+The battery asserted '~barrows_reward_flush;' in the if_close block - it
+checked for exactly the thing that was broken. It now asserts the opposite
+from both sides, plus the queue, plus the flush-before-roll backstop.
+
+THE PUZZLE. Old School's last door asks a sequence puzzle: three symbols and
+a question mark, three candidates, click the one that completes it. This had
+the same puzzle in words, on the stated grounds that sprite art "could be
+added but never rendered or verified" here.
+
+THAT WAS FALSE. The sandbox cannot PACK the media archive (jimp is a stub),
+but sprites live in the repo as loose PNG sheets in sprites/ with a
+meta/<name>.opt for the tile size, packClientMedia just scans sprites/*.png
+with no pack file to register, and tools/ifrender.py reads those PNGs
+directly. A round was deferred on a premise one `ls sprites/` would have
+corrected.
+
+tools/genbarrowspuzzle.py draws 22 tiles with PIL into
+sprites/barrows_puzzle.png - 192x128, 32x32 tiles, two colours - in five
+families: a square filling by quarters, polygons of 3-7 sides, a widening
+ellipse, a growing bar, a shrinking circle. 0xFF00FF is palette index 0, so
+that is the background; the shapes have hard edges because antialiasing would
+spend hundreds of palette slots on near-greys and muddy them in an indexed
+palette anyway.
+
+Drawing rather than importing is what lets the puzzle SET be chosen here too,
+and the generator refuses to run if a puzzle offers its answer twice, has
+duplicate candidates, or if any slot is the answer in fewer than two of the
+eight.
+
+There is no if_setgraphic in this engine - a graphic component's sprite is
+fixed at pack time - so all eight puzzles are built into the interface, one
+LAYER each, and ~barrows_puzzle_show hides the seven not being asked;
+if_sethide only works on layers. That proc is hide-all-then-show-one in two
+straight runs, because nothing can compute a component and `$n ! 0` is not an
+expression in this language - `!` is only a comparison inside an if. rs2check
+accepts it and the server compiler does not.
+
+if_addresumebutton + p_pausebutton suspends the script inside the [oploc1]
+that clicked the door, so it keeps its loc context and its protected access
+and resumes with last_com. Closing the window returns -1 rather than a wrong
+answer, and the gate returns without shifting the tunnels - a misclick on
+Close must not re-lay the maze.
+
+Verification: clean build; rs2check 1703 scripts / 493 configs, 0 ERROR
+0 CHECK; barrows_battery.py 979 checks (917 before); barrows_mutate.py 237
+mutations, every one caught by its own check; every other battery and sim
+still green.
+
+Four faults found while verifying, all worth the record:
+  - a comment added to barrows_chest.rs2 mentioned ~barrows_chest_search by
+    name, and an existing raw-text check found the comment instead of the
+    call - green with the call deleted. Every source grep in that battery now
+    goes through nocomment(). Same fault as the four slices that swallowed
+    the next block's comments, from the other direction.
+  - .index() on a string a mutation removes RAISES, which the harness reports
+    as a non-zero exit with no check named. A crash is not a catch, for the
+    tenth time in this project; it is .find() now.
+  - a candidate component was checked for its graphic= value, so a mutation
+    that made it a type=rect left that line sitting there unread.
+  - the spec's own `slot` field was read by nothing at all: every other check
+    used the derived candidate list, so moving it changed nothing observable.
+    There are now three statements of where the answer is and all three must
+    agree.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01WTo3qFuhgbaA3yymZcTW7m
+---
+ pack/interface.order                          |  134 ++
+ pack/interface.pack                           |  134 ++
+ .../area_barrows/configs/barrows_puzzle.enum  |   16 +
+ .../area_barrows/interfaces/barrows_puzzle.if | 1139 +++++++++++++++++
+ .../area_barrows/scripts/barrows_chest.rs2    |   17 +
+ .../area_barrows/scripts/barrows_puzzle.rs2   |  121 +-
+ sprites/barrows_puzzle.png                    |  Bin 0 -> 1376 bytes
+ sprites/meta/barrows_puzzle.opt               |    1 +
+ tools/barrows_battery.py                      |  179 ++-
+ tools/barrows_mutate.py                       |   71 +-
+ tools/barrowspuzzlespec.json                  |  184 +++
+ tools/genbarrowspuzzle.py                     |  339 +++++
+ 12 files changed, 2255 insertions(+), 80 deletions(-)
+ create mode 100644 scripts/areas/area_barrows/configs/barrows_puzzle.enum
+ create mode 100644 scripts/areas/area_barrows/interfaces/barrows_puzzle.if
+ create mode 100644 sprites/barrows_puzzle.png
+ create mode 100644 sprites/meta/barrows_puzzle.opt
+ create mode 100644 tools/barrowspuzzlespec.json
+ create mode 100644 tools/genbarrowspuzzle.py
+
+diff --git a/pack/interface.order b/pack/interface.order
+index f4a40422..25c5229a 100644
+--- a/pack/interface.order
++++ b/pack/interface.order
+@@ -20085,3 +20085,137 @@
+ 20351
+ 20352
+ 20353
++20354
++20355
++20356
++20357
++20358
++20359
++20360
++20361
++20362
++20363
++20364
++20365
++20366
++20367
++20368
++20369
++20370
++20371
++20372
++20373
++20374
++20375
++20376
++20377
++20378
++20379
++20380
++20381
++20382
++20383
++20384
++20385
++20386
++20387
++20388
++20389
++20390
++20391
++20392
++20393
++20394
++20395
++20396
++20397
++20398
++20399
++20400
++20401
++20402
++20403
++20404
++20405
++20406
++20407
++20408
++20409
++20410
++20411
++20412
++20413
++20414
++20415
++20416
++20417
++20418
++20419
++20420
++20421
++20422
++20423
++20424
++20425
++20426
++20427
++20428
++20429
++20430
++20431
++20432
++20433
++20434
++20435
++20436
++20437
++20438
++20439
++20440
++20441
++20442
++20443
++20444
++20445
++20446
++20447
++20448
++20449
++20450
++20451
++20452
++20453
++20454
++20455
++20456
++20457
++20458
++20459
++20460
++20461
++20462
++20463
++20464
++20465
++20466
++20467
++20468
++20469
++20470
++20471
++20472
++20473
++20474
++20475
++20476
++20477
++20478
++20479
++20480
++20481
++20482
++20483
++20484
++20485
++20486
++20487
+diff --git a/pack/interface.pack b/pack/interface.pack
+index 5ee4ee9d..66b96c74 100644
+--- a/pack/interface.pack
++++ b/pack/interface.pack
+@@ -20085,3 +20085,137 @@
+ 20351=leprechaun_window:store
+ 20352=leprechaun_window:depositall
+ 20353=leprechaun_window:hint
++20354=barrows_puzzle
++20355=barrows_puzzle:frame0
++20356=barrows_puzzle:frame1
++20357=barrows_puzzle:frame2
++20358=barrows_puzzle:frame3
++20359=barrows_puzzle:frame4
++20360=barrows_puzzle:frame5
++20361=barrows_puzzle:frame6
++20362=barrows_puzzle:frame7
++20363=barrows_puzzle:frame8
++20364=barrows_puzzle:frame9
++20365=barrows_puzzle:frame10
++20366=barrows_puzzle:frame11
++20367=barrows_puzzle:frame12
++20368=barrows_puzzle:frame13
++20369=barrows_puzzle:frame14
++20370=barrows_puzzle:frame15
++20371=barrows_puzzle:frame16
++20372=barrows_puzzle:frame17
++20373=barrows_puzzle:frame18
++20374=barrows_puzzle:frame19
++20375=barrows_puzzle:frame20
++20376=barrows_puzzle:frame21
++20377=barrows_puzzle:frame22
++20378=barrows_puzzle:frame23
++20379=barrows_puzzle:corner0
++20380=barrows_puzzle:corner1
++20381=barrows_puzzle:corner2
++20382=barrows_puzzle:corner3
++20383=barrows_puzzle:top0
++20384=barrows_puzzle:bottom0
++20385=barrows_puzzle:top1
++20386=barrows_puzzle:bottom1
++20387=barrows_puzzle:top2
++20388=barrows_puzzle:bottom2
++20389=barrows_puzzle:top3
++20390=barrows_puzzle:bottom3
++20391=barrows_puzzle:top4
++20392=barrows_puzzle:bottom4
++20393=barrows_puzzle:top5
++20394=barrows_puzzle:bottom5
++20395=barrows_puzzle:top6
++20396=barrows_puzzle:bottom6
++20397=barrows_puzzle:top7
++20398=barrows_puzzle:bottom7
++20399=barrows_puzzle:top8
++20400=barrows_puzzle:bottom8
++20401=barrows_puzzle:top9
++20402=barrows_puzzle:bottom9
++20403=barrows_puzzle:top10
++20404=barrows_puzzle:bottom10
++20405=barrows_puzzle:top11
++20406=barrows_puzzle:bottom11
++20407=barrows_puzzle:top12
++20408=barrows_puzzle:bottom12
++20409=barrows_puzzle:left0
++20410=barrows_puzzle:right0
++20411=barrows_puzzle:left1
++20412=barrows_puzzle:right1
++20413=barrows_puzzle:left2
++20414=barrows_puzzle:right2
++20415=barrows_puzzle:left3
++20416=barrows_puzzle:right3
++20417=barrows_puzzle:left4
++20418=barrows_puzzle:right4
++20419=barrows_puzzle:left5
++20420=barrows_puzzle:right5
++20421=barrows_puzzle:title
++20422=barrows_puzzle:hint
++20423=barrows_puzzle:close
++20424=barrows_puzzle:qmark
++20425=barrows_puzzle:rule
++20426=barrows_puzzle:box0
++20427=barrows_puzzle:box1
++20428=barrows_puzzle:box2
++20429=barrows_puzzle:set0
++20430=barrows_puzzle:set0seq0
++20431=barrows_puzzle:set0seq1
++20432=barrows_puzzle:set0seq2
++20433=barrows_puzzle:set0pick0
++20434=barrows_puzzle:set0pick1
++20435=barrows_puzzle:set0pick2
++20436=barrows_puzzle:set1
++20437=barrows_puzzle:set1seq0
++20438=barrows_puzzle:set1seq1
++20439=barrows_puzzle:set1seq2
++20440=barrows_puzzle:set1pick0
++20441=barrows_puzzle:set1pick1
++20442=barrows_puzzle:set1pick2
++20443=barrows_puzzle:set2
++20444=barrows_puzzle:set2seq0
++20445=barrows_puzzle:set2seq1
++20446=barrows_puzzle:set2seq2
++20447=barrows_puzzle:set2pick0
++20448=barrows_puzzle:set2pick1
++20449=barrows_puzzle:set2pick2
++20450=barrows_puzzle:set3
++20451=barrows_puzzle:set3seq0
++20452=barrows_puzzle:set3seq1
++20453=barrows_puzzle:set3seq2
++20454=barrows_puzzle:set3pick0
++20455=barrows_puzzle:set3pick1
++20456=barrows_puzzle:set3pick2
++20457=barrows_puzzle:set4
++20458=barrows_puzzle:set4seq0
++20459=barrows_puzzle:set4seq1
++20460=barrows_puzzle:set4seq2
++20461=barrows_puzzle:set4pick0
++20462=barrows_puzzle:set4pick1
++20463=barrows_puzzle:set4pick2
++20464=barrows_puzzle:set5
++20465=barrows_puzzle:set5seq0
++20466=barrows_puzzle:set5seq1
++20467=barrows_puzzle:set5seq2
++20468=barrows_puzzle:set5pick0
++20469=barrows_puzzle:set5pick1
++20470=barrows_puzzle:set5pick2
++20471=barrows_puzzle:set6
++20472=barrows_puzzle:set6seq0
++20473=barrows_puzzle:set6seq1
++20474=barrows_puzzle:set6seq2
++20475=barrows_puzzle:set6pick0
++20476=barrows_puzzle:set6pick1
++20477=barrows_puzzle:set6pick2
++20478=barrows_puzzle:set7
++20479=barrows_puzzle:set7seq0
++20480=barrows_puzzle:set7seq1
++20481=barrows_puzzle:set7seq2
++20482=barrows_puzzle:set7pick0
++20483=barrows_puzzle:set7pick1
++20484=barrows_puzzle:set7pick2
++20485=barrows_puzzle:pick0
++20486=barrows_puzzle:pick1
++20487=barrows_puzzle:pick2
+diff --git a/scripts/areas/area_barrows/configs/barrows_puzzle.enum b/scripts/areas/area_barrows/configs/barrows_puzzle.enum
+new file mode 100644
+index 00000000..817d2b38
+--- /dev/null
++++ b/scripts/areas/area_barrows/configs/barrows_puzzle.enum
+@@ -0,0 +1,16 @@
++// GENERATED by tools/genbarrowspuzzle.py - do not hand edit.
++// Which of the three candidate slots is the right answer, per puzzle. The shapes
++// themselves are in the interface; this is the only part the scripts need.
++
++[barrows_puzzle_answer]
++inputtype=int
++outputtype=int
++default=-1
++val=0,0
++val=1,1
++val=2,2
++val=3,1
++val=4,0
++val=5,2
++val=6,0
++val=7,1
+diff --git a/scripts/areas/area_barrows/interfaces/barrows_puzzle.if b/scripts/areas/area_barrows/interfaces/barrows_puzzle.if
+new file mode 100644
+index 00000000..e6716a8d
+--- /dev/null
++++ b/scripts/areas/area_barrows/interfaces/barrows_puzzle.if
+@@ -0,0 +1,1139 @@
++// GENERATED by tools/genbarrowspuzzle.py - do not hand edit.
++// Scripts: areas/area_barrows/scripts/barrows_puzzle.rs2. Art: sprites/barrows_puzzle.png.
++// One layer per puzzle; ~barrows_puzzle_show hides the seven that are not being asked.
++[frame0]
++type=graphic
++x=12
++y=20
++width=88
++height=60
++graphic=tradebacking,0
++
++[frame1]
++type=graphic
++x=100
++y=20
++width=88
++height=60
++graphic=tradebacking,0
++
++[frame2]
++type=graphic
++x=188
++y=20
++width=88
++height=60
++graphic=tradebacking,0
++
++[frame3]
++type=graphic
++x=276
++y=20
++width=88
++height=60
++graphic=tradebacking,0
++
++[frame4]
++type=graphic
++x=364
++y=20
++width=88
++height=60
++graphic=tradebacking,0
++
++[frame5]
++type=graphic
++x=452
++y=20
++width=48
++height=60
++graphic=tradebacking,0
++
++[frame6]
++type=graphic
++x=12
++y=80
++width=88
++height=60
++graphic=tradebacking,0
++
++[frame7]
++type=graphic
++x=100
++y=80
++width=88
++height=60
++graphic=tradebacking,0
++
++[frame8]
++type=graphic
++x=188
++y=80
++width=88
++height=60
++graphic=tradebacking,0
++
++[frame9]
++type=graphic
++x=276
++y=80
++width=88
++height=60
++graphic=tradebacking,0
++
++[frame10]
++type=graphic
++x=364
++y=80
++width=88
++height=60
++graphic=tradebacking,0
++
++[frame11]
++type=graphic
++x=452
++y=80
++width=48
++height=60
++graphic=tradebacking,0
++
++[frame12]
++type=graphic
++x=12
++y=140
++width=88
++height=60
++graphic=tradebacking,0
++
++[frame13]
++type=graphic
++x=100
++y=140
++width=88
++height=60
++graphic=tradebacking,0
++
++[frame14]
++type=graphic
++x=188
++y=140
++width=88
++height=60
++graphic=tradebacking,0
++
++[frame15]
++type=graphic
++x=276
++y=140
++width=88
++height=60
++graphic=tradebacking,0
++
++[frame16]
++type=graphic
++x=364
++y=140
++width=88
++height=60
++graphic=tradebacking,0
++
++[frame17]
++type=graphic
++x=452
++y=140
++width=48
++height=60
++graphic=tradebacking,0
++
++[frame18]
++type=graphic
++x=12
++y=200
++width=88
++height=60
++graphic=tradebacking,0
++
++[frame19]
++type=graphic
++x=100
++y=200
++width=88
++height=60
++graphic=tradebacking,0
++
++[frame20]
++type=graphic
++x=188
++y=200
++width=88
++height=60
++graphic=tradebacking,0
++
++[frame21]
++type=graphic
++x=276
++y=200
++width=88
++height=60
++graphic=tradebacking,0
++
++[frame22]
++type=graphic
++x=364
++y=200
++width=88
++height=60
++graphic=tradebacking,0
++
++[frame23]
++type=graphic
++x=452
++y=200
++width=48
++height=60
++graphic=tradebacking,0
++
++[corner0]
++type=graphic
++x=12
++y=20
++width=25
++height=30
++graphic=steelborder,0
++
++[corner1]
++type=graphic
++x=475
++y=20
++width=25
++height=30
++graphic=steelborder,1
++
++[corner2]
++type=graphic
++x=12
++y=230
++width=25
++height=30
++graphic=steelborder,2
++
++[corner3]
++type=graphic
++x=475
++y=230
++width=25
++height=30
++graphic=steelborder,3
++
++[top0]
++type=graphic
++x=37
++y=5
++width=36
++height=36
++graphic=steelborder2,0
++
++[bottom0]
++type=graphic
++x=37
++y=239
++width=36
++height=36
++graphic=miscgraphics,3
++
++[top1]
++type=graphic
++x=73
++y=5
++width=36
++height=36
++graphic=steelborder2,0
++
++[bottom1]
++type=graphic
++x=73
++y=239
++width=36
++height=36
++graphic=miscgraphics,3
++
++[top2]
++type=graphic
++x=109
++y=5
++width=36
++height=36
++graphic=steelborder2,0
++
++[bottom2]
++type=graphic
++x=109
++y=239
++width=36
++height=36
++graphic=miscgraphics,3
++
++[top3]
++type=graphic
++x=145
++y=5
++width=36
++height=36
++graphic=steelborder2,0
++
++[bottom3]
++type=graphic
++x=145
++y=239
++width=36
++height=36
++graphic=miscgraphics,3
++
++[top4]
++type=graphic
++x=181
++y=5
++width=36
++height=36
++graphic=steelborder2,0
++
++[bottom4]
++type=graphic
++x=181
++y=239
++width=36
++height=36
++graphic=miscgraphics,3
++
++[top5]
++type=graphic
++x=217
++y=5
++width=36
++height=36
++graphic=steelborder2,0
++
++[bottom5]
++type=graphic
++x=217
++y=239
++width=36
++height=36
++graphic=miscgraphics,3
++
++[top6]
++type=graphic
++x=253
++y=5
++width=36
++height=36
++graphic=steelborder2,0
++
++[bottom6]
++type=graphic
++x=253
++y=239
++width=36
++height=36
++graphic=miscgraphics,3
++
++[top7]
++type=graphic
++x=289
++y=5
++width=36
++height=36
++graphic=steelborder2,0
++
++[bottom7]
++type=graphic
++x=289
++y=239
++width=36
++height=36
++graphic=miscgraphics,3
++
++[top8]
++type=graphic
++x=325
++y=5
++width=36
++height=36
++graphic=steelborder2,0
++
++[bottom8]
++type=graphic
++x=325
++y=239
++width=36
++height=36
++graphic=miscgraphics,3
++
++[top9]
++type=graphic
++x=361
++y=5
++width=36
++height=36
++graphic=steelborder2,0
++
++[bottom9]
++type=graphic
++x=361
++y=239
++width=36
++height=36
++graphic=miscgraphics,3
++
++[top10]
++type=graphic
++x=397
++y=5
++width=36
++height=36
++graphic=steelborder2,0
++
++[bottom10]
++type=graphic
++x=397
++y=239
++width=36
++height=36
++graphic=miscgraphics,3
++
++[top11]
++type=graphic
++x=433
++y=5
++width=36
++height=36
++graphic=steelborder2,0
++
++[bottom11]
++type=graphic
++x=433
++y=239
++width=36
++height=36
++graphic=miscgraphics,3
++
++[top12]
++type=graphic
++x=469
++y=5
++width=36
++height=36
++graphic=steelborder2,0
++
++[bottom12]
++type=graphic
++x=469
++y=239
++width=36
++height=36
++graphic=miscgraphics,3
++
++[left0]
++type=graphic
++x=-3
++y=49
++width=36
++height=36
++graphic=miscgraphics,2
++
++[right0]
++type=graphic
++x=479
++y=49
++width=36
++height=36
++graphic=steelborder2,1
++
++[left1]
++type=graphic
++x=-3
++y=85
++width=36
++height=36
++graphic=miscgraphics,2
++
++[right1]
++type=graphic
++x=479
++y=85
++width=36
++height=36
++graphic=steelborder2,1
++
++[left2]
++type=graphic
++x=-3
++y=121
++width=36
++height=36
++graphic=miscgraphics,2
++
++[right2]
++type=graphic
++x=479
++y=121
++width=36
++height=36
++graphic=steelborder2,1
++
++[left3]
++type=graphic
++x=-3
++y=157
++width=36
++height=36
++graphic=miscgraphics,2
++
++[right3]
++type=graphic
++x=479
++y=157
++width=36
++height=36
++graphic=steelborder2,1
++
++[left4]
++type=graphic
++x=-3
++y=193
++width=36
++height=36
++graphic=miscgraphics,2
++
++[right4]
++type=graphic
++x=479
++y=193
++width=36
++height=36
++graphic=steelborder2,1
++
++[left5]
++type=graphic
++x=-3
++y=229
++width=36
++height=36
++graphic=miscgraphics,2
++
++[right5]
++type=graphic
++x=479
++y=229
++width=36
++height=36
++graphic=steelborder2,1
++
++[title]
++type=text
++x=12
++y=30
++width=488
++height=14
++center=yes
++font=b12_full
++shadowed=yes
++text=A pattern is carved into the door
++colour=0xFFFF00
++
++[hint]
++type=text
++x=12
++y=48
++width=488
++height=14
++center=yes
++font=p12_full
++shadowed=yes
++text=Choose the symbol that completes it.
++colour=0xFF981F
++
++[close]
++type=text
++x=424
++y=28
++buttontype=close
++width=68
++height=11
++font=p11_full
++shadowed=yes
++text=Close Window
++colour=0xC00000
++overcolour=0xFFFFFF
++
++[qmark]
++type=text
++x=324
++y=98
++width=32
++height=20
++center=yes
++font=b12_full
++shadowed=yes
++text=?
++colour=0xFFFFFF
++
++[rule]
++type=rect
++x=132
++y=152
++width=248
++height=1
++fill=yes
++colour=0x4A453A
++
++[box0]
++type=rect
++x=180
++y=168
++width=40
++height=40
++fill=yes
++colour=0x4A453A
++
++[box1]
++type=rect
++x=236
++y=168
++width=40
++height=40
++fill=yes
++colour=0x4A453A
++
++[box2]
++type=rect
++x=292
++y=168
++width=40
++height=40
++fill=yes
++colour=0x4A453A
++
++[set0]
++type=layer
++x=12
++y=0
++width=488
++height=260
++
++[set0seq0]
++layer=set0
++type=graphic
++x=144
++y=92
++width=32
++height=32
++graphic=barrows_puzzle,1
++
++[set0seq1]
++layer=set0
++type=graphic
++x=200
++y=92
++width=32
++height=32
++graphic=barrows_puzzle,2
++
++[set0seq2]
++layer=set0
++type=graphic
++x=256
++y=92
++width=32
++height=32
++graphic=barrows_puzzle,3
++
++[set0pick0]
++layer=set0
++type=graphic
++x=172
++y=172
++width=32
++height=32
++graphic=barrows_puzzle,4
++
++[set0pick1]
++layer=set0
++type=graphic
++x=228
++y=172
++width=32
++height=32
++graphic=barrows_puzzle,2
++
++[set0pick2]
++layer=set0
++type=graphic
++x=284
++y=172
++width=32
++height=32
++graphic=barrows_puzzle,0
++
++[set1]
++type=layer
++x=12
++y=0
++width=488
++height=260
++
++[set1seq0]
++layer=set1
++type=graphic
++x=144
++y=92
++width=32
++height=32
++graphic=barrows_puzzle,9
++
++[set1seq1]
++layer=set1
++type=graphic
++x=200
++y=92
++width=32
++height=32
++graphic=barrows_puzzle,8
++
++[set1seq2]
++layer=set1
++type=graphic
++x=256
++y=92
++width=32
++height=32
++graphic=barrows_puzzle,7
++
++[set1pick0]
++layer=set1
++type=graphic
++x=172
++y=172
++width=32
++height=32
++graphic=barrows_puzzle,5
++
++[set1pick1]
++layer=set1
++type=graphic
++x=228
++y=172
++width=32
++height=32
++graphic=barrows_puzzle,6
++
++[set1pick2]
++layer=set1
++type=graphic
++x=284
++y=172
++width=32
++height=32
++graphic=barrows_puzzle,7
++
++[set2]
++type=layer
++x=12
++y=0
++width=488
++height=260
++
++[set2seq0]
++layer=set2
++type=graphic
++x=144
++y=92
++width=32
++height=32
++graphic=barrows_puzzle,10
++
++[set2seq1]
++layer=set2
++type=graphic
++x=200
++y=92
++width=32
++height=32
++graphic=barrows_puzzle,11
++
++[set2seq2]
++layer=set2
++type=graphic
++x=256
++y=92
++width=32
++height=32
++graphic=barrows_puzzle,12
++
++[set2pick0]
++layer=set2
++type=graphic
++x=172
++y=172
++width=32
++height=32
++graphic=barrows_puzzle,10
++
++[set2pick1]
++layer=set2
++type=graphic
++x=228
++y=172
++width=32
++height=32
++graphic=barrows_puzzle,12
++
++[set2pick2]
++layer=set2
++type=graphic
++x=284
++y=172
++width=32
++height=32
++graphic=barrows_puzzle,13
++
++[set3]
++type=layer
++x=12
++y=0
++width=488
++height=260
++
++[set3seq0]
++layer=set3
++type=graphic
++x=144
++y=92
++width=32
++height=32
++graphic=barrows_puzzle,14
++
++[set3seq1]
++layer=set3
++type=graphic
++x=200
++y=92
++width=32
++height=32
++graphic=barrows_puzzle,15
++
++[set3seq2]
++layer=set3
++type=graphic
++x=256
++y=92
++width=32
++height=32
++graphic=barrows_puzzle,16
++
++[set3pick0]
++layer=set3
++type=graphic
++x=172
++y=172
++width=32
++height=32
++graphic=barrows_puzzle,15
++
++[set3pick1]
++layer=set3
++type=graphic
++x=228
++y=172
++width=32
++height=32
++graphic=barrows_puzzle,17
++
++[set3pick2]
++layer=set3
++type=graphic
++x=284
++y=172
++width=32
++height=32
++graphic=barrows_puzzle,14
++
++[set4]
++type=layer
++x=12
++y=0
++width=488
++height=260
++
++[set4seq0]
++layer=set4
++type=graphic
++x=144
++y=92
++width=32
++height=32
++graphic=barrows_puzzle,5
++
++[set4seq1]
++layer=set4
++type=graphic
++x=200
++y=92
++width=32
++height=32
++graphic=barrows_puzzle,6
++
++[set4seq2]
++layer=set4
++type=graphic
++x=256
++y=92
++width=32
++height=32
++graphic=barrows_puzzle,7
++
++[set4pick0]
++layer=set4
++type=graphic
++x=172
++y=172
++width=32
++height=32
++graphic=barrows_puzzle,8
++
++[set4pick1]
++layer=set4
++type=graphic
++x=228
++y=172
++width=32
++height=32
++graphic=barrows_puzzle,5
++
++[set4pick2]
++layer=set4
++type=graphic
++x=284
++y=172
++width=32
++height=32
++graphic=barrows_puzzle,6
++
++[set5]
++type=layer
++x=12
++y=0
++width=488
++height=260
++
++[set5seq0]
++layer=set5
++type=graphic
++x=144
++y=92
++width=32
++height=32
++graphic=barrows_puzzle,4
++
++[set5seq1]
++layer=set5
++type=graphic
++x=200
++y=92
++width=32
++height=32
++graphic=barrows_puzzle,3
++
++[set5seq2]
++layer=set5
++type=graphic
++x=256
++y=92
++width=32
++height=32
++graphic=barrows_puzzle,2
++
++[set5pick0]
++layer=set5
++type=graphic
++x=172
++y=172
++width=32
++height=32
++graphic=barrows_puzzle,0
++
++[set5pick1]
++layer=set5
++type=graphic
++x=228
++y=172
++width=32
++height=32
++graphic=barrows_puzzle,2
++
++[set5pick2]
++layer=set5
++type=graphic
++x=284
++y=172
++width=32
++height=32
++graphic=barrows_puzzle,1
++
++[set6]
++type=layer
++x=12
++y=0
++width=488
++height=260
++
++[set6seq0]
++layer=set6
++type=graphic
++x=144
++y=92
++width=32
++height=32
++graphic=barrows_puzzle,18
++
++[set6seq1]
++layer=set6
++type=graphic
++x=200
++y=92
++width=32
++height=32
++graphic=barrows_puzzle,19
++
++[set6seq2]
++layer=set6
++type=graphic
++x=256
++y=92
++width=32
++height=32
++graphic=barrows_puzzle,20
++
++[set6pick0]
++layer=set6
++type=graphic
++x=172
++y=172
++width=32
++height=32
++graphic=barrows_puzzle,21
++
++[set6pick1]
++layer=set6
++type=graphic
++x=228
++y=172
++width=32
++height=32
++graphic=barrows_puzzle,19
++
++[set6pick2]
++layer=set6
++type=graphic
++x=284
++y=172
++width=32
++height=32
++graphic=barrows_puzzle,18
++
++[set7]
++type=layer
++x=12
++y=0
++width=488
++height=260
++
++[set7seq0]
++layer=set7
++type=graphic
++x=144
++y=92
++width=32
++height=32
++graphic=barrows_puzzle,6
++
++[set7seq1]
++layer=set7
++type=graphic
++x=200
++y=92
++width=32
++height=32
++graphic=barrows_puzzle,19
++
++[set7seq2]
++layer=set7
++type=graphic
++x=256
++y=92
++width=32
++height=32
++graphic=barrows_puzzle,6
++
++[set7pick0]
++layer=set7
++type=graphic
++x=172
++y=172
++width=32
++height=32
++graphic=barrows_puzzle,5
++
++[set7pick1]
++layer=set7
++type=graphic
++x=228
++y=172
++width=32
++height=32
++graphic=barrows_puzzle,19
++
++[set7pick2]
++layer=set7
++type=graphic
++x=284
++y=172
++width=32
++height=32
++graphic=barrows_puzzle,6
++
++[pick0]
++type=rect
++x=180
++y=168
++buttontype=normal
++width=40
++height=40
++fill=no
++colour=0x6F6250
++overcolour=0xFFFFFF
++option=Choose
++
++[pick1]
++type=rect
++x=236
++y=168
++buttontype=normal
++width=40
++height=40
++fill=no
++colour=0x6F6250
++overcolour=0xFFFFFF
++option=Choose
++
++[pick2]
++type=rect
++x=292
++y=168
++buttontype=normal
++width=40
++height=40
++fill=no
++colour=0x6F6250
++overcolour=0xFFFFFF
++option=Choose
+diff --git a/scripts/areas/area_barrows/scripts/barrows_chest.rs2 b/scripts/areas/area_barrows/scripts/barrows_chest.rs2
+index 8cb8e70b..855703a8 100644
+--- a/scripts/areas/area_barrows/scripts/barrows_chest.rs2
++++ b/scripts/areas/area_barrows/scripts/barrows_chest.rs2
+@@ -121,8 +121,25 @@ if_settext(barrows_chest:subtitle,
+            "<~pluralise($rolls, "roll")> at <tostring($potential)> reward potential");
+ if_openmain(barrows_chest);
+ 
++// THE FLUSH CANNOT RUN HERE, and this cost a player his loot and his connection before it was
++// understood. Player.closeModal runs an [if_close] with executeScript(script, FALSE) - an if_close
++// script has no protected access, because the client is what asked for the close and the server
++// may be in the middle of anything. Both barrows_reward_store and bank are protect=yes, and
++// INV_MOVEITEM checks both ends, so the first inv_moveitem threw
++// "$inv requires protected access: barrows_reward_store" and took the session with it.
++//
++// A queue DOES get protected access - Player.processQueue runs it with executeScript(script, TRUE)
++// - so the banking happens one tick later instead. The trailing 0 is the unused int argument a
++// no-parameter queue is invoked with, as the thieving stalls do it.
++//
++// If the player logs out inside that one tick the queue never runs, and nothing is lost:
++// barrows_reward_store is scope=perm, so the loot is still in it next login and
++// ~barrows_chest_search flushes it before the next chest rolls. That backstop was already there.
+ [if_close,barrows_chest]
+ inv_stoptransmit(barrows_chest:loot);
++queue(barrows_reward_bank_rest, 0, 0);
++
++[queue,barrows_reward_bank_rest]
+ ~barrows_reward_flush;
+ 
+ [inv_button1,barrows_chest:loot] ~barrows_reward_take(last_slot);
+diff --git a/scripts/areas/area_barrows/scripts/barrows_puzzle.rs2 b/scripts/areas/area_barrows/scripts/barrows_puzzle.rs2
+index 75e6ff23..36fc9f86 100644
+--- a/scripts/areas/area_barrows/scripts/barrows_puzzle.rs2
++++ b/scripts/areas/area_barrows/scripts/barrows_puzzle.rs2
+@@ -1,16 +1,21 @@
+ // The door before the chest room.
+ //
+-// WHAT OLD SCHOOL HAS: a pattern puzzle on the last door, four candidate symbols, and "if you get
+-// the puzzle wrong, the doors and rooms within the tunnels will shift around".
++// WHAT OLD SCHOOL HAS, and what this is now: a sequence puzzle carved into the last door - three
++// symbols and a question mark, three candidates below, click the one that completes it. Get it
++// wrong and "the doors and rooms within the tunnels will shift around".
+ //
+-// WHAT THIS IS, AND WHY IT IS WORDS RATHER THAN SHAPES. The puzzle's art is not in the 377 cache -
+-// its whole interface vocabulary is bank buttons, borders, stat icons and arrows, with nothing
+-// shape-like to draw a pattern out of - and it cannot be imported from here either: sprite packing
+-// is the one part of the build this environment cannot do at all (the media and title archives are
+-// skipped, because jimp is stubbed), so new interface art could be added but never rendered or
+-// verified. A drawn puzzle is a round of its own on a machine that can build sprites. So the gate
+-// asks in the chat box, with the sequence written out, which is the same puzzle and the same
+-// consequence for getting it wrong.
++// THE ART IS DRAWN, NOT IMPORTED. The 377 cache has no shape art to make a pattern out of - its
++// interface vocabulary is bank buttons, borders, stat icons and arrows - so tools/genbarrowspuzzle.py
++// draws the shapes into sprites/barrows_puzzle.png with PIL and builds the interface around them.
++// Drawing them rather than importing a sheet is what lets the puzzle SET be chosen here too, so
++// every sequence is guaranteed exactly one right answer among its three candidates. The generator
++// refuses to run if that is not true.
++//
++// WHY EIGHT LAYERS AND if_sethide. There is no if_setgraphic in this engine - a graphic
++// component's sprite is fixed at pack time (if_setobject and if_setmodel exist; sprites have no
++// equivalent). So all eight puzzles are built into the interface, one layer each, and
++// ~barrows_puzzle_show hides the seven that are not being asked. if_sethide only works on layers,
++// which is why each puzzle's six shapes live inside one.
+ //
+ // EIGHT PUZZLES, in %barrows_puzzle - the cache's own three bits, which nothing was using. Rolled
+ // with the maze and re-rolled every time the tunnels shift, so a wrong answer is not a free retry.
+@@ -28,57 +33,75 @@ if (%barrows_puzzle_solved = ^true) {
+ }
+ p_arrivedelay;
+ p_stopaction;
+-~mesbox("A pattern of symbols is carved into the door.");
+-if (~barrows_puzzle_ask = 1) {
++def_int $answer = ~barrows_puzzle_ask;
++if_close;
++// 0 is a wrong answer and -1 is "closed the window without answering". Only a wrong ANSWER
++// shifts the tunnels: walking away from the door has to cost nothing, or a misclick on the
++// close button would re-lay the maze.
++if ($answer = -1) {
++    return(^false);
++}
++if ($answer = 1) {
+     %barrows_puzzle_solved = ^true;
+-    if_close;
+     ~mesbox("The symbols sink into the stone, and the door swings open.");
+     return(^true);
+ }
+-if_close;
+ ~mesbox("The symbols flare, and a grinding roar runs through the tunnels.|The doors have shifted.");
+ ~barrows_shift;
+ return(^false);
+ 
+-// THE EIGHT. Each is a sequence with one symbol missing and four ways to finish it, and the right
+-// answer returns 1. Which of the four positions is right is different in every one, because four
+-// puzzles whose answer is always the third option is one puzzle.
+-//
+-// Written out rather than driven by a table for a reason that is a rule here: a proc cannot return
+-// a string in this codebase - battery check 24 enforces it - so the options cannot come out of an
+-// enum, and eight switch cases of one call each is the honest shape.
++// THE ASK. if_addresumebutton plus p_pausebutton is how a modal question is asked without
++// leaving the script: the script suspends inside the [oploc1] that clicked the door - keeping its
++// loc context and its protected access - and resumes with last_com holding the button. Closing
++// the window instead of answering aborts the script, which is why the door handler treats a
++// missing answer as "nothing happened" rather than as a wrong one.
+ [proc,barrows_puzzle_ask]()(int)
+-switch_int (%barrows_puzzle) {
+-    case 0 :
+-        return(~p_choice4_header("Four skulls", 0, "Three skulls", 1, "One skull", 0,
+-                                 "Six skulls", 0,
+-                                 "One skull, two skulls, ... , four skulls. What is missing?"));
+-    case 1 :
+-        return(~p_choice4_header("A circle", 0, "A cross", 0, "A triangle", 1, "A square", 0,
+-                                 "Circle, square, circle, square, circle, ... What comes next?"));
+-    case 2 :
+-        return(~p_choice4_header("Two bones", 1, "Four bones", 0, "One bone", 0, "Five bones",
+-                                 0, "Six bones, four bones, ... . What is missing?"));
+-    case 3 :
+-        return(~p_choice4_header("A skull", 0, "A bone", 0, "A coffin", 0, "A cross", 1,
+-                                 "Cross, cross, skull, cross, cross, ... What comes next?"));
+-    case 4 :
+-        return(~p_choice4_header("Three coffins", 0, "Five coffins", 1, "Two coffins", 0,
+-                                 "One coffin", 0,
+-                                 "One coffin, three coffins, ... . What is missing?"));
+-    case 5 :
+-        return(~p_choice4_header("A square", 1, "A circle", 0, "A skull", 0, "A triangle", 0,
+-                                 "Triangle, circle, square, triangle, circle, ...?"));
+-    case 6 :
+-        return(~p_choice4_header("Eight bones", 0, "Two bones", 0, "Four bones", 1,
+-                                 "Three bones", 0,
+-                                 "One bone, two bones, ... , eight bones. What is missing?"));
+-    case 7 :
+-        return(~p_choice4_header("A cross", 0, "A coffin", 1, "A circle", 0, "A skull", 0,
+-                                 "Skull, coffin, skull, coffin, skull, ... What comes next?"));
++~barrows_puzzle_show(%barrows_puzzle);
++if_openmain(barrows_puzzle);
++if_addresumebutton(barrows_puzzle:pick0);
++if_addresumebutton(barrows_puzzle:pick1);
++if_addresumebutton(barrows_puzzle:pick2);
++p_pausebutton;
++switch_component (last_com) {
++    case barrows_puzzle:pick0 : return(~barrows_puzzle_right(0));
++    case barrows_puzzle:pick1 : return(~barrows_puzzle_right(1));
++    case barrows_puzzle:pick2 : return(~barrows_puzzle_right(2));
++}
++return(-1);
++
++// The answer table is generated beside the art, so the slot the scripts check and the slot the
++// picture puts the right shape in cannot disagree - they come out of one run of one generator.
++[proc,barrows_puzzle_right](int $pick)(int)
++if ($pick = enum(int, int, barrows_puzzle_answer, %barrows_puzzle)) {
++    return(1);
+ }
+ return(0);
+ 
++// Show one puzzle and hide the other seven. Hide-all-then-show-one, in two straight runs of
++// if_sethide, for two reasons: if_sethide takes a component and nothing can compute one (an enum
++// cannot output a component type), and `$n ! 0` is not an expression in this language - `!` is
++// only a comparison inside an if condition, so the obvious one-liner does not compile. rs2check
++// accepts it; the server compiler is the one that says no.
++[proc,barrows_puzzle_show](int $n)
++if_sethide(barrows_puzzle:set0, ^true);
++if_sethide(barrows_puzzle:set1, ^true);
++if_sethide(barrows_puzzle:set2, ^true);
++if_sethide(barrows_puzzle:set3, ^true);
++if_sethide(barrows_puzzle:set4, ^true);
++if_sethide(barrows_puzzle:set5, ^true);
++if_sethide(barrows_puzzle:set6, ^true);
++if_sethide(barrows_puzzle:set7, ^true);
++switch_int ($n) {
++    case 0 : if_sethide(barrows_puzzle:set0, ^false);
++    case 1 : if_sethide(barrows_puzzle:set1, ^false);
++    case 2 : if_sethide(barrows_puzzle:set2, ^false);
++    case 3 : if_sethide(barrows_puzzle:set3, ^false);
++    case 4 : if_sethide(barrows_puzzle:set4, ^false);
++    case 5 : if_sethide(barrows_puzzle:set5, ^false);
++    case 6 : if_sethide(barrows_puzzle:set6, ^false);
++    case 7 : if_sethide(barrows_puzzle:set7, ^false);
++}
++
+ // WHAT A WRONG ANSWER COSTS: a new maze and a new puzzle, which is the wiki's "the doors and rooms
+ // within the tunnels will shift around". Nothing about the run's progress is touched - the
+ // brothers you have killed stay killed and the reward potential stays earned.
+diff --git a/sprites/barrows_puzzle.png b/sprites/barrows_puzzle.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..eda2ea8c1f8d709ae16b26008ac4a99970c8f6d4
+GIT binary patch
+literal 1376
+zcmeAS@N?(olHy`uVBq!ia0vp^2Y|SNg9%7pdiK$Vfq_-s)5S5QV$R#Swq>`i1l%Uh
+z(a~zP+J3M3^&5rQbFc651y%EB-Cg-%-J~WfF5l)KzYQ2T?%npZJJv9#pIP8Q&%Qr}
+z^)e2c@zv!FeY{LeoGdIt_piy{Tem(`s<x``W1au++S~pQ-~O8Q_5FRb`J%V`<yihz
+z?cUq||L^tx`+aZs7wxQ>zvHh#{`Kp(-`<TiPB|dJCd9$<?#|)<;_bJqe<gG^I506b
+z7O(!Wd4gPvfPjaB!i~21tw$7EK;m;{^M6Eoa5{0kxWaN}v%pmWCZ^7}VQr=t=XSk&
+z+b+MO;P?N(e-xwgJx%`Tw3wTBI4CqW_<1G$h~zi}Hfw?LB+)vtZ%rV5*YXoD%vGH*
+zWv=z_nm9qmxqN>wyp(D)nBV}?<d9^|zG`aZrsH?s#>Z5;9ofsOxO@?J{E1$6R=5(N
+zGg%-3z`>!?cH8IdT7P4yWq<2+lA~taSTj*=mV}4HX;vNg9dpmx8XevBU*50r>68yA
+z^K6bE(a^p)U;jbT&%D^TuNpI6%r6PknJu*SPEJYvHz|K}Ll>4?r_YMb-`vwYduiLA
+zOOZS3Eo)48)0eruKeMiZt4x(UFZcjs-kXOycRsU+rlfpn2vrnm+;lEhJV$xCOGi6%
+z(fg3RTVB&T?>N6a8lLFul~ugs_T9M0*-up+<E_p#3N`<4Tk~*@POhq<lZeT@Y^95L
+zI2K1_Gm74?oo*vwQud)x(OmA=<tPXL^ZKV&o_%quMd;z2zbV=KPRa;s@CPpVY&f-H
+zRYmzeg~U@KOhU(xw{}Idq%UZ0=(>C7?pBu_=Y2#Q=loTXH9MoG5UeJxB&@G~=b;^w
+z)(4kgwdS%)x7~L%92MMRk<MbZ&Vm2<944s=hF67aB^KS~d)q3jcd`EL<<H%_m*w4j
+zR%O1rP<H)JN0FV{3a`)2wA#Vw{{DaSfz~A@yPwZ|vF543(-SKLAM53&u9#MJZQCmC
+zO+U_j)o6d!?;WyO)Ydj3iXRv|_YQ%Q6C$3#DQd!r6WrR-8CuzQ4za8`X)C((dAADV
+z&tgyQskR)dtNNlM6ZtNgH#6UUCCE5)nttaq3;Cr^r)F|;W=wb`d3f432Jsm#v%}7>
+z_%VC#h3R%zEj8){mR?i2F15em&8fvNcD{aoF<`3aI@2}GjV<mDrvwh0Jk2rbby&i7
+z{<uJDUH^$dwVl@#78LOrp4{5zX#z~(pd@#(gfB!@*~0K)uV<dL4U<;c=M2t0K1I@?
+z>`}*f^Xm15EO%1^QiN5?Sf@OF*7VD&O!UYC)rH$Pq?)~L+I;bme3?&Xj0q!e$DU*N
+z?>_sy<=u6M$6I|GOg&#aWc%mupYqWx?r6)`)0S_oUokgwyauOn^nh6+r?I$>zoL`7
+z<Cm>~!WJRfwf8p%q#p0$C=V!84%qz5)@6tD<9>%!%M+~bWm5ldo&BY}YfY28gBM%%
+zw9S`!JEcCcS)S_(Ss0yFoX2XC+QD<Z!o`{EHpde23m%<fJQFV)6c@I-%nVyu^=xBl
+z-;HmHs=Ivu&ily~QMo?j#=UE)x7PAp*4o_Jc5cDKOjed$NJa!Y^2in@Bj2-rCM9hp
+zZ}^#nywi1D-ruS@D!M1!Bq#s1(PyWmq@`=L=G86vRsZ7|O9?P1ZVh_#Y{SCIM>wr_
+zxh`1aRP{*a=n4xKi*wA4C*DoGHqE(b@t)I(4}DBLj-1{tps3)GRjZ)HQnB!Wh=<Sa
+fsf-|-KZ*-%e&TmGT*V()ax!?j`njxgN@xNAzu#*M
+
+literal 0
+HcmV?d00001
+
+diff --git a/sprites/meta/barrows_puzzle.opt b/sprites/meta/barrows_puzzle.opt
+new file mode 100644
+index 00000000..ab607b45
+--- /dev/null
++++ b/sprites/meta/barrows_puzzle.opt
+@@ -0,0 +1 @@
++32x32
+diff --git a/tools/barrows_battery.py b/tools/barrows_battery.py
+index 0d42cac0..ce0172c9 100644
+--- a/tools/barrows_battery.py
++++ b/tools/barrows_battery.py
+@@ -630,8 +630,12 @@ check('~barrows_between' in CHEST and 'add($low, random(add(sub($high, $low), 1)
+       'and so is every quantity')
+ # Paying twice, and paying for nothing.
+ check('%barrows_chest_paid = ^true;' in CHEST, 'looting marks the chest paid')
++# nocomment() FIRST, and this check learned why the hard way: a comment added elsewhere in the
++# file mentioned ~barrows_chest_search by name, the raw-text grep found it after the marker, and
++# the check went green while the actual call was deleted. Same fault as the four slices that
++# swallowed the next block's comments - a check that greps source has to grep CODE.
+ check('[oploc1,barrows_stone_chest]' in CHEST and '[oploc2,barrows_stone_chest]' in CHEST
+-      and '~barrows_chest_search' in CHEST.split('[oploc1,barrows_stone_chest]', 1)[1],
++      and '~barrows_chest_search' in nocomment(CHEST).split('[oploc1,barrows_stone_chest]', 1)[1],
+       'one op1 handler opens the chest and searches it, branching on the bit the multiloc reads')
+ loot = nocomment(CHEST.split('[proc,barrows_chest_search]', 1)[1])
+ check('%barrows_chest_paid = ^true' in loot
+@@ -1336,9 +1340,24 @@ check(IFB.get('close', {}).get('buttontype', [None])[0] == 'close',
+ check('[if_close,barrows_chest]' in CHEST and 'inv_stoptransmit(barrows_chest:loot);' in CHEST,
+       'closing the window stops the transmit')
+ clos = nocomment(CHEST.split('[if_close,barrows_chest]', 1)[1].split('\n[', 1)[0])
+-check('~barrows_reward_flush;' in clos,
+-      '...and banks whatever is left, which is the only ending that cannot cost a player a set '
+-      'piece: the inventory may be full and the chest will not pay twice')
++# THE FLUSH IS QUEUED, NOT CALLED, and this check used to assert the opposite - which is how the
++# crash shipped. Player.closeModal runs an [if_close] with executeScript(script, FALSE), so an
++# if_close script has no protected access; barrows_reward_store and bank are both protect=yes and
++# INV_MOVEITEM checks both ends, so the direct call threw and took the session with it.
++# Player.processQueue runs a queue with executeScript(script, TRUE), so the move is legal a tick
++# later. Written from both sides: the call is NOT here, and the queue is.
++check('~barrows_reward_flush;' not in clos,
++      'closing the window does NOT bank the remainder inline - an if_close script has no '
++      'protected access and both invs require it')
++check('queue(barrows_reward_bank_rest, 0, 0);' in clos,
++      '...it queues the banking instead, which runs with protected access on the next tick')
++qbody = nocomment(CHEST.split('[queue,barrows_reward_bank_rest]', 1)[1].split('\n[', 1)[0])
++check('~barrows_reward_flush;' in qbody, '...and that queue is what does the banking')
++search = nocomment(CHEST.split('[proc,barrows_chest_search]', 1)[1].split('\n[', 1)[0])
++check('~barrows_reward_flush;' in search
++      and search.index('~barrows_reward_flush') < search.index('~barrows_reward_roll'),
++      '...and the next chest flushes the store before it rolls, so a player who logged out with '
++      'the window open loses nothing - the store is scope=perm')
+ search = nocomment(CHEST.split('[proc,barrows_chest_search]', 1)[1].split('\n[', 1)[0])
+ check('~barrows_reward_flush;' in search
+       and search.index('~barrows_reward_flush') < search.index('~barrows_reward_roll'),
+@@ -1370,24 +1389,142 @@ check(VB.get('barrows_puzzle_solved') == ('barrows', 4, 4),
+       % (VB.get('barrows_puzzle_solved'),))
+ check('barrows_puzzle_solved' in VBPACK, '...and is in pack/varbit.pack')
+ 
++# ---- THE PUZZLE IS PICTURES NOW, so what is checked is that the art, the answer table and the
++# script agree. All three come out of one run of tools/genbarrowspuzzle.py, and the point of these
++# checks is that they still do: the slot the script tests has to be the slot the picture puts the
++# right shape in, and nothing about the .if or the enum says which that is on its own.
++PZSPEC = json.load(open(os.path.join(C, 'tools/barrowspuzzlespec.json')))
++PZIF = read('scripts/areas/area_barrows/interfaces/barrows_puzzle.if')
++PZENUM = read('scripts/areas/area_barrows/configs/barrows_puzzle.enum')
++PZGEN = read('tools/genbarrowspuzzle.py')
++NPUZ = int(K['barrows_puzzles'])
++
++def ifcoms(txt):
++    out = {}
++    for chunk in re.split(r'(?m)^(?=\[)', txt):
++        m = re.match(r'\[(\w+)\]', chunk)
++        if not m:
++            continue
++        out[m.group(1)] = dict(re.findall(r'(?m)^(\w+)=(.*)$', chunk))
++    return out
++
++PZC = ifcoms(PZIF)
++
++check(len(PZSPEC['puzzles']) == NPUZ,
++      'there are %d puzzles and %d of them are drawn' % (NPUZ, len(PZSPEC['puzzles'])))
++
++# the answer table: one row per puzzle, keyed 0..n-1, and every value a real slot
++rows = {int(a): int(b) for a, b in re.findall(r'(?m)^val=(\d+),(\d+)$', PZENUM)}
++check(sorted(rows) == list(range(NPUZ)),
++      '...and the answer table is keyed 0..%d, which is what random() rolls: %s'
++      % (NPUZ - 1, sorted(rows)))
++check(all(0 <= v <= 2 for v in rows.values()),
++      '...with every answer a real slot: %s' % sorted(set(rows.values())))
++check('default=-1' in PZENUM,
++      '...and a default of -1, so a puzzle number nothing matches can never be answered right')
++
++# THE ONE THAT MATTERS: for every puzzle, the slot the enum names must be the slot the interface
++# put the answer shape in. This is the join between the picture and the script, and it is the only
++# thing here that a person could not see by looking at the window.
++def gfx(name):
++    """the sprite a component draws, and only if it is a graphic component at all. Asking for
++    'graphic' alone is not enough: a mutation that turned a candidate into a type=rect left the
++    graphic= line sitting there unread, and the check passed."""
++    c = PZC.get(name, {})
++    return c.get('graphic') if c.get('type') == 'graphic' else 'not a graphic: %s' % c.get('type')
++
++for i, p in enumerate(PZSPEC['puzzles']):
++    shown = [gfx('set%dpick%d' % (i, k)) for k in range(3)]
++    want = ['barrows_puzzle,%d' % PZSPEC['tiles'].index(t) for t in p['candidates']]
++    check(shown == want,
++          'puzzle %d draws its three candidates in the order the spec says (%s)'
++          % (i, 'ok' if shown == want else '%s vs %s' % (shown, want)))
++    answer = 'barrows_puzzle,%d' % PZSPEC['tiles'].index(p['answer'])
++    # THREE WAYS OF SAYING WHERE THE ANSWER IS, and all three have to agree: the spec's own slot
++    # field, the order the spec lists its candidates in, and the enum the script reads. The spec's
++    # slot used to be checked by nothing at all - a mutation moved it and the battery did not
++    # notice, because every other check happened to read 'candidates' instead.
++    check(p['candidates'][p['slot']] == p['answer'],
++          '...and the spec agrees with itself: candidate %d of puzzle %d IS its answer'
++          % (p['slot'], i))
++    check(rows.get(i) == p['slot'],
++          '...and the answer table says the same slot as the spec (%s vs %s)'
++          % (rows.get(i), p['slot']))
++    check(rows.get(i) is not None and shown[rows[i]] == answer,
++          '...and that slot is the one holding the right shape (slot %s)' % rows.get(i))
++    check(shown.count(answer) == 1,
++          '...which is the only slot holding it, so there is exactly one right answer')
++    seq = [gfx('set%dseq%d' % (i, k)) for k in range(3)]
++    check(all(x and x.startswith('barrows_puzzle,') for x in seq),
++          '...and its three sequence shapes are drawn: %s' % p['why'])
++
++# ONE check, not two: "every slot is the answer at least twice" already implies "all three slots
++# get used", and a single-row mutation can break it, where the weaker version needed two rows
++# changed at once and so could not be mutation-tested at all.
++_counts = [list(rows.values()).count(k) for k in (0, 1, 2)]
++check(min(_counts) >= 2,
++      'and the right answer is not always in the same place - every slot is the answer at least '
++      'twice: %s' % _counts)
++
++# every puzzle has a layer, and the script hides every layer it has
++for i in range(NPUZ):
++    check(PZC.get('set%d' % i, {}).get('type') == 'layer',
++          'puzzle %d lives in a layer, because if_sethide only works on those' % i)
++show = nocomment(PUZZLE.split('[proc,barrows_puzzle_show]', 1)[1].split('\n[', 1)[0])
++hidden = set(re.findall(r'if_sethide\(barrows_puzzle:set(\d+), \^true\);', show))
++shown_one = set(re.findall(r'if_sethide\(barrows_puzzle:set(\d+), \^false\);', show))
++check(hidden == {str(i) for i in range(NPUZ)},
++      'showing a puzzle hides all %d layers first: %d hidden' % (NPUZ, len(hidden)))
++check(shown_one == {str(i) for i in range(NPUZ)},
++      '...and every puzzle number can then show its own: %d cases' % len(shown_one))
++
++# the ask: a modal question answered without leaving the script
+ ask = nocomment(PUZZLE.split('[proc,barrows_puzzle_ask]', 1)[1].split('\n[', 1)[0])
+-cases = re.findall(r'(?ms)case (\d+) :(.*?)(?=\n    case |\n\}|\Z)', ask)
+-check(len(cases) == int(K['barrows_puzzles']),
+-      'there are %s puzzles and %d of them are written' % (K['barrows_puzzles'], len(cases)))
+-check(sorted(int(n) for n, _ in cases) == list(range(int(K['barrows_puzzles']))),
+-      '...keyed 0..%d, which is what random() rolls' % (int(K['barrows_puzzles']) - 1))
+-rights = []
+-for n, body in cases:
+-    # \s* rather than a space: an option and its value can fall either side of a line break.
+-    vals = re.findall(r'"[^"]*",\s*(\d)', body)
+-    check(len(vals) == 4, 'puzzle %s offers four answers: %d' % (n, len(vals)))
+-    check(vals.count('1') == 1, '...exactly one of which is right: %s' % vals)
+-    if vals.count('1') == 1:
+-        rights.append(vals.index('1'))
+-check(len(set(rights)) >= 3,
+-      'and the right answer is not always in the same place: positions %s' % sorted(set(rights)))
+-check(ask.rstrip().endswith('return(0);'),
+-      'a puzzle number nothing matches is wrong rather than open')
++check('if_openmain(barrows_puzzle);' in ask, 'the puzzle opens as a main modal')
++for i in range(3):
++    check('if_addresumebutton(barrows_puzzle:pick%d);' % i in ask,
++          '...and slot %d is registered as a resume button, or clicking it does nothing' % i)
++check('p_pausebutton;' in ask and 'switch_component (last_com)' in ask,
++      '...and p_pausebutton suspends the script until one is clicked, so the door handler keeps '
++      'its loc context and its protected access')
++check(ask.rstrip().endswith('return(-1);'),
++      'closing the window without answering returns -1, not a wrong answer')
++gate0 = nocomment(PUZZLE.split('[proc,barrows_puzzle_gate]', 1)[1].split('\n[', 1)[0])
++# .find(), not .index(): a mutation that deletes ~barrows_shift makes .index() RAISE, and the
++# harness reports a non-zero exit with no check named - "a crash is not a catch", which this
++# project has now written down ten times.
++check('if ($answer = -1) {' in gate0 and 0 <= gate0.find('$answer = -1') < gate0.find('~barrows_shift'),
++      '...and the gate returns without shifting the tunnels, so a misclick on Close costs nothing')
++right = nocomment(PUZZLE.split('[proc,barrows_puzzle_right]', 1)[1].split('\n[', 1)[0])
++check('enum(int, int, barrows_puzzle_answer, %barrows_puzzle)' in right,
++      'the pick is judged against the generated table, not a number written twice')
++
++# the sprite sheet the whole thing draws from
++PZPNG = os.path.join(C, 'sprites/barrows_puzzle.png')
++check(os.path.exists(PZPNG), 'sprites/barrows_puzzle.png exists - the packer scans sprites/*.png')
++check(read('sprites/meta/barrows_puzzle.opt').strip() == '%dx%d' % (PZSPEC['tile'], PZSPEC['tile']),
++      '...and its .opt splits it into %dx%d tiles, or every index is wrong'
++      % (PZSPEC['tile'], PZSPEC['tile']))
++from PIL import Image
++_im = Image.open(PZPNG).convert('RGB')
++_cols = {c for _, c in (_im.getcolors(65536) or [])}
++# the number trails rather than leads, so this check has the same NAME whether the sheet or the
++# spec was changed - a message built around the expected value cannot be attributed to itself
++check(_im.width == PZSPEC['cols'] * PZSPEC['tile'] and _im.height % PZSPEC['tile'] == 0,
++      '...and the sheet is as many tiles wide as the spec says, which is what fixes every sprite '
++      'index (spec %d, sheet %d)' % (PZSPEC['cols'], _im.width // PZSPEC['tile']))
++check((_im.width // PZSPEC['tile']) * (_im.height // PZSPEC['tile']) >= len(PZSPEC['tiles']),
++      '...with a cell for all %d tiles' % len(PZSPEC['tiles']))
++check((255, 0, 255) in _cols,
++      'the background is 0xFF00FF, which is the only colour the packer makes transparent')
++check(len(_cols) - 1 <= 255,
++      '...and %d other colours, under the 255 the palette holds before it quantizes' % (len(_cols) - 1))
++# the generator refuses to produce a puzzle with no right answer or two - checked because that
++# guarantee is the whole reason the art is drawn here rather than imported
++check('offers its answer twice' in PZGEN and 'duplicate candidates' in PZGEN,
++      'the generator refuses to emit a puzzle whose answer is also one of its wrong options')
++check('too guessable' in PZGEN,
++      '...or a set where one slot is almost never the answer')
+ 
+ gate = nocomment(PUZZLE.split('[proc,barrows_puzzle_gate]', 1)[1].split('\n[', 1)[0])
+ check('%barrows_puzzle_solved = ^true;' in gate and '~barrows_shift;' in gate,
+diff --git a/tools/barrows_mutate.py b/tools/barrows_mutate.py
+index c4a3d731..6c70d528 100644
+--- a/tools/barrows_mutate.py
++++ b/tools/barrows_mutate.py
+@@ -50,6 +50,11 @@ SEQPACK = 'pack/seq.pack'
+ ANIMPACK = 'pack/anim.pack'
+ SETPACK = 'pack/animset.pack'
+ BASEPACK = 'pack/base.pack'
++PZIF = 'scripts/areas/area_barrows/interfaces/barrows_puzzle.if'
++PZENUM = 'scripts/areas/area_barrows/configs/barrows_puzzle.enum'
++PZSPEC = 'tools/barrowspuzzlespec.json'
++PZOPT = 'sprites/meta/barrows_puzzle.opt'
++PZGEN = 'tools/genbarrowspuzzle.py'
+ ALLNPC = 'scripts/_unpack/377/all.npc'
+ SPEC = 'tools/barrowsspec.json'
+ SURFACE = 'maps/m55_51.jm2'
+@@ -522,9 +527,6 @@ MUTS = [
+   '27 the grid\'s option3 ("Bank") is handled'),
+  (CHEST, '[if_button,barrows_chest:takeall] ~barrows_reward_takeall;\n', '',
+   '27 and so is the Take everything button'),
+- (CHEST, 'inv_stoptransmit(barrows_chest:loot);\n~barrows_reward_flush;',
+-          'inv_stoptransmit(barrows_chest:loot);',
+-  '27 ...and banks whatever is left'),
+  (CHEST, '~barrows_reward_flush;\ndef_int $rolls', 'def_int $rolls',
+   '27 and the store is emptied BEFORE a new chest rolls'),
+  (CHEST, 'if ($take <= 0) {\n    mes("You do not have enough room to take that.");\n    return;\n}\n',
+@@ -541,13 +543,6 @@ MUTS = [
+  (VARBIT, '[barrows_puzzle_solved]\nbasevar=barrows\nstartbit=4\nendbit=4',
+           '[barrows_puzzle_solved]\nbasevar=barrows\nstartbit=9\nendbit=9',
+   '28 barrows_puzzle_solved sits in %barrows bit 4'),
+- (PUZZLE, '"Two bones", 1, "Four bones", 0', '"Two bones", 1, "Four bones", 1',
+-  '28 ...exactly one of which is right'),
+- (PUZZLE, '"A circle", 0, "A cross", 0, "A triangle", 1, "A square", 0',
+-           '"A circle", 0, "A cross", 0, "A triangle", 0, "A square", 0',
+-  '28 ...exactly one of which is right'),
+- (PUZZLE, 'case 7 :', 'case 9 :',
+-  '28 ...keyed 0..7, which is what random() rolls'),
+  (PUZZLE, '~barrows_shift;\nreturn(^false);', 'return(^false);',
+   '28 the right answer opens the door for the run and a wrong one shifts the tunnels'),
+  (PUZZLE, '%barrows_puzzle_solved = ^false;\n', '',
+@@ -622,6 +617,62 @@ MUTS = [
+  (ALLNPC, 'param=rangebonus,55\nparam=proj_travel,crossbowbolt_travel',
+           'param=rangebonus,55\nparam=proj_travel,crossbowbolt_launch',
+   '...and Karil fires exactly that, so the two cannot drift'),
++ # ---- the crash: banking the chest's remainder from an if_close, which has no protected access
++ (CHEST, 'queue(barrows_reward_bank_rest, 0, 0);', '~barrows_reward_flush;',
++  'closing the window does NOT bank the remainder inline'),
++ (CHEST, 'queue(barrows_reward_bank_rest, 0, 0);\n', '',
++  '...it queues the banking instead, which runs with protected access on the next tick'),
++ (CHEST, '[queue,barrows_reward_bank_rest]\n~barrows_reward_flush;',
++         '[queue,barrows_reward_bank_rest]\nmes("nothing to do");',
++  '...and that queue is what does the banking'),
++ (CHEST, '~barrows_reward_flush;\ndef_int $rolls', 'def_int $rolls',
++  '...and the next chest flushes the store before it rolls'),
++
++ # ---- the picture puzzle
++ # the .if rather than the enum: this moves the answer SHAPE and leaves the enum and the spec
++ # agreeing with each other, which is the only way to reach the third of the three checks alone
++ (PZIF, '[set0pick0]\nlayer=set0\ntype=graphic\nx=172\ny=172\nwidth=32\nheight=32\ngraphic=barrows_puzzle,4',
++        '[set0pick0]\nlayer=set0\ntype=graphic\nx=172\ny=172\nwidth=32\nheight=32\ngraphic=barrows_puzzle,0',
++  '...and that slot is the one holding the right shape'),
++ (PZENUM, 'default=-1', 'default=0',
++  '...and a default of -1, so a puzzle number nothing matches can never be answered right'),
++ (PZENUM, 'val=7,1\n', '',
++  '...and the answer table is keyed 0..7, which is what random() rolls'),
++ (PZENUM, 'val=2,2', 'val=2,1',
++  'and the right answer is not always in the same place - every slot is the answer at least twice'),
++ # the spec's own slot field, which nothing used to read
++ (PZSPEC, '"slot": 0,\n      "candidates"', '"slot": 1,\n      "candidates"',
++  '...and the spec agrees with itself: candidate'),
++ (PZIF, '[set0pick0]\nlayer=set0\ntype=graphic', '[set0pick0]\nlayer=set0\ntype=rect',
++  'puzzle 0 draws its three candidates in the order the spec says'),
++ (PZIF, '[set3]\ntype=layer', '[set3]\ntype=graphic',
++  'puzzle 3 lives in a layer, because if_sethide only works on those'),
++ (PUZZLE, 'if_sethide(barrows_puzzle:set5, ^true);\n', '',
++  'showing a puzzle hides all 8 layers first'),
++ (PUZZLE, '    case 6 : if_sethide(barrows_puzzle:set6, ^false);\n', '',
++  '...and every puzzle number can then show its own'),
++ (PUZZLE, 'if_addresumebutton(barrows_puzzle:pick2);\n', '',
++  '...and slot 2 is registered as a resume button, or clicking it does nothing'),
++ (PUZZLE, 'if_openmain(barrows_puzzle);', 'if_openchat(barrows_puzzle);',
++  'the puzzle opens as a main modal'),
++ (PUZZLE, 'p_pausebutton;', 'p_delay(1);',
++  '...and p_pausebutton suspends the script until one is clicked'),
++ (PUZZLE, '    case barrows_puzzle:pick2 : return(~barrows_puzzle_right(2));\n}\nreturn(-1);',
++          '    case barrows_puzzle:pick2 : return(~barrows_puzzle_right(2));\n}\nreturn(0);',
++  'closing the window without answering returns -1, not a wrong answer'),
++ (PUZZLE, 'if ($answer = -1) {\n    return(^false);\n}\n', '',
++  '...and the gate returns without shifting the tunnels, so a misclick on Close costs nothing'),
++ (PUZZLE, 'if ($pick = enum(int, int, barrows_puzzle_answer, %barrows_puzzle)) {',
++          'if ($pick = 1) {',
++  'the pick is judged against the generated table, not a number written twice'),
++ (PZOPT, '32x32', '16x16',
++  '...and its .opt splits it into 32x32 tiles, or every index is wrong'),
++ (PZSPEC, '"cols": 6', '"cols": 4',
++  '...and the sheet is as many tiles wide as the spec says'),
++ (PZGEN, "raise SystemExit('puzzle %d offers its answer twice' % i)", 'pass',
++  'the generator refuses to emit a puzzle whose answer is also one of its wrong options'),
++ (PZGEN, "raise SystemExit('slot %d is the answer in only %d puzzle(s) - too guessable'", "print('slot %d is the answer in only %d puzzle(s) - fine'",
++  '...or a set where one slot is almost never the answer'),
+ ]
+ 
+ 
+diff --git a/tools/barrowspuzzlespec.json b/tools/barrowspuzzlespec.json
+new file mode 100644
+index 00000000..a215382b
+--- /dev/null
++++ b/tools/barrowspuzzlespec.json
+@@ -0,0 +1,184 @@
++{
++  "_source": "tools/genbarrowspuzzle.py - the puzzle set is chosen here, not imported.",
++  "_shape": "Old School: three symbols and a question mark, three candidates, click the one that completes the sequence; a wrong answer shifts the tunnels.",
++  "tile": 32,
++  "cols": 6,
++  "tiles": [
++    "sq0",
++    "sq1",
++    "sq2",
++    "sq3",
++    "sq4",
++    "p3",
++    "p4",
++    "p5",
++    "p6",
++    "p7",
++    "el0",
++    "el1",
++    "el2",
++    "el3",
++    "ba0",
++    "ba1",
++    "ba2",
++    "ba3",
++    "ci0",
++    "ci1",
++    "ci2",
++    "ci3"
++  ],
++  "puzzles": [
++    {
++      "why": "a square filling up, one quarter at a time",
++      "seq": [
++        "sq1",
++        "sq2",
++        "sq3"
++      ],
++      "answer": "sq4",
++      "wrong": [
++        "sq2",
++        "sq0"
++      ],
++      "slot": 0,
++      "candidates": [
++        "sq4",
++        "sq2",
++        "sq0"
++      ]
++    },
++    {
++      "why": "polygons losing a side each step",
++      "seq": [
++        "p7",
++        "p6",
++        "p5"
++      ],
++      "answer": "p4",
++      "wrong": [
++        "p3",
++        "p5"
++      ],
++      "slot": 1,
++      "candidates": [
++        "p3",
++        "p4",
++        "p5"
++      ]
++    },
++    {
++      "why": "an ellipse widening",
++      "seq": [
++        "el0",
++        "el1",
++        "el2"
++      ],
++      "answer": "el3",
++      "wrong": [
++        "el0",
++        "el2"
++      ],
++      "slot": 2,
++      "candidates": [
++        "el0",
++        "el2",
++        "el3"
++      ]
++    },
++    {
++      "why": "a bar growing",
++      "seq": [
++        "ba0",
++        "ba1",
++        "ba2"
++      ],
++      "answer": "ba3",
++      "wrong": [
++        "ba1",
++        "ba0"
++      ],
++      "slot": 1,
++      "candidates": [
++        "ba1",
++        "ba3",
++        "ba0"
++      ]
++    },
++    {
++      "why": "polygons gaining a side each step",
++      "seq": [
++        "p3",
++        "p4",
++        "p5"
++      ],
++      "answer": "p6",
++      "wrong": [
++        "p3",
++        "p4"
++      ],
++      "slot": 0,
++      "candidates": [
++        "p6",
++        "p3",
++        "p4"
++      ]
++    },
++    {
++      "why": "a square emptying, one quarter at a time",
++      "seq": [
++        "sq4",
++        "sq3",
++        "sq2"
++      ],
++      "answer": "sq1",
++      "wrong": [
++        "sq0",
++        "sq2"
++      ],
++      "slot": 2,
++      "candidates": [
++        "sq0",
++        "sq2",
++        "sq1"
++      ]
++    },
++    {
++      "why": "a circle shrinking",
++      "seq": [
++        "ci0",
++        "ci1",
++        "ci2"
++      ],
++      "answer": "ci3",
++      "wrong": [
++        "ci1",
++        "ci0"
++      ],
++      "slot": 0,
++      "candidates": [
++        "ci3",
++        "ci1",
++        "ci0"
++      ]
++    },
++    {
++      "why": "square, circle, square - so a circle",
++      "seq": [
++        "p4",
++        "ci1",
++        "p4"
++      ],
++      "answer": "ci1",
++      "wrong": [
++        "p3",
++        "p4"
++      ],
++      "slot": 1,
++      "candidates": [
++        "p3",
++        "ci1",
++        "p4"
++      ]
++    }
++  ]
++}
+\ No newline at end of file
+diff --git a/tools/genbarrowspuzzle.py b/tools/genbarrowspuzzle.py
+new file mode 100644
+index 00000000..ae002253
+--- /dev/null
++++ b/tools/genbarrowspuzzle.py
+@@ -0,0 +1,339 @@
++#!/usr/bin/env python3
++"""Generate the Barrows door puzzle: its shape art, its interface, and its answer table.
++
++WHAT IT IS. Old School guards the last door before the chest with a sequence puzzle: three symbols
++and a question mark on top, three candidates below, click the one that finishes the sequence. Get
++it wrong and the tunnels shift. This build had the same puzzle and the same consequence, but asked
++it in WORDS, because the 377 cache has no shape art to draw a pattern out of.
++
++It does now, and it is drawn here rather than imported. Two reasons: the shapes are geometric
++primitives that PIL draws exactly, and drawing them means the puzzle SET is chosen here too - so
++every sequence can be guaranteed to have exactly one right answer among its three candidates,
++which is not something an imported sheet of pixels would tell us.
++
++THE SPRITE RULES, from the packer (tools/pack/PixPack.generatePalette):
++  - 0xFF00FF is palette index 0, i.e. TRANSPARENT. The sheet's background must be exactly that.
++  - every other colour costs a palette slot, and over 255 the packer quantizes. So the shapes are
++    drawn with hard edges and a handful of flat greys - no antialiasing, which would spend
++    hundreds of slots on near-greys and muddy the edges in an indexed palette anyway.
++  - a sheet is split by sprites/meta/<name>.opt, one "WxH" line, row-major.
++
++WHY EIGHT LAYERS RATHER THAN ONE PANEL REDRAWN. There is no if_setgraphic in this engine - a
++graphic component's sprite is fixed at pack time (if_setobject and if_setmodel exist; sprites have
++no equivalent). So all eight puzzles are built into the interface, one layer each, and
++~barrows_puzzle_show hides seven of them. if_sethide only works on layers, which is why each
++puzzle's six shapes live inside one.
++
++    python3 tools/genbarrowspuzzle.py
++    python3 tools/ifrender.py ../scripts/areas/area_barrows/interfaces/barrows_puzzle.if /tmp/p.png
++"""
++import json, os, re
++from PIL import Image, ImageDraw
++
++ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
++IFACE = 'barrows_puzzle'
++IF = os.path.join(ROOT, 'scripts/areas/area_barrows/interfaces/%s.if' % IFACE)
++SHEET = os.path.join(ROOT, 'sprites/%s.png' % IFACE)
++OPT = os.path.join(ROOT, 'sprites/meta/%s.opt' % IFACE)
++ENUM = os.path.join(ROOT, 'scripts/areas/area_barrows/configs/barrows_puzzle.enum')
++SPEC = os.path.join(ROOT, 'tools/barrowspuzzlespec.json')
++PACK = os.path.join(ROOT, 'pack/interface.pack')
++ORDER = os.path.join(ROOT, 'pack/interface.order')
++CONST = os.path.join(ROOT, 'scripts/areas/area_barrows/configs/barrows.constant')
++
++MAGENTA = (255, 0, 255)
++TILE = 32
++COLS = 6                       # sheet columns; the split is row-major so this fixes every index
++EDGE = (188, 180, 160)         # the outline: the same bone-grey the window chrome uses
++FILL = (128, 120, 104)         # a filled area
++DIM = (74, 69, 58)             # the box a candidate sits in
++
++# ---------------------------------------------------------------- the tiles
++# Five families, each a progression. Every tile is 32x32 with a 4px margin.
++TILES = []                     # ordered; index in this list IS the sprite index
++
++
++def tile(name):
++    TILES.append(name)
++    return name
++
++
++SQ = [tile('sq%d' % n) for n in range(5)]        # a square, n of its four quadrants filled
++POLY = [tile('p%d' % n) for n in range(3, 8)]    # regular polygons, 3..7 sides
++EL = [tile('el%d' % n) for n in range(4)]        # an ellipse, widening
++BA = [tile('ba%d' % n) for n in range(4)]        # a bar, growing
++CI = [tile('ci%d' % n) for n in range(4)]        # a circle, shrinking
++
++
++def draw_tile(name):
++    im = Image.new('RGB', (TILE, TILE), MAGENTA)
++    d = ImageDraw.Draw(im)
++    m = 4
++    box = (m, m, TILE - 1 - m, TILE - 1 - m)
++    if name.startswith('sq'):
++        n = int(name[2:])
++        x0, y0, x1, y1 = box
++        cx, cy = (x0 + x1) // 2, (y0 + y1) // 2
++        quads = [(x0, y0, cx, cy), (cx, y0, x1, cy), (cx, cy, x1, y1), (x0, cy, cx, y1)]
++        for q in quads[:n]:
++            d.rectangle(q, fill=FILL)
++        d.rectangle(box, outline=EDGE)
++    elif name.startswith('p'):
++        sides = int(name[1:])
++        r = (TILE - 2 * m) / 2
++        cx, cy = TILE / 2, TILE / 2
++        # flat-bottomed, so a triangle reads as a triangle and a square as a square
++        import math
++        rot = math.pi / sides + math.pi / 2
++        # rounded to whole pixels: PIL draws a polygon outline from float vertices with a
++        # one-pixel spur where two edges meet off-grid, which on a 32px triangle is a visible nick
++        pts = [(round(cx + r * math.cos(2 * math.pi * i / sides + rot)),
++                round(cy + r * math.sin(2 * math.pi * i / sides + rot))) for i in range(sides)]
++        d.polygon(pts, fill=FILL, outline=EDGE)
++    elif name.startswith('el'):
++        n = int(name[2:])
++        w = 10 + n * 5
++        d.ellipse((TILE // 2 - w // 2, m, TILE // 2 + w // 2, TILE - 1 - m), fill=FILL, outline=EDGE)
++    elif name.startswith('ba'):
++        n = int(name[2:])
++        h = 8 + n * 5
++        d.rectangle((m + 4, TILE - 1 - m - h, TILE - 1 - m - 4, TILE - 1 - m), fill=FILL, outline=EDGE)
++    elif name.startswith('ci'):
++        n = int(name[2:])
++        r = 12 - n * 2 - (1 if n == 3 else 0)
++        d.ellipse((TILE // 2 - r, TILE // 2 - r, TILE // 2 + r, TILE // 2 + r), fill=FILL, outline=EDGE)
++    else:
++        raise SystemExit('no drawing for tile %s' % name)
++    return im
++
++
++# ---------------------------------------------------------------- the eight puzzles
++# (sequence of three, the answer, the two wrong candidates, which slot the answer sits in)
++# WHICH SLOT IS DIFFERENT IN EVERY PUZZLE that shares a family, because eight puzzles whose answer
++# is always the middle option is one puzzle. Across the eight, slot 0 comes up three times and
++# slots 1 and 2 come up two and three times - checked below rather than eyeballed.
++PUZZLES = [
++    dict(why='a square filling up, one quarter at a time',
++         seq=[SQ[1], SQ[2], SQ[3]], answer=SQ[4], wrong=[SQ[2], SQ[0]], slot=0),
++    dict(why='polygons losing a side each step',
++         seq=[POLY[4], POLY[3], POLY[2]], answer=POLY[1], wrong=[POLY[0], POLY[2]], slot=1),
++    dict(why='an ellipse widening',
++         seq=[EL[0], EL[1], EL[2]], answer=EL[3], wrong=[EL[0], EL[2]], slot=2),
++    dict(why='a bar growing',
++         seq=[BA[0], BA[1], BA[2]], answer=BA[3], wrong=[BA[1], BA[0]], slot=1),
++    dict(why='polygons gaining a side each step',
++         seq=[POLY[0], POLY[1], POLY[2]], answer=POLY[3], wrong=[POLY[0], POLY[1]], slot=0),
++    dict(why='a square emptying, one quarter at a time',
++         seq=[SQ[4], SQ[3], SQ[2]], answer=SQ[1], wrong=[SQ[0], SQ[2]], slot=2),
++    dict(why='a circle shrinking',
++         seq=[CI[0], CI[1], CI[2]], answer=CI[3], wrong=[CI[1], CI[0]], slot=0),
++    dict(why='square, circle, square - so a circle',
++         seq=[POLY[1], CI[1], POLY[1]], answer=CI[1], wrong=[POLY[0], POLY[1]], slot=1),
++]
++
++# ---------------------------------------------------------------- panel geometry
++PANEL_X, PANEL_Y, PANEL_W, PANEL_H = 12, 20, 488, 240
++TILE_W, TILE_H = 88, 60
++SEQ_Y = 92                     # the row that poses the question
++RULE_Y = 152                   # the line between the question and the answers
++PICK_Y = 172                   # the row you click
++STEP = 56                      # horizontal pitch between shapes
++BOX = 40                       # the box a candidate sits in
++
++
++def read(p):
++    return open(p, newline='').read().replace('\r\n', '\n')
++
++
++def const(name):
++    m = re.search(r'(?m)^\^%s = (\d+)' % name, read(CONST))
++    if not m:
++        raise SystemExit('barrows.constant does not define ^%s' % name)
++    return int(m.group(1))
++
++
++def main():
++    want = const('barrows_puzzles')
++    if want != len(PUZZLES):
++        raise SystemExit('^barrows_puzzles is %d and there are %d puzzles here' % (want, len(PUZZLES)))
++    slots = [p['slot'] for p in PUZZLES]
++    for s in (0, 1, 2):
++        if slots.count(s) < 2:
++            raise SystemExit('slot %d is the answer in only %d puzzle(s) - too guessable'
++                             % (s, slots.count(s)))
++    for i, p in enumerate(PUZZLES):
++        if p['answer'] in p['wrong']:
++            raise SystemExit('puzzle %d offers its answer twice' % i)
++        if len(set([p['answer']] + p['wrong'])) != 3:
++            raise SystemExit('puzzle %d has duplicate candidates' % i)
++
++    # ---- the sheet
++    rows = -(-len(TILES) // COLS)
++    sheet = Image.new('RGB', (COLS * TILE, rows * TILE), MAGENTA)
++    for i, name in enumerate(TILES):
++        sheet.paste(draw_tile(name), ((i % COLS) * TILE, (i // COLS) * TILE))
++    os.makedirs(os.path.dirname(SHEET), exist_ok=True)
++    os.makedirs(os.path.dirname(OPT), exist_ok=True)
++    sheet.save(SHEET)
++    open(OPT, 'w', newline='').write('%dx%d\n' % (TILE, TILE))
++    palette = {c for _, c in (sheet.getcolors(65536) or [])} - {MAGENTA}
++    if len(palette) > 255:
++        raise SystemExit('%d non-transparent colours - the packer would quantize' % len(palette))
++    idx = {name: i for i, name in enumerate(TILES)}
++
++    # ---- the interface
++    out = []
++
++    def com(name, **kv):
++        out.append('[%s]' % name)
++        for k, v in kv.items():
++            out.append('%s=%s' % (k.rstrip('_'), v))
++        out.append('')
++
++    n = 0
++    for y in range(PANEL_Y, PANEL_Y + PANEL_H, TILE_H):
++        for x in range(PANEL_X, PANEL_X + PANEL_W, TILE_W):
++            com('frame%d' % n, type='graphic', x=x, y=y,
++                width=min(TILE_W, PANEL_X + PANEL_W - x), height=TILE_H, graphic='tradebacking,0')
++            n += 1
++    for i, (x, y) in enumerate(((PANEL_X, PANEL_Y), (PANEL_X + PANEL_W - 25, PANEL_Y),
++                                (PANEL_X, PANEL_Y + PANEL_H - 30),
++                                (PANEL_X + PANEL_W - 25, PANEL_Y + PANEL_H - 30))):
++        com('corner%d' % i, type='graphic', x=x, y=y, width=25, height=30,
++            graphic='steelborder,%d' % i)
++    for i, x in enumerate(range(PANEL_X + 25, PANEL_X + PANEL_W - 24, 36)):
++        com('top%d' % i, type='graphic', x=x, y=PANEL_Y - 15, width=36, height=36,
++            graphic='steelborder2,0')
++        com('bottom%d' % i, type='graphic', x=x, y=PANEL_Y + PANEL_H - 21, width=36, height=36,
++            graphic='miscgraphics,3')
++    for i, y in enumerate(range(PANEL_Y + 29, PANEL_Y + PANEL_H - 30, 36)):
++        com('left%d' % i, type='graphic', x=PANEL_X - 15, y=y, width=36, height=36,
++            graphic='miscgraphics,2')
++        com('right%d' % i, type='graphic', x=PANEL_X + PANEL_W - 21, y=y, width=36, height=36,
++            graphic='steelborder2,1')
++
++    com('title', type='text', x=PANEL_X, y=PANEL_Y + 10, width=PANEL_W, height=14, center='yes',
++        font='b12_full', shadowed='yes', text='A pattern is carved into the door',
++        colour='0xFFFF00')
++    com('hint', type='text', x=PANEL_X, y=PANEL_Y + 28, width=PANEL_W, height=14, center='yes',
++        font='p12_full', shadowed='yes', text='Choose the symbol that completes it.',
++        colour='0xFF981F')
++    com('close', type='text', x=PANEL_X + 412, y=PANEL_Y + 8, buttontype='close', width=68,
++        height=11, font='p11_full', shadowed='yes', text='Close Window', colour='0xC00000',
++        overcolour='0xFFFFFF')
++
++    # the four slots the question sits in, and the three you click. Centred as a row of four /
++    # three at STEP pitch, so the "?" lines up as the fourth member of the sequence.
++    def row_x(count, i):
++        width = (count - 1) * STEP
++        return PANEL_X + PANEL_W // 2 - width // 2 + i * STEP - TILE // 2
++
++    # the question mark is TEXT, not a tile: it is a glyph and the font already has one
++    com('qmark', type='text', x=row_x(4, 3), y=SEQ_Y + 6, width=TILE, height=20, center='yes',
++        font='b12_full', shadowed='yes', text='?', colour='0xFFFFFF')
++    com('rule', type='rect', x=PANEL_X + 120, y=RULE_Y, width=PANEL_W - 240, height=1,
++        fill='yes', colour='0x%06X' % (DIM[0] << 16 | DIM[1] << 8 | DIM[2]))
++    # the boxes are drawn once, outside the layers: they do not change with the puzzle
++    for i in range(3):
++        com('box%d' % i, type='rect', x=row_x(3, i) - (BOX - TILE) // 2,
++            y=PICK_Y - (BOX - TILE) // 2, width=BOX, height=BOX, fill='yes',
++            colour='0x%06X' % (DIM[0] << 16 | DIM[1] << 8 | DIM[2]))
++
++    # ---- one layer per puzzle, six shapes inside it
++    for pi, p in enumerate(PUZZLES):
++        com('set%d' % pi, type='layer', x=PANEL_X, y=0, width=PANEL_W, height=PANEL_Y + PANEL_H)
++        for si, t in enumerate(p['seq']):
++            com('set%dseq%d' % (pi, si), layer='set%d' % pi, type='graphic',
++                x=row_x(4, si) - PANEL_X, y=SEQ_Y, width=TILE, height=TILE,
++                graphic='%s,%d' % (IFACE, idx[t]))
++        cands = list(p['wrong'])
++        cands.insert(p['slot'], p['answer'])
++        for ci_, t in enumerate(cands):
++            com('set%dpick%d' % (pi, ci_), layer='set%d' % pi, type='graphic',
++                x=row_x(3, ci_) - PANEL_X, y=PICK_Y, width=TILE, height=TILE,
++                graphic='%s,%d' % (IFACE, idx[t]))
++
++    # ---- the three buttons, on top of everything, one per slot and never moving
++    for i in range(3):
++        com('pick%d' % i, type='rect', x=row_x(3, i) - (BOX - TILE) // 2,
++            y=PICK_Y - (BOX - TILE) // 2, buttontype='normal', width=BOX, height=BOX,
++            fill='no', colour='0x6F6250', overcolour='0xFFFFFF', option='Choose')
++
++    body = '\n'.join(out)
++    os.makedirs(os.path.dirname(IF), exist_ok=True)
++    open(IF, 'w', newline='').write(
++        '// GENERATED by tools/genbarrowspuzzle.py - do not hand edit.\n'
++        '// Scripts: areas/area_barrows/scripts/barrows_puzzle.rs2. Art: sprites/%s.png.\n'
++        '// One layer per puzzle; ~barrows_puzzle_show hides the seven that are not being asked.\n'
++        % IFACE + body)
++    names = re.findall(r'^\[([A-Za-z0-9_]+)\]$', body, re.M)
++
++    # ---- the answer table
++    lines = ['// GENERATED by tools/genbarrowspuzzle.py - do not hand edit.',
++             '// Which of the three candidate slots is the right answer, per puzzle. The shapes',
++             '// themselves are in the interface; this is the only part the scripts need.', '',
++             '[barrows_puzzle_answer]', 'inputtype=int', 'outputtype=int', 'default=-1']
++    for i, p in enumerate(PUZZLES):
++        lines.append('val=%d,%d' % (i, p['slot']))
++    lines.append('')
++    open(ENUM, 'w', newline='').write('\n'.join(lines))
++
++    json.dump({
++        '_source': 'tools/genbarrowspuzzle.py - the puzzle set is chosen here, not imported.',
++        '_shape': ('Old School: three symbols and a question mark, three candidates, click the one '
++                   'that completes the sequence; a wrong answer shifts the tunnels.'),
++        'tile': TILE, 'cols': COLS, 'tiles': TILES,
++        'puzzles': [dict(why=p['why'], seq=p['seq'], answer=p['answer'], wrong=p['wrong'],
++                         slot=p['slot'],
++                         candidates=[p['wrong'][0], p['wrong'][1]][:p['slot']] + [p['answer']]
++                                    + [p['wrong'][0], p['wrong'][1]][p['slot']:])
++                    for p in PUZZLES],
++    }, open(SPEC, 'w', newline=''), indent=2)
++
++    # ---- repack, the same rules as tools/genbarrowschest.py
++    pack = [l for l in read(PACK).split('\n') if l]
++    order_raw = open(ORDER, encoding='utf-8', newline='').read()
++    order_crlf = '\r\n' in order_raw
++    ids_order = [l for l in order_raw.replace('\r\n', '\n').split('\n') if l.strip()]
++    existing, keep, dropped = {}, [], set()
++    for l in pack:
++        i, nm = l.split('=', 1)
++        if nm == IFACE or nm.startswith(IFACE + ':'):
++            existing[nm] = i
++            dropped.add(i)
++            continue
++        keep.append(l)
++    ids_order = [l for l in ids_order if l not in dropped]
++    used = {int(l.split('=', 1)[0]) for l in keep}
++    nxt = max(used) + 1
++
++    def take(nm):
++        nonlocal nxt
++        i = existing.get(nm)
++        if i is None or int(i) in used:
++            while nxt in used:
++                nxt += 1
++            i = str(nxt); nxt += 1
++        used.add(int(i))
++        keep.append('%s=%s' % (i, nm))
++        ids_order.append(i)
++        return int(i)
++
++    mine = [take(IFACE)] + [take('%s:%s' % (IFACE, n)) for n in names]
++    keep.sort(key=lambda l: int(l.split('=', 1)[0]))
++    ids_order.sort(key=int)
++    ids = [l.split('=', 1)[0] for l in keep]
++    assert len(ids) == len(set(ids)), 'duplicate interface id'
++    nm = [l.split('=', 1)[1] for l in keep]
++    assert len(nm) == len(set(nm)), 'duplicate interface name'
++    assert set(ids_order) == set(ids), 'interface.order and interface.pack disagree'
++    open(PACK, 'w', encoding='utf-8', newline='').write('\n'.join(keep) + '\n')
++    open(ORDER, 'w', encoding='utf-8', newline='').write(
++        ('\r\n' if order_crlf else '\n').join(ids_order) + ('\r\n' if order_crlf else '\n'))
++
++    print('%s: %d tiles in a %dx%d sheet (%d colours), %d puzzles, answer slots %s'
++          % (IFACE, len(TILES), sheet.width, sheet.height, len(palette), len(PUZZLES), slots))
++    print('   %d components, ids %d..%d' % (len(names), min(mine), max(mine)))
++
++
++main()
+-- 
+2.43.0
+
