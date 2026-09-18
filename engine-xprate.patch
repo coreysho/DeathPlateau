@@ -1,0 +1,92 @@
+From 5ef04371bc2b213e30b213d09c22df0972ca0e97 Mon Sep 17 00:00:00 2001
+From: Corey <coreysho@gmail.com>
+Date: Fri, 18 Sep 2026 14:27:16 +0000
+Subject: [PATCH] addXp multiplies by the player's own XP rate, not just the
+ world's
+
+Environment.NODE_XPRATE was already applied here, world-wide. This adds the
+player's own rate beside it, from the content varp `xp_rate`, which holds the
+RATE itself (1, 5 or 10) rather than a mode index - so the values live in
+content and this needs no table of modes.
+
+addXp is the only place a per-player rate could go. There are 288
+stat_advance call sites across 122 content files and no wrapper they pass
+through, so anything content-side would have to be added to every one and
+would be missed by the next skill written.
+
+The varp is found by name through VarPlayerType.getId, behind a -2 sentinel
+because the configs are not loaded when this class is. Three answers are 1x
+on purpose: a missing varp, a value of 0, and anything below 1. 0 is every
+character that existed before this, and the authentic rate is what they had;
+the wrong answer here would be "nobody gains any experience". There is an
+upper rail of 100 as a safety rail rather than a game rule, because a perm
+varp written wrong would otherwise be unbounded.
+
+allowMulti is untouched, so ::setlevel still sets the level asked for.
+
+Content side, the chooser and its lock: coreysho/Content, "XP rate modes:
+realism, 5x and 10x, chosen once on Tutorial Island".
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01WTo3qFuhgbaA3yymZcTW7m
+---
+ src/engine/entity/Player.ts | 36 +++++++++++++++++++++++++++++++++++-
+ 1 file changed, 35 insertions(+), 1 deletion(-)
+
+diff --git a/src/engine/entity/Player.ts b/src/engine/entity/Player.ts
+index c6af07a..967de6a 100644
+--- a/src/engine/entity/Player.ts
++++ b/src/engine/entity/Player.ts
+@@ -1904,6 +1904,40 @@ export default class Player extends PathingEntity {
+         }
+     }
+ 
++    // -2 = not looked up yet, -1 = the content has no such varp. Resolved lazily because the
++    // configs are not loaded when this class is.
++    private static xpRateVarp: number = -2;
++
++    /**
++     * The player's own XP multiplier, from the content varp `xp_rate`, which holds the RATE
++     * itself (1, 5 or 10) rather than a mode number - so the three values live in
++     * gamemodes/configs/gamemode.constant and nowhere else, and this needs no table of modes.
++     *
++     * This is the only place a per-player rate could go. There are 288 stat_advance call sites
++     * across 122 content files and no wrapper proc they all pass through, so anything content-side
++     * would have to be added to every one of them and would be missed by the next skill written.
++     *
++     * 0 means never chosen and reads as 1 - the authentic rate, which is what the server did
++     * before this existed, so every character that already exists is unaffected and a player who
++     * closes the chooser without picking is not penalised. A missing varp reads as 1 for the same
++     * reason: the wrong answer here is "nobody gains any experience".
++     */
++    xpRate(): number {
++        if (Player.xpRateVarp === -2) {
++            Player.xpRateVarp = VarPlayerType.getId('xp_rate');
++        }
++        if (Player.xpRateVarp < 0) {
++            return 1;
++        }
++        const rate = this.vars[Player.xpRateVarp];
++        if (!rate || rate < 1) {
++            return 1;
++        }
++        // A safety rail, not a game rule: the rate is a perm varp and a bad write would otherwise
++        // be unbounded. The modes the content offers are 1, 5 and 10.
++        return Math.min(rate, 100);
++    }
++
+     addXp(stat: number, xp: number, allowMulti: boolean = true) {
+         // require xp is >= 0. there is no reason for a requested addXp to be negative.
+         if (xp < 0) {
+@@ -1915,7 +1949,7 @@ export default class Player extends PathingEntity {
+             return;
+         }
+ 
+-        const multi = allowMulti ? Environment.NODE_XPRATE : 1;
++        const multi = allowMulti ? Environment.NODE_XPRATE * this.xpRate() : 1;
+         this.stats[stat] += xp * multi;
+ 
+         // cap to 200m, this is represented as "2 billion" because we use 32-bit signed integers and divide by 10 to give us a decimal point
+-- 
+2.43.0
+
