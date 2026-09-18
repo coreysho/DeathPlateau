@@ -1,0 +1,396 @@
+From c9840f18ab8cbb3918bddcfb92a8547949ad5aaa Mon Sep 17 00:00:00 2001
+From: Claude Opus 5 <noreply@anthropic.com>
+Date: Fri, 18 Sep 2026 17:53:47 +0000
+Subject: [PATCH] A type=text with no font kills the client, not the server
+
+The 22 XP-lock buttons draw no text, so they were given no font=. PackShared's
+nameToFont returns -1 for a missing one, p1(-1) is the byte 255, and Component.decode
+does `com.font = fonts[font]` on an array of FOUR - so the client dies inside
+Component.unpack with "loaderror Unpacking interfaces 95" before the login screen.
+
+There is no server-side symptom whatsoever: the pack builds clean and the world comes
+up. The guide buttons these copy their geometry from carry font=p12_full and
+shadowed=yes, which was the clue sitting in the file.
+
+rs2check rule 20 now reads every .if in the repo: a type=text must name a font the
+packer knows, and a component must name a type it knows. It is in --selftest with its
+own fixture, so it is proven to go red, and a repo-wide run says these 22 were the only
+ones.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_015mjzJ5S7cQ1h1aE5KeBabD
+---
+ scripts/interfaces/stats.if | 44 +++++++++++++++++++++++++++
+ tools/gamemode_battery.py   |  8 +++++
+ tools/gamemode_mutate.py    |  5 +++-
+ tools/genxplock.py          |  8 ++++-
+ tools/rs2check.py           | 60 +++++++++++++++++++++++++++++++++++++
+ 5 files changed, 123 insertions(+), 2 deletions(-)
+
+diff --git a/scripts/interfaces/stats.if b/scripts/interfaces/stats.if
+index 1d57d457..49f5ae25 100644
+--- a/scripts/interfaces/stats.if
++++ b/scripts/interfaces/stats.if
+@@ -1187,6 +1187,8 @@ buttontype=normal
+ width=64
+ height=31
+ overlayer=com_122
++font=p12_full
++shadowed=yes
+ option=Toggle @or1@Attack @whi@XP-lock
+ 
+ [xplock_hitpoints]
+@@ -1197,6 +1199,8 @@ buttontype=normal
+ width=64
+ height=31
+ overlayer=com_158
++font=p12_full
++shadowed=yes
+ option=Toggle @or1@Hitpoints @whi@XP-lock
+ 
+ [xplock_mining]
+@@ -1207,6 +1211,8 @@ buttontype=normal
+ width=64
+ height=31
+ overlayer=com_194
++font=p12_full
++shadowed=yes
+ option=Toggle @or1@Mining @whi@XP-lock
+ 
+ [xplock_strength]
+@@ -1217,6 +1223,8 @@ buttontype=normal
+ width=64
+ height=31
+ overlayer=com_128
++font=p12_full
++shadowed=yes
+ option=Toggle @or1@Strength @whi@XP-lock
+ 
+ [xplock_agility]
+@@ -1227,6 +1235,8 @@ buttontype=normal
+ width=64
+ height=31
+ overlayer=com_164
++font=p12_full
++shadowed=yes
+ option=Toggle @or1@Agility @whi@XP-lock
+ 
+ [xplock_smithing]
+@@ -1237,6 +1247,8 @@ buttontype=normal
+ width=64
+ height=31
+ overlayer=com_200
++font=p12_full
++shadowed=yes
+ option=Toggle @or1@Smithing @whi@XP-lock
+ 
+ [xplock_defence]
+@@ -1247,6 +1259,8 @@ buttontype=normal
+ width=64
+ height=31
+ overlayer=com_134
++font=p12_full
++shadowed=yes
+ option=Toggle @or1@Defence @whi@XP-lock
+ 
+ [xplock_herblore]
+@@ -1257,6 +1271,8 @@ buttontype=normal
+ width=64
+ height=31
+ overlayer=com_170
++font=p12_full
++shadowed=yes
+ option=Toggle @or1@Herblore @whi@XP-lock
+ 
+ [xplock_fishing]
+@@ -1267,6 +1283,8 @@ buttontype=normal
+ width=64
+ height=31
+ overlayer=com_206
++font=p12_full
++shadowed=yes
+ option=Toggle @or1@Fishing @whi@XP-lock
+ 
+ [xplock_ranged]
+@@ -1277,6 +1295,8 @@ buttontype=normal
+ width=64
+ height=31
+ overlayer=com_140
++font=p12_full
++shadowed=yes
+ option=Toggle @or1@Ranged @whi@XP-lock
+ 
+ [xplock_thieving]
+@@ -1287,6 +1307,8 @@ buttontype=normal
+ width=64
+ height=31
+ overlayer=com_176
++font=p12_full
++shadowed=yes
+ option=Toggle @or1@Thieving @whi@XP-lock
+ 
+ [xplock_cooking]
+@@ -1297,6 +1319,8 @@ buttontype=normal
+ width=64
+ height=31
+ overlayer=com_212
++font=p12_full
++shadowed=yes
+ option=Toggle @or1@Cooking @whi@XP-lock
+ 
+ [xplock_prayer]
+@@ -1307,6 +1331,8 @@ buttontype=normal
+ width=64
+ height=31
+ overlayer=com_146
++font=p12_full
++shadowed=yes
+ option=Toggle @or1@Prayer @whi@XP-lock
+ 
+ [xplock_crafting]
+@@ -1317,6 +1343,8 @@ buttontype=normal
+ width=64
+ height=31
+ overlayer=com_182
++font=p12_full
++shadowed=yes
+ option=Toggle @or1@Crafting @whi@XP-lock
+ 
+ [xplock_firemaking]
+@@ -1327,6 +1355,8 @@ buttontype=normal
+ width=64
+ height=31
+ overlayer=com_218
++font=p12_full
++shadowed=yes
+ option=Toggle @or1@Firemaking @whi@XP-lock
+ 
+ [xplock_magic]
+@@ -1337,6 +1367,8 @@ buttontype=normal
+ width=64
+ height=31
+ overlayer=com_152
++font=p12_full
++shadowed=yes
+ option=Toggle @or1@Magic @whi@XP-lock
+ 
+ [xplock_fletching]
+@@ -1347,6 +1379,8 @@ buttontype=normal
+ width=64
+ height=31
+ overlayer=com_188
++font=p12_full
++shadowed=yes
+ option=Toggle @or1@Fletching @whi@XP-lock
+ 
+ [xplock_woodcutting]
+@@ -1357,6 +1391,8 @@ buttontype=normal
+ width=64
+ height=31
+ overlayer=com_224
++font=p12_full
++shadowed=yes
+ option=Toggle @or1@Woodcutting @whi@XP-lock
+ 
+ [xplock_runecraft]
+@@ -1367,6 +1403,8 @@ buttontype=normal
+ width=64
+ height=31
+ overlayer=com_242
++font=p12_full
++shadowed=yes
+ option=Toggle @or1@Runecrafting @whi@XP-lock
+ 
+ [xplock_slayer]
+@@ -1377,6 +1415,8 @@ buttontype=normal
+ width=64
+ height=31
+ overlayer=com_243
++font=p12_full
++shadowed=yes
+ option=Toggle @or1@Slayer @whi@XP-lock
+ 
+ [xplock_farming]
+@@ -1387,6 +1427,8 @@ buttontype=normal
+ width=64
+ height=31
+ overlayer=com_255
++font=p12_full
++shadowed=yes
+ option=Toggle @or1@Farming @whi@XP-lock
+ 
+ [xplock_construction]
+@@ -1397,6 +1439,8 @@ buttontype=normal
+ width=64
+ height=31
+ overlayer=construction_hover
++font=p12_full
++shadowed=yes
+ option=Toggle @or1@Construction @whi@XP-lock
+ 
+ [com_68]
+diff --git a/tools/gamemode_battery.py b/tools/gamemode_battery.py
+index e9d8b1c8..616b548f 100644
+--- a/tools/gamemode_battery.py
++++ b/tools/gamemode_battery.py
+@@ -386,6 +386,14 @@ for n in locks:
+         unprot.append(n)
+ check(not unprot, 'and takes protected access FIRST, because an [if_button] is not handed it: %s'
+       % (unprot[:3] or 'all 22'))
++# THE CHECK THE SECOND DEPLOY EARNED. A type=text with no font= packs as fonts[255] and kills the
++# CLIENT on load - "loaderror Unpacking interfaces 95" - with no server-side symptom at all.
++# rs2check rule 20 holds this repo-wide now; this one is here because these 22 are the components
++# that taught it.
++IF_FONTS = {'p11_full', 'p12_full', 'b12_full', 'q8_full'}
++nofont = [n for n in locks if byn[n].get('font') not in IF_FONTS]
++check(not nofont, 'and names a font the packer knows, or the client dies unpacking interfaces: %s'
++      % (nofont[:3] or 'all 22'))
+ outside = [n for n in locks
+            if re.search(r'(?m)^%xp_locked = ', code(XPLOCK.split('[if_button,stats:%s]' % n, 1)[1]
+                                                     .split('\n[', 1)[0]))]
+diff --git a/tools/gamemode_mutate.py b/tools/gamemode_mutate.py
+index 13836135..f663f8ad 100644
+--- a/tools/gamemode_mutate.py
++++ b/tools/gamemode_mutate.py
+@@ -82,7 +82,7 @@ MUTS = [
+   'xp_locked is the newest varp id, so nothing already saved moved under it'),
+ 
+  # ---- 10 the stats tab
+- (STATSIF, '[xplock_attack]\ntype=text\nx=0\ny=2\nbuttontype=normal\nwidth=64\nheight=31\noverlayer=com_122\noption=Toggle @or1@Attack @whi@XP-lock\n\n',
++ (STATSIF, '[xplock_attack]\ntype=text\nx=0\ny=2\nbuttontype=normal\nwidth=64\nheight=31\noverlayer=com_122\nfont=p12_full\nshadowed=yes\noption=Toggle @or1@Attack @whi@XP-lock\n\n',
+            '',
+   'one lock button per skill box'),
+  # THE ONE THIS ROUND EXISTS FOR: a lock button no longer paired with its own box, which is the
+@@ -92,6 +92,9 @@ MUTS = [
+   'each one is emitted BEFORE its guide button, so left click still opens the guide'),
+  (STATSIF, 'option=Toggle @or1@Attack @whi@XP-lock', 'option=Toggle @or1@Defence @whi@XP-lock',
+   'no two say the same thing'),
++ (STATSIF, 'overlayer=com_122\nfont=p12_full\nshadowed=yes\noption=Toggle @or1@Attack',
++           'overlayer=com_122\nshadowed=yes\noption=Toggle @or1@Attack',
++  'and names a font the packer knows, or the client dies unpacking interfaces'),
+  (IPACK, '20576=stats:xplock_attack\n', '',
+   'every one has an id in interface.pack'),
+  (XPLOCK, '            if_settext(stats:com_125, "Next Level At:");',
+diff --git a/tools/genxplock.py b/tools/genxplock.py
+index c1343cbd..28d9ef50 100644
+--- a/tools/genxplock.py
++++ b/tools/genxplock.py
+@@ -147,9 +147,15 @@ def rewrite_stats(blocks, sk):
+     first = next(i for i, (n, _, _) in enumerate(kept) if n == sk[0]['button'])
+     buttons = []
+     for s in sk:
++        # font= AND shadowed= even though this text draws nothing. PackShared's nameToFont returns
++        # -1 for a missing font, p1(-1) is the byte 255, and Component.decode does
++        # `com.font = fonts[font]` on an array of FOUR - so the client dies with
++        # "loaderror Unpacking interfaces 95" before it reaches the login screen. Shipped without
++        # them once, on the reasoning that a text with no text needs no font; the guide button
++        # these copy their geometry from carries both, which was the clue that was there to read.
+         buttons += com(PREFIX + s['skill'], type='text', x=s['x'], y=s['y'],
+                        buttontype='normal', width=s['width'], height=s['height'],
+-                       overlayer=s['overlayer'],
++                       overlayer=s['overlayer'], font='p12_full', shadowed='yes',
+                        option='Toggle @or1@%s @whi@XP-lock' % title(s['skill']))
+     out = []
+     for i, (n, kv, buf) in enumerate(kept):
+diff --git a/tools/rs2check.py b/tools/rs2check.py
+index 854df943..364d9750 100644
+--- a/tools/rs2check.py
++++ b/tools/rs2check.py
+@@ -811,6 +811,10 @@ inv_add(inv, probe_obj, 1);
+ """,
+     "probe_clean.dbrow": "\n[probe_clean_row]\ntable=probe_table\ndata=probe_text,\"one, two\"\n",
+     "probe_clean.enum": "\n[probe_int_enum]\ninputtype=int\noutputtype=int\nval=0,1\n",
++    # rule 20: a type=text with no font, which packs as fonts[255] and kills the client on load
++    "probe.if": "type=overlay\n\n[probe_nofont]\ntype=text\nx=0\ny=0\nwidth=10\nheight=10\n",
++    "probe_clean.if": ("type=overlay\n\n[probe_ok]\ntype=text\nx=0\ny=0\nwidth=10\nheight=10\n"
++                       "font=p12_full\nshadowed=yes\n"),
+ }
+ # rule 12 is bytes, not text: \r\r is what a line-ending pass applied twice leaves behind
+ FIXTURE_BYTES = {
+@@ -859,6 +863,10 @@ ALL_RULES = {
+     15:   ("probe.rs2", 19),
+     16:   ("model.pack", 2),
+     17:   ("probe.enum", 2),
++    # 20 is the newest: a type=text with no font=. PackShared writes -1 as the byte 255 and
++    # Component.decode indexes an array of four with it, so the CLIENT dies on load - "loaderror
++    # Unpacking interfaces 95" - with no server-side symptom at all. Cost one deploy.
++    20:   ("probe.if", 3),
+ }
+ 
+ 
+@@ -911,6 +919,7 @@ def selftest():
+         check_duplicates(T)
+         check_models()
+         check_enum_defaults()
++        check_interfaces()
+         got = {}
+         for sev, path, line, rule, msg in findings:
+             got.setdefault(rule, []).append((sev, path, line, msg))
+@@ -954,6 +963,56 @@ def selftest():
+ 
+ # --------------------------------------------------------------------------- main
+ 
++
++# --------------------------------------------------------------------------- rule 20
++
++# PackShared.nameToFont returns -1 for a font it does not know - INCLUDING a missing one - and
++# p1(-1) is the byte 255. Component.decode then does `com.font = fonts[font]` on an array of
++# FOUR, so the client dies inside Component.unpack with
++#
++#     loaderror Unpacking interfaces 95
++#
++# before it reaches the login screen. There is no server-side symptom at all: the pack builds
++# clean and the world comes up. Cost one deploy on 2026-09-18, from 22 buttons that draw no text
++# and were given no font on the reasoning that they did not need one.
++IF_FONTS = {"p11_full", "p12_full", "b12_full", "q8_full"}
++IF_TYPES = {"layer", "overlay", "inv", "rect", "text", "graphic", "model", "invtext", "8"}
++
++
++def check_interfaces():
++    for path in walk({".if"}):
++        cur, kv, start = None, {}, 0
++
++        def finish():
++            if cur is None:
++                return
++            t = kv.get("type")
++            if t is not None and t not in IF_TYPES:
++                report("ERROR", path, start, 20,
++                       "[%s] type=%s is not a type the packer knows" % (cur, t))
++            # comType 4 (text) and 1 - the two branches Component.decode reads a font for
++            if t == "text":
++                f = kv.get("font")
++                if f is None:
++                    report("ERROR", path, start, 20,
++                           "[%s] is type=text with no font= - the client reads fonts[255] and "
++                           "dies unpacking interfaces" % cur)
++                elif f not in IF_FONTS:
++                    report("ERROR", path, start, 20,
++                           "[%s] font=%s is not one of %s" % (cur, f, sorted(IF_FONTS)))
++
++        for n, raw, _ in stripped_lines(text(path)):
++            m = re.match(r"^\[([A-Za-z0-9_]+)\]\s*$", raw)
++            if m:
++                finish()
++                cur, kv, start = m.group(1), {}, n
++                continue
++            if "=" in raw and cur:
++                k, v = raw.split("=", 1)
++                kv.setdefault(k.strip(), v.strip())
++        finish()
++
++
+ def main(argv):
+     if "--selftest" in argv:
+         return selftest()
+@@ -974,6 +1033,7 @@ def main(argv):
+         check_duplicates(T)
+         check_models()
+         check_enum_defaults()
++        check_interfaces()
+ 
+     errors = [f for f in findings if f[0] == "ERROR"]
+     checks = [f for f in findings if f[0] == "CHECK"]
+-- 
+2.43.0
+
