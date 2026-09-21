@@ -1,0 +1,2297 @@
+From 928caec4e1b0098922b81e7d65a4de02ff1ed55b Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Mon, 21 Sep 2026 03:21:32 +0000
+Subject: [PATCH] The clue hunter outfit, and it does three things OSRS's does
+ not
+
+Backlog item 7. Six pieces out of a modern OSRS cache, dropped by caskets, and with the full set on:
+a chance the casket pays twice, and a chance a trail step is skipped.
+
+OSRS'S CLUE HUNTER OUTFIT DOES NOTHING FOR CLUES. Leather-armour stats, and five of the six count
+as warm clothing. No casket bonus, no step reduction, no drop-rate effect - the wiki page lists the
+stats and stops. So every effect here was asked for by name and is recorded as a departure in
+tools/cluehunterspec.json under what_osrs_actually_does, where a check reads it, so nobody later
+reads these as canon. In OSRS the set is dug up at five fixed spots, three of which are places this
+build does not have, so the source is Corey's as well.
+
+THE SIGNS ARE THE REASON THERE IS A GENERATOR FOR SIX RECORDS. The item table stores a negative
+bonus as an unsigned 32-bit int: the Helm of Raedwald's -6 magic attack comes back as 4294967290,
+and writing that through would have put the largest magic attack bonus in the game on a leather
+helmet. The spec holds the signed values, the generator writes them, and the battery checks two
+different things about them - that each piece equals the spec, AND that no bonus anywhere is within
+a thousand of an unconverted unsigned int, which is a property rather than a restatement.
+
+WHAT THE SET DOES, and where each hook is:
+
+  a doubled casket    10%, in the three ~trail_clue_<tier>_reward procs, right after each works out
+                      how many times to roll. Twice the rolls on the same table is exactly two
+                      caskets' worth - and the three tiers are NOT the same, so this is three
+                      hooks and not one: easy rolls 2 + random(3), medium 3, hard 4.
+  a skipped step      10%, in ~trail_clue_progress, which every tier goes through - so one hook
+                      covers easy, medium and hard, and a fourth tier would be covered too. It
+                      advances the counter a second time, and the completeness test in the caller
+                      reads the higher number, so a skip can finish a trail outright.
+
+Not a new idea in that file: ~trail_clue_<tier>_complete already finishes early when progress + 2
+reaches maxsteps and a coin flip agrees. The outfit extends a mechanism that was already there.
+
+They are two separate draws at two different moments, which is what "one roll each" meant, and a
+check counts the draws rather than trusting the comment.
+
+THE SET COMES OUT OF CASKETS at 1/750 a roll, per piece, and only for a piece the player has none
+of in the inventory, the bank or worn. Two reasons for the ownership test: an untradeable outfit
+piece arriving twice is pure clutter, and skipping the ones already found is what makes the rate
+for a given piece exactly the number asked for until it is found.
+
+Six independent waits at 1/750 is 750 x H(6) = 1,837 rolls for the set. Divided by each tier's own
+average that is about 612 easy caskets, 459 medium or 367 hard - the "about 600" that was asked
+for, after the first figure of 1/1500 was halved. The battery recomputes all four numbers from the
+denominator and the roll counts it reads out of the three reward procs, so the spec cannot quietly
+disagree with itself, and it would have caught a single casket figure quoted for all three tiers -
+which is what the first draft had.
+
+DELIBERATELY NOT IN THE RARE TABLES. Those reach 1/97 a roll through arithmetic that is derived and
+commented in the reward scripts - 1/13 to a 108-reward table in OSRS, worked back to 1/97 here -
+and six new entries would move every existing rare's rate and make that comment wrong. A separate
+roll hits the asked-for number exactly and leaves them alone. A check holds it from the other end:
+each of the six existing tables still has exactly as many cases as its own random(), and no clue
+hunter piece appears in any of them.
+
+NO DESTROY OP, though OSRS gives every piece one at inventory op 5. In this build opheld5 is Drop,
+served globally by player/scripts/drop.rs2, so carrying OSRS's would take Drop off the item - the
+same reason the Max cape folded its Spellbook op into Features. tradeable=no instead. And the warm
+clothing is not carried either: there is no cold-damage mechanic here for it to do anything in, and
+no param was invented to pretend otherwise.
+
+THE FULL-SET TEST TAKES ITS SLOTS FROM THE OBJ CONFIG, not from a list in the battery. Looking a
+piece up in the wrong slot is the mistake the Rogue outfit's check was written for; here the check
+reads each piece's wearpos out of its own record and builds the line it expects, so moving a
+wearpos moves the check with it.
+
+32 mutations, each caught by its own check, none loose and none skipped - and this harness has the
+ANCHOR UNIQUENESS RULE, which only two of the ten had. A find string matching twice is a mutation
+that changes something other than what it names while still coming back red, which is worse than a
+missing mutation because it looks like coverage. Every one of the 32 anchors was unique, checked by
+the harness rather than by hand.
+
+Two entries were wrong first and both are written down beside the fixed versions. One added a
+redundant line instead of changing the shape of the thing being read, and survived - correctly. The
+other flipped the helm's signs to prove a guard that can only fail if EVERY negative in the file
+disappears, which no single edit does; it is named at the equality check instead, and the guard is
+recorded as having no mutation of its own rather than being given a misleading one.
+
+CI gets the two new tools. It also does not have gamemode, barrows, leprechaun or follower - four
+batteries and four harnesses that exist and run only when somebody remembers - which is noted in
+the workflow and the backlog rather than fixed here: barrows_mutate alone is 237 entries at about
+five minutes and needs a sharding decision rather than a line.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01WTo3qFuhgbaA3yymZcTW7m
+---
+ .github/workflows/content.yml                 |   9 +
+ models/obj/obj_clue_hunter_boots.ob2          | Bin 0 -> 1799 bytes
+ models/obj/obj_clue_hunter_boots_manwear.ob2  | Bin 0 -> 1961 bytes
+ .../obj/obj_clue_hunter_boots_womanwear.ob2   | Bin 0 -> 2052 bytes
+ models/obj/obj_clue_hunter_cloak.ob2          | Bin 0 -> 3931 bytes
+ models/obj/obj_clue_hunter_cloak_manwear.ob2  | Bin 0 -> 5116 bytes
+ .../obj/obj_clue_hunter_cloak_womanwear.ob2   | Bin 0 -> 5058 bytes
+ models/obj/obj_clue_hunter_garb.ob2           | Bin 0 -> 3801 bytes
+ models/obj/obj_clue_hunter_garb_manwear.ob2   | Bin 0 -> 3055 bytes
+ models/obj/obj_clue_hunter_garb_manwear2.ob2  | Bin 0 -> 1751 bytes
+ models/obj/obj_clue_hunter_garb_womanwear.ob2 | Bin 0 -> 3442 bytes
+ .../obj/obj_clue_hunter_garb_womanwear2.ob2   | Bin 0 -> 1740 bytes
+ models/obj/obj_clue_hunter_gloves.ob2         | Bin 0 -> 2107 bytes
+ models/obj/obj_clue_hunter_gloves_manwear.ob2 | Bin 0 -> 1370 bytes
+ .../obj/obj_clue_hunter_gloves_womanwear.ob2  | Bin 0 -> 1523 bytes
+ models/obj/obj_clue_hunter_trousers.ob2       | Bin 0 -> 2690 bytes
+ .../obj/obj_clue_hunter_trousers_manwear.ob2  | Bin 0 -> 3974 bytes
+ .../obj_clue_hunter_trousers_womanwear.ob2    | Bin 0 -> 4092 bytes
+ models/obj/obj_helm_of_raedwald.ob2           | Bin 0 -> 2508 bytes
+ models/obj/obj_helm_of_raedwald_manhead.ob2   | Bin 0 -> 4381 bytes
+ models/obj/obj_helm_of_raedwald_manwear.ob2   | Bin 0 -> 3882 bytes
+ models/obj/obj_helm_of_raedwald_womanhead.ob2 | Bin 0 -> 4381 bytes
+ models/obj/obj_helm_of_raedwald_womanwear.ob2 | Bin 0 -> 3802 bytes
+ pack/model.pack                               |  22 ++
+ pack/obj.pack                                 |   6 +
+ .../game_trail/configs/clue_hunter.obj        | 154 ++++++++++
+ .../game_trail/configs/trail.constant         |  16 +
+ .../game_trail/scripts/clue_hunter.rs2        |  94 ++++++
+ .../scripts/easy/trail_clue_easy_reward.rs2   |  11 +
+ .../scripts/hard/trail_clue_hard_reward.rs2   |  11 +
+ .../medium/trail_clue_medium_reward.rs2       |  11 +
+ .../game_trail/scripts/trail_clue_helper.rs2  |  11 +
+ tools/clue_battery.py                         | 274 ++++++++++++++++++
+ tools/clue_mutate.py                          | 190 ++++++++++++
+ tools/cluehunterspec.json                     | 244 ++++++++++++++++
+ tools/gencluehunter.py                        | 215 ++++++++++++++
+ 36 files changed, 1268 insertions(+)
+ create mode 100644 models/obj/obj_clue_hunter_boots.ob2
+ create mode 100644 models/obj/obj_clue_hunter_boots_manwear.ob2
+ create mode 100644 models/obj/obj_clue_hunter_boots_womanwear.ob2
+ create mode 100644 models/obj/obj_clue_hunter_cloak.ob2
+ create mode 100644 models/obj/obj_clue_hunter_cloak_manwear.ob2
+ create mode 100644 models/obj/obj_clue_hunter_cloak_womanwear.ob2
+ create mode 100644 models/obj/obj_clue_hunter_garb.ob2
+ create mode 100644 models/obj/obj_clue_hunter_garb_manwear.ob2
+ create mode 100644 models/obj/obj_clue_hunter_garb_manwear2.ob2
+ create mode 100644 models/obj/obj_clue_hunter_garb_womanwear.ob2
+ create mode 100644 models/obj/obj_clue_hunter_garb_womanwear2.ob2
+ create mode 100644 models/obj/obj_clue_hunter_gloves.ob2
+ create mode 100644 models/obj/obj_clue_hunter_gloves_manwear.ob2
+ create mode 100644 models/obj/obj_clue_hunter_gloves_womanwear.ob2
+ create mode 100644 models/obj/obj_clue_hunter_trousers.ob2
+ create mode 100644 models/obj/obj_clue_hunter_trousers_manwear.ob2
+ create mode 100644 models/obj/obj_clue_hunter_trousers_womanwear.ob2
+ create mode 100644 models/obj/obj_helm_of_raedwald.ob2
+ create mode 100644 models/obj/obj_helm_of_raedwald_manhead.ob2
+ create mode 100644 models/obj/obj_helm_of_raedwald_manwear.ob2
+ create mode 100644 models/obj/obj_helm_of_raedwald_womanhead.ob2
+ create mode 100644 models/obj/obj_helm_of_raedwald_womanwear.ob2
+ create mode 100644 scripts/minigames/game_trail/configs/clue_hunter.obj
+ create mode 100644 scripts/minigames/game_trail/scripts/clue_hunter.rs2
+ create mode 100644 tools/clue_battery.py
+ create mode 100644 tools/clue_mutate.py
+ create mode 100644 tools/cluehunterspec.json
+ create mode 100644 tools/gencluehunter.py
+
+diff --git a/.github/workflows/content.yml b/.github/workflows/content.yml
+index 03e75b25..0edbbdde 100644
+--- a/.github/workflows/content.yml
++++ b/.github/workflows/content.yml
+@@ -150,6 +150,7 @@ jobs:
+         - superior_battery.py
+         - fightcave_battery.py
+         - combat_battery.py
++        - clue_battery.py
+         - certcheck.py
+ 
+     steps:
+@@ -192,6 +193,14 @@ jobs:
+         - fightcave_mutate.py
+         - combat_mutate.py
+         - cert_mutate.py
++        - clue_mutate.py
++
++    # NOT IN EITHER LIST, and it is not deliberate: gamemode, barrows, leprechaun and follower all
++    # have a battery and a mutation harness and none of the four is here, so the XP rate modes, the
++    # XP lock, the Barrows and the leprechaun are checked only when somebody remembers to run them
++    # by hand. Noted in claude/requests-backlog.md rather than fixed in a round about clue scrolls:
++    # barrows_mutate alone is 237 entries at about five minutes, which needs a sharding decision
++    # rather than a line.
+ 
+     # THE SAME SETUP AS THE pack JOB, copied rather than trimmed per harness. Every harness spawns
+     # a checker, and poh_battery among them reads the engine source AND the packed cache - so a
+diff --git a/models/obj/obj_clue_hunter_boots.ob2 b/models/obj/obj_clue_hunter_boots.ob2
+new file mode 100644
+index 0000000000000000000000000000000000000000..baa8c5dd2e0432d394861331e0b3778c727da1bd
+GIT binary patch
+literal 1799
+zcmeHHNsbdS6iw2p)Rsjfu|k3ciykr$HMso!J(R1`89GfGAvSC{0OAB3fCKa*8*ai8
+zxDkB2DxFr4kXpbFyZrqBxBu{5<qCt~B<zGi5Qg-SREuPAdYgu`b~-ei6a=k~w>s^l
+zcB92sGiZkGW;>{wpTl-g>y_O_>9kvIH@W#(Z~kw8^#odvYyy!>%oH+>slg=2*e1du
+zMnx<f;;h8!d?p;?<O;`&iExOc<ybhx;R*+9>|YOrL+ow(!Xb8Vdg6dnACQ7WY8JiC
+zfJ;!TkywJSfp%72gj`6FI4x%|pDuiPWa+PlupStZmP}_txjhlgOXLV3`Di_W>;6Xc
+z;HG=6en*PvM4~1|bf)5%R7Gbfj!8YFlT5CxXXjX~K>Guvsv?s@33P69pQXx0$b|O1
+zF1JvZcYf1_Wt1*QK-6pzZ)z^R*O#!pxE1H{=4>l2K)Hjxc)1*Zg8uEES_Y<i@Xst<
+zac&s5iQUI}l;!k}`pyrBcTb<}yI*l@RX<33%l-a(r;FtMeLRv#-<^J?UVD(`;Oo6l
+zcP^XTQ=#{$s=2SFj{eZIk`EOfGJEO3qV_%1v9F3EJgA1&kLtM3_Tu}$?fq2FRXpKF
+z6<}qO;&MKjjgri$tu#YaIG-mL#*3tgVg##E4(UBB9j^!L=YTTfmaY$GJO@<t8IU3w
+ze}^NmkS=g2QCo<kG6!H_2jrD#7J<o4rsC*4DsBszDHGc?)6a_NJ<sVnf}S}v4tb4Z
+zNUf19LB@a?1E$<4X8K9Y^R8j~<Ba|}c&1Ghb11ceoU=)6brz>tQI@ZYi182UI78q{
+qX1S!m8kzM8WNMK<Vwpxr%bL-R_;qT0X?$xmel)1PZEPB!TjD382V=1S
+
+literal 0
+HcmV?d00001
+
+diff --git a/models/obj/obj_clue_hunter_boots_manwear.ob2 b/models/obj/obj_clue_hunter_boots_manwear.ob2
+new file mode 100644
+index 0000000000000000000000000000000000000000..a79e3bef1fbf2e2a81d4c4977578ac678da8c3b5
+GIT binary patch
+literal 1961
+zcmdT_%Wl&^6wTXPR5gnt7KKHTXk$BR9)65{=i1|p^KMGpEmDQ}0M>j+7v1m=d<cI8
+zcV_H3l&AuU4R_*m->*rmSe=e#bu5Lgdb?>Ug+!~<Xg92;vN!API&q3o&UU-eA-4%@
+zw%e9PA96N|s7|BRpx}<;Dr?7Ejh0e7#I>Dx{XeAIVXD^;+m)5Jq-W><Rogf3<io;V
+zq86#-pIzX|K{_hwkhk;^KRGFsmwVJLY0q{@+=Z1ww|mqz4fk3cnbaz#+wCcGT~~9X
+zoN97=+GZ5nb{xmn<eX_LG}~}vD{GjX3QeMIo2UvoVw_-<A`=*97);TZ0au7#?sJ7W
+znc;Xo;R<oIz~OSl72@S;$Q9yXjr|R}SADJ!ovq6iqJ8b~3dg!26^AfeI@^AnK)Sx<
+zE6_7gq{$+Tc>)QJXA_u@mwG(1xa$FI`WX*rOhi0YF&@lk7$ZOuUvBzv<!-qH*Y;KV
+z+)}iT$BU(CoiTs9lv!uMpDwk(PB2<Xy`9=(4MJZaP32`F%z*AKDZ7|ngp3QlSMLUj
+z@y@SpSb5><5@<D<``cm{=Y0=uE^hfb+`YTu7m%upy?C=4eg^lpTrGmkeDH59aT>=N
+zi)A3otY<984|E>&qwt~oqCDE8eCAYAY1zdWk*bo;*Y!vu{qguKog#xQRj$rHepKC5
+zj6t1YrrFI>RNv1uay3!aSxeOxMQ$}mITcmdn}+;P=Gb+6{r%sZKFDB+g9L>H^u2rv
+zz+`{Z-)sX3!)1_rK7tgO4CqTsg-@PS_<$hNFbFZ1Q5r^R?2Vb2=hBxUvU9=i1oI%9
+zW>M-JPZFgWIV15_F!d9pH-17a2{Xm$<zLW?1Y)8vQy6ElU=vJa4vbB_G?OXw<w7Lk
+zS&-a^Lm@KHk6|V<n8s}6OA+~Dl+R{oxyRy<;c$uwv50;{M(xN^vf7v0w_5Fo`rnw;
+K?rWbKuYLj^NM|<y
+
+literal 0
+HcmV?d00001
+
+diff --git a/models/obj/obj_clue_hunter_boots_womanwear.ob2 b/models/obj/obj_clue_hunter_boots_womanwear.ob2
+new file mode 100644
+index 0000000000000000000000000000000000000000..48c4233029b1ed3f90cdd3e9095b09301a5c7c2c
+GIT binary patch
+literal 2052
+zcmdT_&2AGh5Z<IoR@@M359I`xBGh)1=BL^0+8&R+e`(sJKL`mB7cQK50Zu$d554dn
+zJOpn9V>?bZZ9pJ#VVrz3{^rLsR(2D1I$_wM6?Qs}_KvYhT4AS2n@-En;ZCF7urbyb
+zwwoOaAffF}+ZbWkZZ%pV*;I+7*=lapttJ&Fsp-alEWvhZG`90KmWB>o*vhDR$^3N<
+zcV85+^%NpEF0^T-PB|vn-zrbMY<h`Z6Fy|ApVnm0OO5lUcP+K2y*Bjz{_>dm5iX#f
+z{q)#Kuh+BMZJt>n#*uCtMcr;UveG@UvfM?a9buimj>}r3OZA~H!JtGG3b{s>VVYx7
+z;G|5XL5!=3G>GFVo}P`RK^)C+cs`N_ad0t|2C+ZKlLhuJPozQYUiG9wjIQzcCX#C$
+z*_u=z()=R2?g<5#poK~`hm1j<re~)hOdTOjSI2UlP7Ej<&PH%PoZFs>i7tC^)y)?u
+z5I~8Ot1eteH}V)>9bM}`9gT)MmG?(;L-pnT(P*fyG@}tFqgm-^T#@2rL0JQN5vTdA
+zb{p<a>X_0^7I5ybw3nxF1vI<z7q|*$GBe{JRg<|HQ%ieYdyun?CyV}PKPiXYeeiD>
+zp@qnqD3j7>{f2p@VE2~Ro&6fT-Fxhp^%$R9Ys)h>-eoLfO)XpDK`ybx-R*v*wah1G
+zWsyxDhc?c2v{`L?2fmwoXKzg5W1L=}M0*#v?04Ov@7MdS-o1PN{okzJ+dh;GW&@47
+z5GqLuHU;3tVBViE1S?@U16Cx75(PyJ6rd=|z7|>^qId@iw1P>3RR&6Nu34PKRZ*3k
+zl^n#&Dt@hb3`I##lAbtU#<dn{rVr!yoU0V*N5!%+DV63%(F<cnj~!%VgSkPGi;Rt_
+z!Afv8j&)vYHYsPQ86LbnNYsaPm}PmKaF}KqGY+Fknej==tLYSwUI4@M7gfx}8$=Kp
+be}IfmC5KnRm*86v{4jqpBKR15Y7Tz_OP_ZE
+
+literal 0
+HcmV?d00001
+
+diff --git a/models/obj/obj_clue_hunter_cloak.ob2 b/models/obj/obj_clue_hunter_cloak.ob2
+new file mode 100644
+index 0000000000000000000000000000000000000000..fc1d31dc02563453ff7a0ccd4526e712ccee14bf
+GIT binary patch
+literal 3931
+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
+
+literal 0
+HcmV?d00001
+
+diff --git a/models/obj/obj_clue_hunter_cloak_manwear.ob2 b/models/obj/obj_clue_hunter_cloak_manwear.ob2
+new file mode 100644
+index 0000000000000000000000000000000000000000..b50fe8cc82c0395c9502e07c5e4eee326e8e4bf6
+GIT binary patch
+literal 5116
+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
+
+literal 0
+HcmV?d00001
+
+diff --git a/models/obj/obj_clue_hunter_cloak_womanwear.ob2 b/models/obj/obj_clue_hunter_cloak_womanwear.ob2
+new file mode 100644
+index 0000000000000000000000000000000000000000..54b0477ce5a0cc3f03b76aa350786c34bbe3e44d
+GIT binary patch
+literal 5058
+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
+R<T^TXf6V<Y_vifKe*#y^)<OUP
+
+literal 0
+HcmV?d00001
+
+diff --git a/models/obj/obj_clue_hunter_garb.ob2 b/models/obj/obj_clue_hunter_garb.ob2
+new file mode 100644
+index 0000000000000000000000000000000000000000..446e389d7017d41ba39ac254070713214fa6c82d
+GIT binary patch
+literal 3801
+zcmeHKxpLe_5MAzBb|h9=fn*1!c$1b$kz8PL%=GjC7%ad`q(t3UU`dh7iOY7CC4YrN
+zB`yd00DpiKIZ~jX@PGIXu-L_tlI7Uto!v&G`}H{ohrL$2*K7B>onE(RKb>X=q}OY9
+zx{!4`U3_P{?N)OJAn5UfMXS^8bzs=*wk)_X0={V-z^nxmSoCJPGd-{{!f3ak?af%y
+zZNnC?T}xWM83+q`r-hGoSh(#%Sm=SXL0T<Kt-ZChukBvjMrh5z3g1%MLR{+<m=P2x
+z%e9)_X1fWtYcntEfENtZIrIPLzuy7HEH#UW!<d7FeG@24*-L$8DG!F8vXtG7o!nKH
+za(~xRmh#RXZ}0D@)0DRkw$=UzDPKMG-E5$&TPng0D-Xa!%bVA(su2x~Km@!Y(vl)U
+zahRxp_5|_ioRN8`VxdNI@Z*Yv)Rc@W4cWRf;RspBJI1Hfi?UDmq~48jPtc9NvOTF&
+z^rx(AOWB@yRmo!^N`|VW00<|y^(MCA=+br)80C|;4cBKpqvU%2C10oLz_=&>QeLis
+zvU{biRGQXo)1tneYr06eo57ov|1j07anC=te(EddAG%a;PJKO$dEPkUE5{pZLizG_
+z{^rJIWht+p@Y+pYy|t!pt}Dxfexs)3(DKUdRW+f!d}l?CBxiX@c<C-L-dj>rbXi$B
+z3{ROrSgJ}|8lIIv&I|W>{=tH}zo<UUL(7*Q^4z0K>fyYy`~ueVJ&KEMTTTSF@ci8+
+zy0=J=IgCUyy{X63fu3U_l`HmwdUjDg<qISFwKv+26vk5OCy+nm)thT{Yn5)V(4A$v
+zyL7*Bi+M-5t=+zJvQ7Z(y1A1DHyGQtT*>2U@|`^0INDUB9gSH7Kc-hv#S!;&hj#mk
+z@rO0%IF7a;Kjf|bZMw#?*t6LFwk}1QIEX{N{S`g=@~OJ`W9`H!6KH-v`*`lxmU_WW
+zOWW#sNBzR>=fP(`eg1R&=FN*1r4JVF&wqPlw};&%%VdTF%G_f&lQ{c^SLpiXgC6O(
+z)v-~A1(lJARhSTuBxOcQMyinGa58?XJej$<a(2hC%5dXk{U-6Lg=Tls>QNtO!|iH6
+z6;+lYa1sY^etXN9X+q0ZUKiu{m2%j(inq_|y+qaDD(ys5TAs#Cyp@^?|1tXszKmYs
+zC*CKL(qm~+=PMtTY+_MGt)3H2$xT;W`Kg{~(Uqorp4Oj!w<s&CRrbXzjF)ztKW9hD
+z7t&YNOw{!ysz6%Hu{AK@D~tMbgo3sfVHDF^P5CN4PP~4^r}c0BPO?Gfm94F&<cqqh
+zw^8&8HL@OC)#P>ARL&#Jq`CrG#hZ#Y)>P6{IgPWK=s(TXa<umKJWGB`HsuffdfCv8
+z<MGgqym37HdiM25stf)Y(kT?WhcWkl?!ApL_a6G(zSRdbz$^wy;xMH~648K+325ks
+zIE5&8a;f`TzQx%@?2t669~c7=iD42Z#bwN~Hv-|U8jlkko*}uOVcuiIgMfADd6Gh%
+zaB-o@jMl~v241=qY7Pc$@JMje$#B522({<$Mq69au9qGx9N_x3i6b{o-NVC6hx^gy
+z{`R(zQQ#XtN2;u0LlLo*bUTol)SeU~B62v31owG3kdzotFb+X-wb2fKIKJH+X2KP$
+zaoAFn`odl%*s+&NK>R-GSPE#OY!Jo)F-FYUP_pNtH9{aT(mLA7BOS5`Qqlug$b<zh
+zCwtlmjY}dT#M0l?f=}Xb{V>&Xm80X>-@K+nBewlxc~xkeJd89;geXfwT@=Uc2RcgN
+zSo%TW>o`eLG<C2MA{)jJGLnqnql5y4PK-u&K@dul><x()V^qc=g&sisoij{DKcsxf
+zIJ<*E5D=yDuI5PKF6;03gE%z@<ZFXJ=7OZ}hTb3~jwv0Qjm)fOu5X5Uo~E<JS!&Yk
+xd=y4Z;-NX<9l3uF_aNlOm`EbmRzMqGb|@2+hX48gYBbsneBL$wY`p9I@i!$UUL^nk
+
+literal 0
+HcmV?d00001
+
+diff --git a/models/obj/obj_clue_hunter_garb_manwear.ob2 b/models/obj/obj_clue_hunter_garb_manwear.ob2
+new file mode 100644
+index 0000000000000000000000000000000000000000..e7dc44131bd928941b1f59b51fc61118d2458499
+GIT binary patch
+literal 3055
+zcmeHHNpl-j5SB+CDR4<l!G(fQ#)+4Bkvy_Bn(g)LH;Xh{EqONv3P^E)DhL<g!X^9#
+zj;Z3nAyp(?Nm#08eu6LgJ<xAvw0R@k)32(hU+?|BmWqWU9Yrk?%}7>Ilwy&t1<6#Y
+zOVmY`NZM!BVxEkWsYNv}Rnj@Hs(GcT6h_VzOGi}-iOY;i28tp|?rEHoXw=!ltTIbt
+zfhrTJ^vSDq^2PkjE4mJW{1g?4rWC^q>1T<qunxWGoA^!KUqX~2FX8sTT#_~}9Ywi1
+zk3v8xL~@Fh@^a``bR_~et|vvg+<t{Rb-rjkAi6x!e`q-(6X>{TduaJKmmJLijk?Jt
+z$6CYSlA|7CwTauUDwiC$+S`20vC=`Ui<>=-cPo4>lLpH>oBTY-QXe-4B|hf3zPrH(
+z#Bps8SNHMW!7ATh<5DKR&ZqQb#g)T*e9UqAXoY8*i!y0&=@=JJmiQE3KE_IW3py3(
+zYC8!IjAv+2Z)Lud_L=sUc3Wlwdf+99IowVCOI;0mo3Mwr>-ZCRP9jNg5p+72Fy7@K
+zEb<e)n{m8ziVGj!;gaL~A1(OpDphIf&1z`v;^OfVoGhLW(^Ap&vDUlV*2lO$*noj-
+z116p_g`%c)q0(t4KoOW1L0hFNhjRQb$Tipwb*Ebe%wCz*8gBC3^e!~J<3)c%>_>ma
+zLE=qI6aB&CI!4dq##qAWSsY^Yd)$nk@i>g0^SE(?fBzc)4qpG3hK8kMS_jbNns}uQ
+zV?sLJk$3ji0N;SG=N|A|-|(C9-n*aO=ATBt^7tTn!sGquX}m96jh@82(Qgp%MNhx_
+z{O$XK`A+r}T5G$_<xENCq_61DxFfe1%)m0BTj|tj(>ue(=OAbv4$O5tZu^NWHH0^r
+zICFWT=N1HJof|CFo4nc@xeWtL`>O|l%UrHux^5)PXIbfQQ{AKU<){Sx!mOJh-h4#o
+zCwbnwB~L0R+DFU3q-WBedL^DRauiKIBo8CT-^_<>6Zx}>GG;1Mns1zQD&s`0%rDD0
+zj=Cz_gvYr)GRv^vQMU;q85Y;eX@<;a)DhiZ6t0M$>_)~-W*FMW`b0BCY1pUy4kw{E
+zlRjC*sDoi9vgAZ=FghaF%njxq&ppnxB9RBAo$^Y1pFf*FliBCb$ljE<$@8Lsfq{O5
+z2^(}HKx|`xH4BBUF|dV?h8rS=fe?Xd)#y(>tag#ev4vr_TupOZhUtT-_ZFZh|D?-h
+z@ap>M;>jXIQwa3Kl52%kD=-5O08mgcxPXkok;OtL3>JOTtQl_0!)lE&6n?|^5e<9W
+z0mpNwa64$&hEWNaX}ezn`c<Q5_I2}64+FDStr{jc?gQWQEfNj=3vpZb8}){VYo=y;
+z0-<xiUjn4!I@L!Shj_oPZwiYErh)L71K_%0&GszvL+~(cFf<Hk=#G;#3?B5iny#?X
+z*%b7{CX}dCO6k(yhQpARQ82)L&-QFH5Nu;--KOCQr=7sjZL25Bj*wG3GMYRoRANC4
+XazD?!m&^T=o0-Wy%>9sinE&x#c*P-%
+
+literal 0
+HcmV?d00001
+
+diff --git a/models/obj/obj_clue_hunter_garb_manwear2.ob2 b/models/obj/obj_clue_hunter_garb_manwear2.ob2
+new file mode 100644
+index 0000000000000000000000000000000000000000..f56761faae61c55b32305ca45f4682b250c1f3b2
+GIT binary patch
+literal 1751
+zcmdT^&2pPC5XQ!asoP}6sZ+aLJDtg)hbFPXAf(j_OMsK~=iXyppfAvu>7g&tnZ8<A
+z2y7b1lU)0OSNrqrqFsc;@h}XBVc>_OumNcy-6MZQn(qg64}#%17z~LqCW>z}{2=sc
+z2}ff~CMygBO0i)|BX&T)a4;H#BNG2HUUYcbptG9Qx%z>L14SEeYaUxpcQ|RWb6BNw
+zHmi%gdL~XzPERM3+3f6WMmReskT#u8TjTtEHhujFqG+*LM1;j#3sUFvc@#CqJbLp8
+zB%)Br3(PmjG-ifLD={rIX(g_!R9cBijqx^-R^sX=mR92O7O(G?@}b15PuKG9QHhtI
+zv!q^2TNawfRb2(*Qxrdbxs<KUn+E~$4S*6*aM<KpGPvb{5BE$v&*g^8)=&DbBQ6x^
+zw$mJKDU&x$2?`J;xWvR{P^Lxw^i2BG*v*8dv66NseM$3ieO*aAleBAj=cJY?<RlSz
+zytVymJ8+uPwPr?UpzOfaL1k*W->=jAk|wa5$us@#47lmp+z)nK#mc^Ah@f6q;^J3x
+z{k(9OwL0Cdo$XkCtBdX<F7qL0U(H22{;~W$-#xwKA6q-VtKL~|?R@)O>p%4N<NfHr
+z)eiUbRD54|ueDX)Gp%EU(g*-pgE0)MB!@bIEgc$M6}<StG++$Elo>OINWd$d>*m{y
+z?Ew<$pYJ&sEd)!2GDaH^oUt^8>gz_M0Ih^ZBNScl7@}5+u}r8^>q241mTUZ$m#Cmn
+z1<^`g0K`}q99M`{Lir};s!r$-E2CmniGn9vq%Sw&sA}2}6lEsFjop&{FNu}OynFAr
+P=S{r9z%$;RXNJqaYgKUY
+
+literal 0
+HcmV?d00001
+
+diff --git a/models/obj/obj_clue_hunter_garb_womanwear.ob2 b/models/obj/obj_clue_hunter_garb_womanwear.ob2
+new file mode 100644
+index 0000000000000000000000000000000000000000..6625f62c48eb05d57da1ecffe7a8e13b05ba4f39
+GIT binary patch
+literal 3442
+zcmeHJOLH4V5SA@V%A*KLkx=Ae5yyGhj&0eN^;qrB^z_VbWJ#7R$&Qo+lc$qVJc<ws
+za>|9@;3_z9<B&5sKv98`enNf*{{nh;w7Zs^N{S*UidpTqJw4q$U-$N`of=D};;B@U
+z?o={0mLP~HeL0n&D`l2RpkFGUh>z2QCVDNIq~91pB0*N9(gviD(>*qL(yB2ZPm;O6
+zmG&c}u>=jhMz<M>iR46T!k=r?RKj=AW)zK>C20FNIsQN1Mg`(;c_fps2}m!W#;Xm2
+zh2Z&WE2ABWF*1FfXSg;VN?M4;sFve2NFH7pGTS@Rndo736aUe1EFAwb!7z?5=u(>z
+z=uP+o|73JJZ?Jy7!A<hkw~o?D>+yzg2M(n5S16ItTzv-ufygB?g^r81=Ln5hx`I}@
+zBqGG(nk5DrBNJkwg86DeXvADCFCxU%b<EaRg+^RyWJQFyyn##2WwEg$8YCMu8bZvp
+zaIu{c8gXHBQE0^Ztwk<jE7OLE?R;|y1Z;|huFsq}+hT~hVOSKJ=lRVA@UG8@YqO$@
+zGuQCab-Z}vk{Ct2@DZNhz91sR>5tEgZ9+VEb6RM`saxlSMm&4_h<JQ)=GtueGs81v
+zyC6c&1*qnsmRk>)Q%!P0*NW<vzJ3YjB_Q9vcw_s}w|MZ$Au&L*F*O{i-u_Ca#a*1d
+zXAsZqOp1Gic=|q`dT?6YKO?k;R^h`ta#Am)sggUm&|U<p$<};_%Oj7D!dLIY<0D^-
+zcfJXlfeJMzIygH(Dw@`$AJ26U!IOhe{SFDcV!p8g8_P|x1g%V4EOx1pyya$)@~L~1
+zuydwEHiBPW*kmGVw%%`j)%yebZtwTLCwedXmEdI_7oX#MUl8`5i+%%pKle8x$?pBq
+zul9cZ5~SdFrfwDHI+yLOrk^$?Ovw|PZ5W_yd)c)jG@Q)U%a!$2IDB{R(|r7Cwa^Kg
+zNdUbB6u=d8h2#0M)&#YnBeB0tmqe4VG$31dGp!soUjroizJV9Dc%gKKP82Z3g{=7}
+zL3exw<n-N>;^8Ur08c)|4?ZE;pwSpK-MqJ_LybA5gv<>{1}PA2I=A-w0Fnc}59=^I
+z@caJwkKwg@d^eOwwR&y$#L?kvpLGzyx7N{&J=u+DP8>D9!84c*&$ZXgvzceUH!;%D
+zM)ovuqxew<zNhxy8zJ=8eo>A_8t4W-Kg|S}iSX+EqZo$CaNMDpAJ>l=)Malr!D^7J
+z&o1H^MT+)`q>x2e?@%+8rH;27ld*Pq$yhbkKK9I9TC4Y;dO7vd>`%7USas^<e)~Zb
+zisdtoxV%x)(f3|@C#uA*u6M=u=vWk8*M*Wzy{cSSBC?Xr!Db#%Th{=YYol8Al=5<R
+z$+d0eDMVL+Wr1>_+F}lqSSpt23@}GZbi2jcqL*hVOTf{sWM!=;rztFy8GZBsP@?|Y
+zGKzs5puVDNHMO!TH<e}c3YQk|J@UB2kl1jmD9f%wrC6zCF^-<=dbG(}-l@CHDmmz6
+z(OpCIq=NEUrf#E~2F@f`QmS&9m(^UQ;4p?=CtuhpuBnV$pS2vf)@@|~iA|xRTIIqL
+zi8;WE$E38m<ja&iFf4P$vBZ&LQK2NM6k`t2uk$O?$=8)}a}+SfKuRD*%>pdvB&;J!
+zi>Wd%YA@SkZRBJw^&fdlx>)qwCBP=4LwjX7RbLlH(q_bpEXkHCg>r*<ws^Kq#t?fx
+UR*uE~qJJ}EKg7O^eINhxZ?phi`2YX_
+
+literal 0
+HcmV?d00001
+
+diff --git a/models/obj/obj_clue_hunter_garb_womanwear2.ob2 b/models/obj/obj_clue_hunter_garb_womanwear2.ob2
+new file mode 100644
+index 0000000000000000000000000000000000000000..4da65025a225e4b24e5fa7e2cd7a5e997dbbedc3
+GIT binary patch
+literal 1740
+zcmdT^O>fgc5RGfcRzj)NkftRES~wuMwQ1VK-d)em?%Ga5zqs>JR3uIup#p*UF&y|4
+zNc=Ts?QZR+LU3iQyqSITX1ueu6ZugTg?<=BVMJlzw|$BNpH`t4cwrcLft66o3w^(B
+zwJVgMqIMMdezX#hJdDD?52DDkJt!Bn+g_V0hzi<)_a9rQv^%9$ag%A#-O|cr6<Vz7
+z*49?Z)|}bJl{u>6?_L>EF1+%tsP^@Zno*VSc31noUccY(ZIDs0zU~$q{q=ifC2VXC
+zhns`JfE<~P27}>nYio;ETlcM1SSGH(7CV!OsY0QV8)O-m7BR^&E)r=Gr!$<)@o+Jb
+zHR8cD93LG>i@1M0mNnw&WM3ZNMmC*6*|YeA9`{ah_iRs|j^s%)oyErt(C!C>R^^tM
+ztT!fvPV;>@8Nuluob8&UG4PB(zcI_dOmQd|w`bvQt9d!&wWgYMY3gdySQe1vv_sW6
+zHzKRko67nODW-!3wydm9`x<F*AvL55^zu+F2T-X7WQIertzSKQ4VWV6R6RJ~fs6R@
+zn{Bwj&c`lXc0Rd>OWmqROvmEOuYvr+I+vmR9DOVMWK65nNDdjxWnzOd6iL1#&mX=N
+z#DG!p5oFxJh7nJG(Dj`z=WX0vTfS1%nu>F{tacq7Z>#HjxT>4J?(M4TE>`K-y2>%m
+zyG&Krtf`n9D`l;7m4EZL!u4J5*6itYH~THIPf>%w0zh!g6n&_IUb^_%JE0I00Ihiu
+zLuwSpN)&N67fj3*0nU2#2_Im=etqC*iYezJ(<aY&%wr)ICnjTy;R}Z3c?>g?Wuusb
+z!QwzLZIVR47n<%yKc<WVNYVwS^b#_FROj?35hE0FZixaA2!+U0n!rq@6D4$>%u+Sc
+ew2|p-3iAmn!%gdL>u0OgZFycxwRCH~GX4#i+-?Q{
+
+literal 0
+HcmV?d00001
+
+diff --git a/models/obj/obj_clue_hunter_gloves.ob2 b/models/obj/obj_clue_hunter_gloves.ob2
+new file mode 100644
+index 0000000000000000000000000000000000000000..7a14d16aaed913dc54869556f50ace52762b731a
+GIT binary patch
+literal 2107
+zcmds1OK%)S5S|_Hcx;8E14+0<Z~~La&-FaIyQ=yzJL}i3$V1|gNI8J>yd|<R68RfG
+zaLG@IZzu^fC;txq2~^K|cP%>*2U!SFJ!(~VSAA9W^>oE?6i3li6vc6?9kzH8MqxZX
+z#Z%-Z4&$LjQLEXA_#~W)!*=L>*gBqOh@sLrc)%e_%qY`*I!5%6ei5@T%P}%LH`uYa
+zk6X<l#~3CNw*Kc5oLAaoIj_eB+KpqkKNb{;lqP9NSjrt`1*Kg|N?PkB=x6Gz)9MDT
+zY|`@93i_FrwwKY*grHFwAg>JP(Q<9Q1DmwaUxdNJw|Mgw-hkWR+`;*~Y{ucn_NRPN
+zDwh|SsWR!|+B$aB=E@c>!}iiw-+vB2T-(8`5Ag~-`s^`&3QsOS#kprE5l-ZA3157I
+z&r|G5Vb%QCFvw+@Ku@Y2n%SL&y_x-{YK4>9r}nKx&x5oSylg>@L9NeNRc~rNvTMWO
+z!C(>ltLO<@HJ&noo=4%%(E9geA#61if0$NW{%&l!*njUGWDR|=-r2xaXc*karT#yq
+ze&RT~-N~(^YSmO#wZ`f<s7>{*wphKb-Cx|w@Zzi2Sof<#thd*&r_yeYPFBCdk28BP
+zyZZ&+UmV0QvqH{5FDd<5cche1<W9}~a$)0OZal6ZO~z!GwTp}PUqTw!J$Epv`})zp
+zQF+f9rKC{GnXb~@J`719kf{*ePMMgzNb*8jL)vK4Q1TO0;8Jc;609|;{?eLUC=CL@
+zDXoNZRAz!efw6`^O8Li;E-Q=7<|-+?i2*4=`PWPwi}+n14`rnps=%G;<nWfq8*-$a
+zayq>)a!!DRR5_=i$tVe#&N#2kq+LOoE35`i(HaSyFcEOaHB$4YPMmZdWi5O2nWF+E
+tNT#4CBmgj&(OQyIToe={6{?}kYOYH%g~6-f_aOMgxBs7md%;iP;h%&Jv+V!?
+
+literal 0
+HcmV?d00001
+
+diff --git a/models/obj/obj_clue_hunter_gloves_manwear.ob2 b/models/obj/obj_clue_hunter_gloves_manwear.ob2
+new file mode 100644
+index 0000000000000000000000000000000000000000..03e746be82c42ef1c2a7334c6789121165809e36
+GIT binary patch
+literal 1370
+zcmd5*U2fDc5KgqqMye`-1mXoAdIA;@-8lZ4@r)Dar$uTjPQZzHMjV10@YZuN$u?=&
+zU9FZr^@}pL=bQO59y?i<X4x_u?2DxgsVw^Sa*<^#SucfO$$X@Gej7dwi*zM<eQ>r|
+zEz)O(^Z&=I12{iB6)z89mizV?-p}y*7~aj`iGaxkvL%^{bfluzJ{tcx7Z0hX@Q>D+
+z3T^3pKwzv7D=3C`klG4Pb}sd)QP}34-{93{_=*8om$vd|<GcK3S9U6CQqc1CfXEPs
+zVq^<a5_raSG<Un{^8zSum2borqR<|TobOuZpX&k})%yHquO~%hB(PCqvnwc-TmR7B
+zX&2ID=Y|HB{l?Lg#JDf6w1d;rhud}VuJjfw6TQZ7AMtjLZ+@NrT-@(J^X!q`_su;|
+zpO5<6anw1qy0{<N)5m{x#=P%fphGcoP910n5sR9E6;%w<@U-o@D}*3q9e@fsHLi<_
+z6jvkxe}1A|BzXatL6@wrqi*`M4VMFBdcPcWZ>}S&o})^Bq75-%hf2N~K$R{ACwJ32
+mt_rTf3MUaZIBwYKV8tTm!PO?YOMWEDS(2s+C7Z;hzyAWsd=}3D
+
+literal 0
+HcmV?d00001
+
+diff --git a/models/obj/obj_clue_hunter_gloves_womanwear.ob2 b/models/obj/obj_clue_hunter_gloves_womanwear.ob2
+new file mode 100644
+index 0000000000000000000000000000000000000000..d0dd14fe4f98a9f753a243300facc3b198462d30
+GIT binary patch
+literal 1523
+zcmd5*&5qMB5RRLqkye#JV#Ngxd*B5?-ENcE9*=+0w1GuPhy(AyoeS_HE5s|Xi@5M(
+zpZ2w2lBl7(v|6?&J||;)JoAlbY{zMmv5dYX&RERGal*2gCh0iNvT;H`^~pG6q)%8v
+zD@odo<23D+>4@f|&WJ=t-qevL`_FOkFSxS>lf7|w3%2cIG9m4~-FUEp`#0g?26{?`
+zC^ZU$++yjtY9$s`ss4;HUlgk1QbTpcxHlt71~{*C)k-{B&Q&XMw!-6PrdDO?fLo!=
+zLglc$!Z3vELkv6=4mvM0gmwbl7T=zMB=J)UyX27CHTyw7<g%GKjW_jzD&SCP2}Zbe
+z(fWve(N0vG`>|?DDqyp7w*zONHD#*1G=(rgA+(Xke}VAKUqCqZ=QgbT*U&)A=g(C*
+zMgKWGzc!+6_#Z(<!E)>UyZF5t!3P$UiXfo(K`Z|g-gF1?%72I8{5MDDaCmmxc67OJ
+zxAolLejRaFe|UCuxj*|&o_|MeJ$mgUiv>bur<Q7q4#3PzC82N}^jmsTMLo5ai<K~<
+zbfqnwK%~0^+@!|k{v!ekC=4CF(E!CuC~6JJi)M-(B>*kF$SW)7l?DA61#vA5PHS$t
+zthp3R$+>kX>2+E|FK+sjw+md;J>WJsRu|k_4f$$L9?|RQQxqLUj72hf5=r*!H)*3x
+AS^xk5
+
+literal 0
+HcmV?d00001
+
+diff --git a/models/obj/obj_clue_hunter_trousers.ob2 b/models/obj/obj_clue_hunter_trousers.ob2
+new file mode 100644
+index 0000000000000000000000000000000000000000..157f1998d56b74bf5e91983e8db87353bb140f6e
+GIT binary patch
+literal 2690
+zcmeHIOOG2x5VqHkxsV_sL^wrSke2L{?0P*f&v?44t9!=dd3bDZ!bU;~NQeU*ArZ=n
+z3ljVQ_y-Zng&SM|k?}u+>S;fMAyS0MEj@C%rmFg@uWD*~tghAVcdTx=W0ADFZL6bi
+zd;Jdm_bsd6?pp^IE%LX?N?O|@yJhK{PNVkvy)NDM8lMi-jvmEXgxK%UZ+-PTO%VC?
+ze!^-LorN~&MH|V~z?)m+Xun!7rvt6cdO7e0^<cODJ&h)zJq;NX(inF8{&%g_5{O(P
+zQy9fKPB5H|g_ankIGP4ROY}4Ja&!w%>?ArR+A~LJiNnekTH^V9D0UJD3p`um>BX5?
+z%YoQg0xt(Y8ws5S!bv_@oQt{H@@yFC%$|W$x}xyrnysG(`G#;L*0fJcXC`c@hLh<C
+za%b7pVyf8VPs|BwE4Ta)#mDc6kKPscsVHy@xv6ej<F+~?`8=vrFA+B0XJhu-LM~%@
+zUW*7Max@L<x#<!Fx=ZwQsAOO&Z|J#zWz&D+Mo`;sn8I&~+o$4U^p*#O3lE`mb=BLa
+zMi0gGIU=a#dJM*rgJKXz(<o+Qe=5vucyR<%NHzf`%t$JVGWzsbGtCyl3}}k#-$Gbj
+z?hhJq48`P)&))uAT)TaFa&J3&0wf?BNwbOQ5d8`{0!SV+DVtH<(x)P>esbOU8l>P5
+zKq>SfR0ctCMGBX%eR&lgT=~jO4Ivx*Ryl;bCztU42h=b&SPbuB{d9$O4J%ncg_WxR
+zSS6d6gvFYLK_x;;uvkP%lZ{5lzj>$r{fpOOHPM4Tu74$jTCA|Fe_qY%U&N|B5tn#;
+zmn7xV?H3x(X+OLo9vs&{f#MS0{NdI0VjZ~gWdC}xeg8G;#^dJN&-!=k<1MG1eWU6B
+zCu<aA+m{-9hhSni`8M`{VwhbU|0aHoq^peqlK^LcHYN$EV6<R7%<*iRa%o36z$sRf
+zK%N7nVAC|q50B^|NMdy4eHeS*7*s}jGLnU_l$?VXXEA>dQh(y9w8~jJteCt;<BN2H
+za5_NJ^uk?6zRFoZo<p7uW^%}|l9Z6s8x9;7(jTkLFX?=Wqcebo#2BIhaLJJZM}RpD
+zfL`C33Z@Eyjr^I-mvqX5KZd!_fKjYM#v~}<Y7$JtjB^ZA>EjYYjHLvL5lV>Y8y6*E
+z&gIbr!%>nKXosT!rs-rxr{eXSlCMg)RGIB!9%l)Rozih#grb-wL@Kgf*Ctwz7=k=N
+z;A7ew+~RkpNA!DC3|(2$$8jiaJf{z!V)LRJ9+yQ0x$C+PtA?L)<#Cr>Ws&>5^<(>_
+R)%sI^>c44y*ZQ{e{a-GfHQE3G
+
+literal 0
+HcmV?d00001
+
+diff --git a/models/obj/obj_clue_hunter_trousers_manwear.ob2 b/models/obj/obj_clue_hunter_trousers_manwear.ob2
+new file mode 100644
+index 0000000000000000000000000000000000000000..4f490f62296293ade19b1924ff98679e1c74495a
+GIT binary patch
+literal 3974
+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
+
+literal 0
+HcmV?d00001
+
+diff --git a/models/obj/obj_clue_hunter_trousers_womanwear.ob2 b/models/obj/obj_clue_hunter_trousers_womanwear.ob2
+new file mode 100644
+index 0000000000000000000000000000000000000000..6022b16c3c33a8b9cecd5980298f8fe35b1aeebf
+GIT binary patch
+literal 4092
+zcmeHKNmCnF5C(&!oKnHY2nR56C|ufD1X`Hw_3N288c9e9VKBC1$7O@}B`M!hPUV!J
+zkV>VJBS{=5hn!*`Xa0nLPttFmG!g>amsB~aa%<Gn{q_1<twAIbiIIe)czk3emPpVg
+zb-IOb;_+BK5hrzo@OUB?>)1zPCrBr&1f_3mge)?Sh@40zvjRw@tE13;So#bnVxy9i
+zZFnS3=_DSLVX_F(=y05BjFJ+QKv-L%qcI5*CzuTJm~3#E-m;;DWW(?2oloGz|B&AK
+z(B9g>&>M-uJ9fI0JkdwVkotf~RF-5i0*(<T37hOE<#QD2CX@FlL^@N3u1%^*nNGrz
+zq~4*)u`y{LQzXS>>2Pl4(oON&`}p{HGD%F*>5#_5@~>m3dUWzFq|zP7)9F+yl}^v3
+zNyuiiQVtaf(3>CvN$ydGC>K#ClTHulDVeB4sZ=hL%BC{83;{D?(vZt^R5+EQWYSDT
+zQeWU)c5ZHNex9!R`SV2Gf}cv74e67^B)vMs5t)sagQh^kHM!)dS5WhCt*UX!v0Pi@
+zl4Ge}=8|J^y~HKQLIYQuxU#Xzn+4uL4mNZX9w%qEb8u;CEAlZ#mha^F_5#0vxoyn$
+zWQ8p9ttH;Z#VuTr4g?OU<e*FxOV&tD?quP9r<sYnlW<osE{`d>YK%B%j_M?mL(^h=
+z=>lJX?c7deB_WFHmk(!{x^o7o*1hC?KJj26_OPd{8zzi@m4G%pJpJHf!?m2-Q~cIh
+zeiLW*X8DZ|+e?5?PSJ-V9>E9jkdHsjw^sND=36ClZk7RSI+vf6!QB&-2ftyXU&o%>
+zV8{0_W?(mcDeNIeru}KyH<+hg=jYgs*_-?<+n-MJUC3O_&O&g_|2eqo|H6aM{Fgka
+zq5mSN`!5}Upel#t9|VrYZu-Bi2Dkj5g4^n3-IehVI3;+-gUjgu8eH*z=fOqvp9j0T
+z|7Xzle+=#coj`3BH5zRg$!gC!tJ7U0TBc~pXuXQOvt&hPL#>xb#j5iwPMaESfZ78s
+z42M#^w$RxOg%5BwQ(WH6^A@F2jlGW3xR3g%Lq$hB>Z6c|_kXoCI@fvc>dc<{;1$Q|
+z{TaR&ah$p}%_Txsst$&0hiwcbRC6HS-%r$4H1L7`qa*|Pn<t>6$meLS2(g5G7EJBU
+z(Ei;C_r>Ce9yA|4I1LZSz1#9T^EiC&7=j5Jh<*mx<5T<*eM#UXd^z^T$w%O(o}~`L
+zSNDEE$n)s+jI^$$D=EEa>DdoDaWcnX7Fne~rkCxgr0O5;q}S8GEp_`>{i$h4x!Z9M
+z>G$kE&7g-oyTp2(9*lqY{`Fs;z&dE6BA8wlj^iN$faw^ef^9&>a6i{QV4!QJsp)`~
+zs_B#+#}rbLuE-qA1L4r0LPt=%B|?=UOv82CImfJPj^;99>y&UOgSuU9)a~*bTPtr<
+z-aOdemS;mAD-~o#be%OJOp~GOW-3L>;<+Ip=-IBLThaBZak)^lbm9L{Y;Hilq*dx-
+zqXqe8Q`bBQe`vrHQOGZ&h13)P)!snXt_#Zy;a00A53sUK4`|pV*m4T_RvtFxbw$Kn
+z0cE^UMAL0J%(fcEb=xXp-KiBCPJOj0OwpWZI98$26wNAN8*mA<Y8#d`Zwpq@vK>T&
+z0SXkhD{O&U#nj7SxrS$3uI*L?f>|_li-AKIx;DXv=OT^Hr6(Ny;IWZLgABl8j_EAo
+zF0)w*p}m4_SGQI!fw5#^y)Ng!uvIPr)@zH*u6nq_>{^-Gbp%lWn)N1VYm}~om6(u?
+kgT3xpMZ2Q2b>bDPTp4;b{O!=t-}3*0zlOdadNKOPKjOA6HUIzs
+
+literal 0
+HcmV?d00001
+
+diff --git a/models/obj/obj_helm_of_raedwald.ob2 b/models/obj/obj_helm_of_raedwald.ob2
+new file mode 100644
+index 0000000000000000000000000000000000000000..9e7da9deef430ab60faf9afe26f50969d74958b5
+GIT binary patch
+literal 2508
+zcmeHHS#MiK6t?5oP8XmQr>j~Bkq{AdaS|_gnK^UjE_R&MEvZ^05W5O(Qz%7ETA)qZ
+zQp5xN1$cv377>tmVCK0`{YP-loom++sv@45vCo}z<}BY??yZz7<#MG|u2w76a+wJK
+zO4aHZ9V!_|l&<K{94WFc@nc1L@G6lm8L%|t*eZ9GN!T)T#W6^^!iFV^S}J8mrAoC}
+zE|Cr^a#*%1(jF^~75`tu3b<lEf{u?rLSf7G!!5>XQ6qU(`Rvvf2me)&xyz^K-})FY
+zI}i#{Y7`NMF$M|xX`q;**THtzQ%te7&{j;b*=s4L*jQ{TrZ~UUP)u>|1kU#7R8HsB
+zUnE#Ri3+rm5oF=;LD2eQ1D57r3X)Le04TJt7{HLe*q?<npaG98ABEFL;7oQn^T5d{
+z^0t-`iCBd)^*hRgZhJwspx5k&u~2!ME>`&58~Dtd)9N*R_I0KTWF+QJ9q*C};UvIA
+zN+lYyE(^zw%3W%%lEYi`E7(Qzi|wJ=w2Nqdwo7JHu}E!^<&_@>${ZS_EH<}YGn<z#
+z;^fMn3*0QZA3$8*tv+yx4D+JK?SJd(^R9FX_Fmkxq9*10Ps#T6ZR#3MT*vCiSoy@Y
+zY)Gk<)Yi$j4_|8bo;-K(!^Yy{>Z4s3CT4AFezX0N0eILLxMA3?)^@6^xMLN!ukBE)
+zj~%cl%}=&(ezd2Q`N6(2GB=~svwdaq((!%p!ig#Bu1()Pc<z8azwd(DE0g!0P*-+c
+z!B)3zzP0a|uaDWQ<}0wP=1Y4mn_8*39F1-p7Bys}+*sgd!&1%~vr$}S-rTacmD#X&
+z0L|~p>a4DG%uhwN0b}bWb(4nFtlL}WHlW=|%nf@N&8PNrb3@s?=BBcrnRR9FQ0>~(
+z2Hgn~uWP=)Tsv%EHQ(8@8g|3lUbvygVSO;3)KA194&l(fLow}pyr=Hh>b04v`&0J|
+z)441zOfz4bsnz-EHf!;AcZKPU^D^pg{z2DSI4h>k6WdZOj!r08mV3+m*Jc<~hA$=?
+zFT+7H)^>WicAXG;wE3Cga@6I(=fQTdoE7^S$oc8~x@Z(Nt4H>v>M*X+h>SGD_BSmT
+z@erYP`8mW{RIYNqxB7CGXB1ph&X0XCH$X^ODLd!YWjVMRXt{1UjX?zFvdWOJk=o|{
+za~>EY<F3^U6A!kQQtK!V!Z3&<t?7?a`cXhK9Y#V(`XI|FiUB1`pd|#*iGErjf<7I3
+zUf2^!)M+7o!chAXFqTqCj1WM^LW)!K%d;YsG>Vbm?F!jmp4HN$P^m9P7?6GxV}gmE
+z)yGIl2Qp4D#V`Ut(WI9qO>&k5aV%pQVgLdFlcd#`%}&Sb%yrw{q%Kk+B8o5MoK7?$
+zeqJYW6h-o=PEuT+!brxLYD^;85HB~{iJ$sC@<SUWBnSc0>x>YFvJ?8zLP#Zuq#uxl
+zPeHW^6B$r}xGG!+)S&58PcLFeq$zYLBhevm?IW5>1N8ll`6U#99SlSMn)j%hXIq5R
+dOZ-H7eTW0nD|}PjSt$HbptV-`qHwpg@+Y#W{CWTY
+
+literal 0
+HcmV?d00001
+
+diff --git a/models/obj/obj_helm_of_raedwald_manhead.ob2 b/models/obj/obj_helm_of_raedwald_manhead.ob2
+new file mode 100644
+index 0000000000000000000000000000000000000000..2d597a23f5281791d7775d985d4a8b2c0ffb7ad6
+GIT binary patch
+literal 4381
+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
+
+literal 0
+HcmV?d00001
+
+diff --git a/models/obj/obj_helm_of_raedwald_manwear.ob2 b/models/obj/obj_helm_of_raedwald_manwear.ob2
+new file mode 100644
+index 0000000000000000000000000000000000000000..d1c5eebbaee46778c0e13059103d6bdb26de29ff
+GIT binary patch
+literal 3882
+zcmeHJTXR%J5Z=vZce!{0Ot_k0OqC@<fX!wv=Qce(=bYWmZnA-3fYR~;2y#=zB3u**
+zpg!q8uzb{4l@hG-!8uPn@FM?6yJvQn#HfirSXAlErq4{zH(&R3_neb_U!Geo$A2vI
+zxqLRCPMblV9+_M^m$3i_@;WuzmCa?dxlGn<$g-Ax1f&(ilVeWiVwq<kV`<*U+}tvR
+zr46h#Gh;n#sH}=9SjjdBoa2odvYN@5O_^Lioy}M?IW|kn>Hpim5CKlhiY;qfF1sSK
+z1E6y1G@JevWPkq(fMv^nzN4R7-uj#8v2Du;{;9&yb?SVz9R1nUs#-VQs{#`!on9^S
+zzk%z<Z^<*0$)wZtBaw;w`ufap3F1keNJOD92+@xM$r8QTmn_k(d6FeMb*wfV$r3A*
+zRml>|&5C4+rB+#XWTp9-4J9ZkLg;D`%aavo@pM8?VR3q~>@g4<PE3^~OTsV-F&H@{
+zPYlcBIK*<NJch#^X*DGA`F99o<txSMBf;K7a_m*P2j+IeQLHqoFj;8{1rqnq6zVi>
+z7R5{foCwf|*qb#j33DzwBZL5rl4y7RH<9_fF<Ek!@pe&8qmlOPc1#irGfTpSkBt^u
+zC77BxxF{)<4p(wgdU8*D9OgJsW3zkV&=|~_!Q5k##o4SX0bvkHU)0>Xbf8h4loe=}
+z+sg{Tf9WlJ;q6iR2EO<vO9>(jiU;;LXiGOKodi({^)h9XZl{a&y-J`+_Ez<ekhJvu
+zq>1`o(n9@1GNtcHR>@_$PBr!n8A7dPg5|YW^u6<Eaq!&cGhEDK8$fVjlYHM+a<8x{
+zecO)hJZ(cKVawUg=j5Px?>SMux>jDnHCHiz4Rasa^6N<|PAc`m<HP66&5b8_d{AmV
+zBR|}5X3cm~(?2EcMVI0)t_BtMI(hjic?s9g<GRc1<^0pzlNo(CY3uKk15$sNytec%
+z^=`ttbA#viZ-w2{Bb42wc527T?c(&-GjfZF-+fkI+;EXgTYsIL&|mFKF6l2Inb)5u
+zSIn&zlEYD=T5oaP)7>l4C2W>qsx#GkAwAD?eJi;w^+Iw7Q2#6wW#UT1&L}Mxpzmfz
+z-k>|JZzi|&ZNOw9*4L9yQGc9#rmxH7Q+-1wpXi%1xkIt5QW{j<i=Br4_QJq$^1A*e
+zIjmq4T;2lLWk00WY<#fsft5UZa{B5#8+tetQGdvN<k3K3VAsf_kw>Y~jxI`#@_b;|
+zK!KmOGm5)iOO2YDW29aA1FYR)cd@igyq9dTb@GCB9X7*1u#0^%{zbIMF@BJa(H7T1
+z7sw-rIzNqHR@yW0xZABQyNh|cdVX47YmKa$c$g<ehy7Y?kv%oO{SIX<4w1L^eAZ)Q
+zm80D0%eidi*$a*-pN~0s*7cBlrPEnfd&=%g7iF_y5nT&BGm#;#MX~MV&oZ!&?Ds$+
+zQbJ$^ZWLm*E<8^Fy<`uHAR3P#px2aA08ymEqNov4sW9?<--|+}=nsW(LyvUI4}(C^
+z7gvNKeUk(VpcVu`Bl@WT5!4~yar|ZwhxH25`xuog03#s+fgu8jC=kJciP`bMCnqp;
+zbyI;*1P~q>Cm(1K#~#$sg<51jeJ(-4i&YfS8HD50heQd7Jgd1P@I9grBaAUt<7yvq
+zDo;c)*3b{ZjTPZ)ahYt#UKEK)_~_A*0pqyR7Ug=~sTUj7MqCJLK@gI=fhek2(E(pp
+zaTJE3*sJ0i&W>OxBCIKlLs1Hj6fjVrRKRf!I9}MMI98OSLgh_OxJszFs@PM3#8bwj
+zWRf}vh!H%bw;qD;i@NWIlRgDE6s||)F8QYdKNcQ^p5x6CMlwZTM0#J<gIW#hboii7
+zY}GL`LkI;Czd6Z)I{IuAo0O-+6*`g=yRmTE5P7Lz(x+0XU-{qVFH`qZcl)pX2C!nZ
+AQ2+n{
+
+literal 0
+HcmV?d00001
+
+diff --git a/models/obj/obj_helm_of_raedwald_womanhead.ob2 b/models/obj/obj_helm_of_raedwald_womanhead.ob2
+new file mode 100644
+index 0000000000000000000000000000000000000000..2d597a23f5281791d7775d985d4a8b2c0ffb7ad6
+GIT binary patch
+literal 4381
+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
+
+literal 0
+HcmV?d00001
+
+diff --git a/models/obj/obj_helm_of_raedwald_womanwear.ob2 b/models/obj/obj_helm_of_raedwald_womanwear.ob2
+new file mode 100644
+index 0000000000000000000000000000000000000000..3254fbd040080b35b6fe6df122d37f969e9c97a2
+GIT binary patch
+literal 3802
+zcmeHJOLJ636rRasW&-#COn6oTA(T}pc}yOYnYp+7^y%C8&Sdf+34{d}??QPgVi7=v
+z1Q1vH7j&l!H;N@%<-)!z7nBSBk)CsVW*FsF!D2^u&AHuuUSFR+r+aeQTsE7_Wb^r4
+zKAR<y&t)>1e7=JQIiAsnS@i2<UN+CNH19~$C!fjXGbEeI=aN<8vOMt<Q!L?3@FM#l
+z;T$Vw$Sb*FB{GrDCTiq}-Leif;&u=a5+R7Ro-i`BobZ??W71>}FQ;F%ml%O0;?E<U
+zlq73wPuJ+AMv25N&tuotX8jq`i8)TdHMGtw6~zlQDlymGcAB#`OQ~1wg(HwoH&h$h
+z|G1%-SQh`+bmrLxG93kyD0E~BO*w@qHHrXzgI<W0$Wu(QT*XqYteE2DR7o+#VtrCE
+z#fj;nVv6H46N)L0&En|Xm}<~*^{*8y96$wH$p8{}_{eEtdIDy~7rf9{4FKf2q8LDn
+z?w=clCD4F_i$id55SEg`(jz17$V*y6AdK>5RH>>m)Jjuo66(b{-w4&%rt{^$eH?e6
+z7*I!X&oQP7WFW@oM{1-(I0<lzQixhpw+lCIUw2z`k!*48ZxB!0U*kI3`|&i|U*Z{i
+zU-6Q9Y^@RbmZQX=wJOHqx@-3S#q-#6Vaqu_EV&&(T-vNYavN#wiw<u4$z5k%=oD-{
+zzvY7JksrP#OV`(_YuI%i^PghwGk0VyN=He@+H<P!VzIvI%+8M|rr%JXY&_RB8b|i`
+zc&;r0o|XnK8P=<-uc<4zVHww7-Jq6V-w_|MKgV<SUOcbtPw|nqylKy#^%r_Bj%<T>
+zXZz`N<LLdJXLiW5+s>)2GW_68b$R1uoUE1XckyZa&2W6hehu-m{VKkeWUW*jj)__c
+zrZps~JTb+G4Kt0YwX5l6p4(gTZDm*EJAn2N73(CfG;EC0Y85(GGU_HJsa=V0+1r5e
+zYG`l7chP<xe`#;1_^!RF;xFuqitkYDN^}gm>V@T+{qa(FU;Li^K0d5rGhE#YH&iFA
+zJUKmEdF={|ORD}zvK$C7{?wDIp}ianl-ebztKzhpSZu4*_IibKRlAZU`v3#S_P}8n
+zpB)1#rX&4uV)xO#CvewE>^rqfF~#1~ed^Tc{zEW$a7Y}de2?fpNRrVrexxd(`ED3g
+z2Zz++uv);O#St}+!wVxds3(pn8Ku-<csst9BwVZ;(fgp+P=CO^|6zBbdtd*<{)ef7
+z#+peD@Vt9pcY(jIvlMs7OAREmazY*F39?SZX)$${SeJaUcS6By4Qq-0?tP3Y!DmRP
+zoZz4}mUeOt=>j1tQ|E7j%Tc!n9yh!5<+RvNbDh7=uJcA-lXxUwiVovy_sB>SZ2ysR
+z9(xI`+n+<6c;zTJ`s21-<QWCWl=sIrc-BNnSZR08s@r9g)0A?j;Ut<Kc$P$lY_-L<
+zaemGMV`SXjg-w4xucx|FUC)zg^4B8U)LGkCQ$Fh;@Tmm>k2Ff@1s;$5KuAeXmJGB3
+zlqiAjWI=?6T2RU91;0}9r$iV;C8VbXNfwYwL;z~4NP49}%oXRygpi;ys8mq^Igvo7
+zA`}`?3lAcVn%>Pxngdo5L`cHyLE8l_D@N<klhXIdbP!;OMvv(NiJ&iy!AJy933b^7
+zp_xSDdnS-Z3iLogXiBqkGOCuV<MazhWhkT$$g3RJAt5pEXk!9GG@?y}^LtT4fDvM-
+zp(vI-;gd_B_DpC<4W#h2sghj)f7XL3gFcAB_~E#abw8-!ECB6+*mOsL&wm1ZA0poi
+zYQB#_AU#i`@uW`(gaMBbaFj`$93#EybmLY<7*R-MMMPw(Jgmt#&_kVEIuzIleZkN6
+z6b1EANkpPzJOkxfFkZ>mp)8YE<1r38S&~Z*YDR`WmIySI>H5`C;HCabA4{eFPSJnC
+MZ&UYDKXjh_2MCX)6951J
+
+literal 0
+HcmV?d00001
+
+diff --git a/pack/model.pack b/pack/model.pack
+index e871b86b..b685b094 100644
+--- a/pack/model.pack
++++ b/pack/model.pack
+@@ -16569,3 +16569,25 @@
+ 16574=obj_infernal_max_hood_manwear
+ 16575=obj_infernal_max_hood_womanhead
+ 16576=obj_infernal_max_hood_womanwear
++16577=obj_clue_hunter_boots
++16578=obj_clue_hunter_boots_manwear
++16579=obj_clue_hunter_boots_womanwear
++16580=obj_clue_hunter_cloak
++16581=obj_clue_hunter_cloak_manwear
++16582=obj_clue_hunter_cloak_womanwear
++16583=obj_clue_hunter_garb
++16584=obj_clue_hunter_garb_manwear
++16585=obj_clue_hunter_garb_manwear2
++16586=obj_clue_hunter_garb_womanwear
++16587=obj_clue_hunter_garb_womanwear2
++16588=obj_clue_hunter_gloves
++16589=obj_clue_hunter_gloves_manwear
++16590=obj_clue_hunter_gloves_womanwear
++16591=obj_clue_hunter_trousers
++16592=obj_clue_hunter_trousers_manwear
++16593=obj_clue_hunter_trousers_womanwear
++16594=obj_helm_of_raedwald
++16595=obj_helm_of_raedwald_manhead
++16596=obj_helm_of_raedwald_manwear
++16597=obj_helm_of_raedwald_womanhead
++16598=obj_helm_of_raedwald_womanwear
+diff --git a/pack/obj.pack b/pack/obj.pack
+index f5abaf89..45a7032c 100644
+--- a/pack/obj.pack
++++ b/pack/obj.pack
+@@ -8399,3 +8399,9 @@
+ 8398=imbued_guthix_max_hood
+ 8399=imbued_zamorak_max_cape
+ 8400=imbued_zamorak_max_hood
++8401=helm_of_raedwald
++8402=clue_hunter_garb
++8403=clue_hunter_gloves
++8404=clue_hunter_trousers
++8405=clue_hunter_boots
++8406=clue_hunter_cloak
+diff --git a/scripts/minigames/game_trail/configs/clue_hunter.obj b/scripts/minigames/game_trail/configs/clue_hunter.obj
+new file mode 100644
+index 00000000..a2d4b705
+--- /dev/null
++++ b/scripts/minigames/game_trail/configs/clue_hunter.obj
+@@ -0,0 +1,154 @@
++// THE CLUE HUNTER OUTFIT. GENERATED - do not hand-edit.
++//   python3 tools/gencluehunter.py
++//
++// Six objs out of a modern OSRS cache (19687, 19689, 19691, 19693, 19695, 19697), models
++// re-encoded by tools/models/importosrs.py. The bonuses, wearpos rows, weights and 2d
++// cameras below are the item table's own numbers, SIGNED: the cache stores the helm's
++// -6 magic attack as 4294967290, and writing that through would have put the largest
++// magic attack bonus in the game on a leather helmet.
++//
++// WHAT THEY DO IS NOT OSRS'S. In OSRS this outfit has leather-armour stats, counts as
++// warm clothing, and does nothing whatsoever for clues. Here the full set gives a
++// 10% chance of a double casket and a 10% chance of skipping a trail step - both asked
++// for by name. clue_hunter.rs2 holds them and claude/clue-hunter-outfit.md says why.
++//
++// NO DESTROY OP, though OSRS gives every piece one at inventory op 5: opheld5 is Drop in
++// this build, served globally by player/scripts/drop.rs2, so a Destroy there would take
++// Drop off the item. tradeable=no instead, the way this fork ships an earned set.
++
++[helm_of_raedwald]
++name=Helm of Raedwald
++desc=An ancient helmet of King Raedwald Indanorf. First discovered by Pikachu Yip.
++model=obj_helm_of_raedwald
++manwear=obj_helm_of_raedwald_manwear,0
++womanwear=obj_helm_of_raedwald_womanwear,0
++manhead=obj_helm_of_raedwald_manhead
++womanhead=obj_helm_of_raedwald_womanhead
++wearpos=hat
++wearpos2=head
++2dzoom=656
++2dxan=71
++2dyan=2
++2dyof=-2
++iop2=Wear
++cost=1
++members=yes
++tradeable=no
++weight=1000g
++category=armour_helmet
++param=magicattack,-6
++param=rangeattack,-2
++param=stabdefence,6
++param=slashdefence,7
++param=crushdefence,5
++param=magicdefence,-1
++param=rangedefence,6
++
++[clue_hunter_garb]
++name=Clue hunter garb
++desc=Stark and full of vigour.
++model=obj_clue_hunter_garb
++manwear=obj_clue_hunter_garb_manwear,0
++womanwear=obj_clue_hunter_garb_womanwear,0
++wearpos=torso
++wearpos2=arms
++2dzoom=1476
++2dxan=550
++2dyof=4
++iop2=Wear
++cost=1
++members=yes
++tradeable=no
++weight=2000g
++category=armour_body
++param=magicattack,-2
++param=rangeattack,2
++param=stabdefence,8
++param=slashdefence,9
++param=crushdefence,10
++param=magicdefence,4
++param=rangedefence,9
++
++[clue_hunter_gloves]
++name=Clue hunter gloves
++desc=Warm leather gloves lined with wolf fur.
++model=obj_clue_hunter_gloves
++manwear=obj_clue_hunter_gloves_manwear,0
++womanwear=obj_clue_hunter_gloves_womanwear,0
++wearpos=hands
++2dzoom=789
++2dxan=609
++2dyan=111
++2dxof=1
++iop2=Wear
++cost=1
++members=yes
++tradeable=no
++weight=500g
++category=armour_hands
++param=slashdefence,1
++param=crushdefence,2
++
++[clue_hunter_trousers]
++name=Clue hunter trousers
++desc=A promising pair of trousers.
++model=obj_clue_hunter_trousers
++manwear=obj_clue_hunter_trousers_manwear,0
++womanwear=obj_clue_hunter_trousers_womanwear,0
++wearpos=legs
++2dzoom=1720
++2dxan=450
++2dyof=13
++iop2=Wear
++cost=1
++members=yes
++tradeable=no
++weight=2000g
++category=armour_legs
++param=rangeattack,4
++param=stabdefence,2
++param=slashdefence,2
++param=crushdefence,1
++
++[clue_hunter_boots]
++name=Clue hunter boots
++desc=Warm leather boots lined with wolf fur.
++model=obj_clue_hunter_boots
++manwear=obj_clue_hunter_boots_manwear,0
++womanwear=obj_clue_hunter_boots_womanwear,0
++wearpos=feet
++2dzoom=1084
++2dxan=164
++2dyan=156
++2dxof=3
++2dyof=-7
++iop2=Wear
++cost=1
++members=yes
++tradeable=no
++weight=700g
++category=armour_boots
++param=slashdefence,1
++param=crushdefence,1
++
++[clue_hunter_cloak]
++name=Clue hunter cloak
++desc=Winter is coming.
++model=obj_clue_hunter_cloak
++manwear=obj_clue_hunter_cloak_manwear,0
++womanwear=obj_clue_hunter_cloak_womanwear,0
++wearpos=back
++2dzoom=1380
++2dxan=208
++2dyan=1907
++2dxof=-4
++2dyof=-15
++iop2=Wear
++cost=1
++members=yes
++tradeable=no
++weight=1000g
++category=armour_cape
++param=slashdefence,1
++param=crushdefence,1
++param=rangedefence,2
+diff --git a/scripts/minigames/game_trail/configs/trail.constant b/scripts/minigames/game_trail/configs/trail.constant
+index 9673ef4b..346f783f 100644
+--- a/scripts/minigames/game_trail/configs/trail.constant
++++ b/scripts/minigames/game_trail/configs/trail.constant
+@@ -13,3 +13,19 @@
+ ^trail_easy_droprate = 128
+ ^trail_medium_droprate = 128
+ ^trail_hard_droprate = 128
++
++// THE CLUE HUNTER OUTFIT. None of these three numbers is OSRS's - the outfit does nothing for
++// clues there at all - so they are Corey's, and tools/cluehunterspec.json says so beside them.
++//
++// The two percentages are full-set only and are rolled separately, at different moments: the
++// skip when a clue is handed in, the double when a trail finishes. So they never share a draw.
++^clue_hunter_double_pct = 10
++^clue_hunter_skip_pct = 10
++
++// PER CASKET ROLL, for each piece not already owned. Six independent waits at 1/750 is about
++// 1837 rolls for the whole set. The three tiers do not roll the same number of times - easy is
++// 2 + random(3), medium 3 + random(3), hard 4 + random(3) - so that is roughly 612 easy caskets,
++// 459 medium or 367 hard. The 600 is the point of the number: it was 1/1500 first and was halved
++// to land there.
++^clue_hunter_drop_denom = 750
++^clue_hunter_pieces = 6
+diff --git a/scripts/minigames/game_trail/scripts/clue_hunter.rs2 b/scripts/minigames/game_trail/scripts/clue_hunter.rs2
+new file mode 100644
+index 00000000..a9bee031
+--- /dev/null
++++ b/scripts/minigames/game_trail/scripts/clue_hunter.rs2
+@@ -0,0 +1,94 @@
++// WHAT THE CLUE HUNTER OUTFIT DOES. GENERATED - do not hand-edit.
++//   python3 tools/gencluehunter.py
++//
++// NONE OF THIS IS OSRS'S. There the outfit has leather-armour stats, counts as warm
++// clothing, and does nothing at all for clues - no casket bonus, no step reduction. All
++// three effects below were asked for by name, and tools/cluehunterspec.json records that
++// under what_osrs_actually_does so nobody later reads them as canon.
++//
++// WHERE EACH ONE IS HOOKED, and why there:
++//   ~clue_hunter_doubles   the three ~trail_clue_<tier>_reward procs, right after they
++//                          work out how many times to roll - which is the only place a
++//                          "double casket" can mean anything precise.
++//   ~clue_hunter_skips     ~trail_clue_progress in trail_clue_helper.rs2, which every
++//                          tier goes through, so one hook covers easy, medium and hard.
++//   ~clue_hunter_droproll  inside the same reward loop, once per roll. It does NOT ask
++//                          whether the set is worn, for the obvious reason.
++
++// ALL SIX, EACH IN THE SLOT IT IS ACTUALLY WORN IN. Corey asked for a full-set effect, so
++// a partial set does nothing beyond its stats. Looking a piece up in the wrong slot is
++// the mistake the Rogue outfit battery check was written for, and clue_battery.py checks
++// this the same way - against the wearpos in the obj config, not against a list here.
++[proc,clue_hunter_worn]()(boolean)
++if (inv_getobj(worn, ^wearpos_hat) ! helm_of_raedwald) {
++    return(false);
++}
++if (inv_getobj(worn, ^wearpos_torso) ! clue_hunter_garb) {
++    return(false);
++}
++if (inv_getobj(worn, ^wearpos_hands) ! clue_hunter_gloves) {
++    return(false);
++}
++if (inv_getobj(worn, ^wearpos_legs) ! clue_hunter_trousers) {
++    return(false);
++}
++if (inv_getobj(worn, ^wearpos_feet) ! clue_hunter_boots) {
++    return(false);
++}
++if (inv_getobj(worn, ^wearpos_back) ! clue_hunter_cloak) {
++    return(false);
++}
++return(true);
++
++// A DOUBLED CASKET IS TWICE THE ROLLS. A casket rolls 2 + random(3) times, so doubling
++// the count gives 4, 6 or 8 - exactly two caskets' worth of the same table, rather than
++// a second roll on a different one.
++[proc,clue_hunter_doubles]()(boolean)
++if (~clue_hunter_worn = false) {
++    return(false);
++}
++if (random(100) < ^clue_hunter_double_pct) {
++    return(true);
++}
++return(false);
++
++// A SKIPPED STEP advances the trail twice for one hand-in. This is not a new idea in the
++// file: ~trail_clue_<tier>_complete already finishes a trail early when progress + 2
++// reaches maxsteps and a coin flip agrees, so early completion predates the outfit.
++[proc,clue_hunter_skips]()(boolean)
++if (~clue_hunter_worn = false) {
++    return(false);
++}
++if (random(100) < ^clue_hunter_skip_pct) {
++    return(true);
++}
++return(false);
++
++// THE SET COMES OUT OF CASKETS, one roll per piece per casket roll, and only for a piece
++// the player does not already have somewhere - inventory, bank or worn. Two reasons: an
++// untradeable outfit piece arriving twice is pure clutter, and skipping the ones already
++// owned is what makes the rate for a given piece exactly 1/^clue_hunter_drop_denom until
++// it is found, which is the number that was asked for.
++//
++// DELIBERATELY NOT IN THE RARE TABLES. Those reach 1/97 a roll through arithmetic that
++// is derived and commented in the reward scripts, and six new entries would move every
++// existing rare's rate and make that comment wrong.
++[proc,clue_hunter_droproll]
++if (~obj_gettotal(helm_of_raedwald) = 0 & random(^clue_hunter_drop_denom) = 0) {
++    inv_add(trail_rewardinv, helm_of_raedwald, 1);
++}
++if (~obj_gettotal(clue_hunter_garb) = 0 & random(^clue_hunter_drop_denom) = 0) {
++    inv_add(trail_rewardinv, clue_hunter_garb, 1);
++}
++if (~obj_gettotal(clue_hunter_gloves) = 0 & random(^clue_hunter_drop_denom) = 0) {
++    inv_add(trail_rewardinv, clue_hunter_gloves, 1);
++}
++if (~obj_gettotal(clue_hunter_trousers) = 0 & random(^clue_hunter_drop_denom) = 0) {
++    inv_add(trail_rewardinv, clue_hunter_trousers, 1);
++}
++if (~obj_gettotal(clue_hunter_boots) = 0 & random(^clue_hunter_drop_denom) = 0) {
++    inv_add(trail_rewardinv, clue_hunter_boots, 1);
++}
++if (~obj_gettotal(clue_hunter_cloak) = 0 & random(^clue_hunter_drop_denom) = 0) {
++    inv_add(trail_rewardinv, clue_hunter_cloak, 1);
++}
+diff --git a/scripts/minigames/game_trail/scripts/easy/trail_clue_easy_reward.rs2 b/scripts/minigames/game_trail/scripts/easy/trail_clue_easy_reward.rs2
+index d813b545..ba30b738 100644
+--- a/scripts/minigames/game_trail/scripts/easy/trail_clue_easy_reward.rs2
++++ b/scripts/minigames/game_trail/scripts/easy/trail_clue_easy_reward.rs2
+@@ -4,6 +4,13 @@
+ ~trail_prepare_rewardinv;
+ // Rolls math verification: https://www.youtube.com/watch?v=Er4RAFnmTvs
+ def_int $rolls = calc(2 + random(3));
++// THE CLUE HUNTER OUTFIT'S DOUBLE CASKET. Twice the rolls on this same table is exactly two
++// caskets' worth - 4, 6 or 8 instead of 2, 3 or 4 - which is the only precise reading of "double
++// casket" when a casket is a roll count. Asked for by name; OSRS's outfit does nothing like it.
++if (~clue_hunter_doubles = true) {
++    $rolls = calc($rolls * 2);
++    mes("Your clue hunter outfit turns up a second casket's worth of loot!");
++}
+ def_int $roll = 0;
+ def_int $rare = 0;
+ 
+@@ -23,6 +30,10 @@ while ($roll < $rolls) {
+     } else {
+         gosub(trail_clue_easy_normal);
+     }
++    // AND THE OUTFIT'S OWN PIECES, once per roll, for whichever the player still lacks. Not in
++    // the rare table above: that table's 1/97 is derived arithmetic with a comment explaining it,
++    // and six new entries would move every existing rare's rate and make the comment wrong.
++    ~clue_hunter_droproll;
+     $roll = calc($roll + 1);
+ }
+ if ($rare > 0) {
+diff --git a/scripts/minigames/game_trail/scripts/hard/trail_clue_hard_reward.rs2 b/scripts/minigames/game_trail/scripts/hard/trail_clue_hard_reward.rs2
+index 430759f3..a704c6b8 100644
+--- a/scripts/minigames/game_trail/scripts/hard/trail_clue_hard_reward.rs2
++++ b/scripts/minigames/game_trail/scripts/hard/trail_clue_hard_reward.rs2
+@@ -3,6 +3,13 @@
+ // otherwise these inv_adds overflow a still-full size=9 inv and the loot is lost.
+ ~trail_prepare_rewardinv;
+ def_int $rolls = calc(4 + random(3));
++// THE CLUE HUNTER OUTFIT'S DOUBLE CASKET. Twice the rolls on this same table is exactly two
++// caskets' worth, which is the only precise reading of "double casket" when a casket is a roll
++// count. Asked for by name; OSRS's outfit does nothing like it.
++if (~clue_hunter_doubles = true) {
++    $rolls = calc($rolls * 2);
++    mes("Your clue hunter outfit turns up a second casket's worth of loot!");
++}
+ def_int $roll = 0;
+ def_int $rare = 0;
+ 
+@@ -16,6 +23,10 @@ while ($roll < $rolls) {
+     } else {
+         gosub(trail_clue_hard_normal);
+     }
++    // AND THE OUTFIT'S OWN PIECES, once per roll, for whichever the player still lacks. Not in
++    // the rare table above: that table's 1/97 is derived arithmetic with a comment explaining it,
++    // and six new entries would move every existing rare's rate and make the comment wrong.
++    ~clue_hunter_droproll;
+     $roll = calc($roll + 1);
+ }
+ if ($rare > 0) {
+diff --git a/scripts/minigames/game_trail/scripts/medium/trail_clue_medium_reward.rs2 b/scripts/minigames/game_trail/scripts/medium/trail_clue_medium_reward.rs2
+index 43075a4e..3b6bec0c 100644
+--- a/scripts/minigames/game_trail/scripts/medium/trail_clue_medium_reward.rs2
++++ b/scripts/minigames/game_trail/scripts/medium/trail_clue_medium_reward.rs2
+@@ -3,6 +3,13 @@
+ // otherwise these inv_adds overflow a still-full size=9 inv and the loot is lost.
+ ~trail_prepare_rewardinv;
+ def_int $rolls = calc(3 + random(3));
++// THE CLUE HUNTER OUTFIT'S DOUBLE CASKET. Twice the rolls on this same table is exactly two
++// caskets' worth, which is the only precise reading of "double casket" when a casket is a roll
++// count. Asked for by name; OSRS's outfit does nothing like it.
++if (~clue_hunter_doubles = true) {
++    $rolls = calc($rolls * 2);
++    mes("Your clue hunter outfit turns up a second casket's worth of loot!");
++}
+ def_int $roll = 0;
+ def_int $rare = 0;
+ 
+@@ -17,6 +24,10 @@ while ($roll < $rolls) {
+         gosub(trail_clue_medium_normal);
+     }
+ 
++    // AND THE OUTFIT'S OWN PIECES, once per roll, for whichever the player still lacks. Not in
++    // the rare table above: that table's 1/97 is derived arithmetic with a comment explaining it,
++    // and six new entries would move every existing rare's rate and make the comment wrong.
++    ~clue_hunter_droproll;
+     $roll = calc($roll + 1);
+ }
+ if ($rare > 0) {
+diff --git a/scripts/minigames/game_trail/scripts/trail_clue_helper.rs2 b/scripts/minigames/game_trail/scripts/trail_clue_helper.rs2
+index e6022250..8d584529 100644
+--- a/scripts/minigames/game_trail/scripts/trail_clue_helper.rs2
++++ b/scripts/minigames/game_trail/scripts/trail_clue_helper.rs2
+@@ -39,6 +39,17 @@ if(testbit(%trail_status, 4) = ^true) {
+     %trail_status = clearbit(%trail_status, 4);
+ }
+ %trail_status = setbit_range_toint(%trail_status, calc(~get_trail_progress + 1), 0, 3);
++// THE CLUE HUNTER OUTFIT'S SKIPPED STEP, and this is the only place it needs to be: every tier's
++// ~progress_clue_<tier> comes through here, so easy, medium and hard are covered by one hook and
++// a fourth tier would be too. It advances the trail a second time, which is what "a step shorter"
++// means when steps are a counter - and the completeness test right after it in the caller reads
++// the higher number, so a skip can finish the trail outright.
++//
++// Nothing to guard against overflowing: bits 0-3 hold 0-15 and the longest trail is 6 steps.
++if (~clue_hunter_skips = true) {
++    %trail_status = setbit_range_toint(%trail_status, calc(~get_trail_progress + 1), 0, 3);
++    mes("Your knowledge of the trails lets you skip a step.");
++}
+ 
+ // bits 0-3 will store the progress of the clue, bit 4 is used to flag if the clue guardian (just zamorak wizard in version 225)
+ // has been killed, bits 5-7 to store the progress of the "miniquest" to get sextant/chart/watch (possible this didnt use a varp in 225, it does in osrs
+diff --git a/tools/clue_battery.py b/tools/clue_battery.py
+new file mode 100644
+index 00000000..7fcc36c3
+--- /dev/null
++++ b/tools/clue_battery.py
+@@ -0,0 +1,274 @@
++#!/usr/bin/env python3
++"""Battery for the clue hunter outfit and the three things it does.
++
++Everything is PARSED OUT of the delivered files - the bonuses from the obj config, the effects from
++the scripts that hold them, the roll counts from the three reward procs - so a change to one of
++them cannot pass a check still asserting the old value. The numbers on the right-hand side are the
++OSRS item table's, through tools/cluehunterspec.json, except the three Corey chose, which the spec
++marks as departures.
++
++    python3 tools/clue_battery.py
++"""
++import json, os, re, subprocess, sys
++
++C = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
++def read(p): return open(os.path.join(C, p), newline='').read().replace('\r\n', '\n')
++
++fails = 0
++def check(ok, what):
++    global fails
++    print(('  ok   ' if ok else '  FAIL ') + what)
++    if not ok:
++        fails += 1
++
++def before(hay, a, b):
++    """a appears before b, False rather than an exception when either is missing."""
++    return a in hay and b in hay and hay.index(a) < hay.index(b)
++
++def nocomment(txt):
++    """The code with // comments and string bodies removed.
++
++    Every battery in this tree that did not have one has had a check pass on its own comment at
++    least once. This one starts with it.
++    """
++    return '\n'.join(re.sub(r'"[^"]*"', '""', l).split('//')[0] for l in txt.split('\n'))
++
++def pack(name):
++    out = {}
++    for line in read('pack/' + name).split('\n'):
++        if '=' in line:
++            i, n = line.split('=', 1)
++            out[n.strip()] = int(i)
++    return out
++
++def blocks(txt):
++    out, cur = {}, None
++    for line in txt.split('\n'):
++        line = line.split('//')[0].strip()
++        if not line:
++            continue
++        if line.startswith('[') and line.endswith(']'):
++            cur = {}
++            out[line[1:-1]] = cur
++            continue
++        if cur is None or '=' not in line:
++            continue
++        k, v = line.split('=', 1)
++        cur.setdefault(k, []).append(v)
++    return out
++
++def params(f):
++    out = {}
++    for v in f.get('param', []):
++        k, _, n = v.partition(',')
++        if n.lstrip('-').isdigit():
++            out[k] = int(n)
++    return out
++
++SPEC = json.loads(read('tools/cluehunterspec.json'))
++OBJP, MODELP = pack('obj.pack'), pack('model.pack')
++CH = blocks(read('scripts/minigames/game_trail/configs/clue_hunter.obj'))
++RS2 = read('scripts/minigames/game_trail/scripts/clue_hunter.rs2')
++HELPER = read('scripts/minigames/game_trail/scripts/trail_clue_helper.rs2')
++CONST = read('scripts/minigames/game_trail/configs/trail.constant')
++TIERS = {t: read('scripts/minigames/game_trail/scripts/%s/trail_clue_%s_reward.rs2' % (t, t))
++         for t in ('easy', 'medium', 'hard')}
++PIECES = SPEC['pieces']
++NAMES = [p['local'] for p in PIECES]
++
++print('1. the six pieces are real items with OSRS\'s own numbers')
++check(sorted(CH) == sorted(NAMES),
++      'the generated config holds exactly the six pieces the spec names: %s'
++      % (sorted(set(CH) ^ set(NAMES)) or 'exactly the six'))
++check(all(n in OBJP for n in NAMES),
++      'each has an id in pack/obj.pack: %s' % ([n for n in NAMES if n not in OBJP] or 'all six'))
++_mm = []
++for n, f in CH.items():
++    for k in ('model', 'manwear', 'womanwear', 'manhead', 'womanhead'):
++        for v in f.get(k, []):
++            mdl = v.split(',')[0]
++            if mdl not in MODELP or not os.path.exists(
++                    os.path.join(C, 'models/obj', mdl + '.ob2')):
++                _mm.append('%s/%s' % (n, mdl))
++check(not _mm, 'and every model they name is in model.pack AND on disk: %s' % (_mm[:3] or 'all 22'))
++_bad = [p['local'] for p in PIECES if params(CH[p['local']]) != p['bonuses']]
++check(not _bad,
++      "every piece's bonuses are the item table's, signed: %s" % (_bad or 'all six agree'))
++
++# THE SIGN TRAP, checked as a property and not just by equality. The cache stores -6 as
++# 4294967290; a careless read writes that straight into a config, and param=magicattack,4294967290
++# is not a small mistake - it is the largest magic attack bonus in the game. No real bonus in this
++# build is anywhere near a thousand, so anything that big is an unsigned int that was never
++# converted.
++_huge = ['%s %s=%d' % (n, k, v) for n, f in CH.items() for k, v in params(f).items() if abs(v) > 1000]
++check(not _huge,
++      'and no bonus on any piece is an unconverted unsigned int - the cache stores the helm\'s -6 '
++      'magic attack as 4294967290, and nothing here is within a thousand of that: %s'
++      % (_huge[:2] or 'all in range'))
++check(any(v < 0 for f in CH.values() for v in params(f).values()),
++      '...while the negatives really are negative, so the conversion happened rather than the '
++      'fields being dropped')
++_wp = [p['local'] for p in PIECES
++       if CH[p['local']].get('wearpos', [None])[0] != p['wearpos']
++       or CH[p['local']].get('wearpos2', [None])[0] != p['wearpos2']]
++check(not _wp, 'and every wearpos row is the cache\'s: %s' % (_wp or 'all six'))
++check(all(f.get('tradeable') == ['no'] for f in CH.values()),
++      'all six are untradeable, which is how this fork ships an earned set')
++check(not [n for n, f in CH.items() if 'iop5' in f],
++      'and none carries an inventory op 5 - OSRS puts Destroy there and this build puts Drop, so '
++      'carrying OSRS\'s would take Drop off the item')
++
++print('2. what OSRS actually does, recorded so nobody reads the effects as canon')
++_o = SPEC['what_osrs_actually_does']
++check(_o['casket_effect'] is None and _o['step_effect'] is None,
++      "the spec records that OSRS's clue hunter outfit has NO casket effect and NO step effect - "
++      'every effect in this round is a departure')
++check('departures' in SPEC and SPEC['departures'].get('full_set_only') is True,
++      '...and that the effects are full-set only, which is what was asked for')
++
++print('3. the full-set test looks in the slot each piece is actually worn in')
++_worn = nocomment(RS2).split('[proc,clue_hunter_worn]', 1)[1].split('\n[', 1)[0] \
++    if '[proc,clue_hunter_worn]' in nocomment(RS2) else ''
++SLOTC = {'hat': '^wearpos_hat', 'torso': '^wearpos_torso', 'legs': '^wearpos_legs',
++         'hands': '^wearpos_hands', 'feet': '^wearpos_feet', 'back': '^wearpos_back'}
++_sbad = []
++for p in PIECES:
++    # THE SLOT COMES FROM THE OBJ CONFIG, not from a list in this file. That is the difference
++    # between checking the code and restating it: if the config's wearpos moved, this moves too.
++    slot = SLOTC[CH[p['local']].get('wearpos', ['?'])[0]]
++    want = 'if (inv_getobj(worn, %s) ! %s) {' % (slot, p['local'])
++    if want not in _worn:
++        _sbad.append(p['local'])
++check(not _sbad,
++      'all six are looked for, each in the slot its own obj record gives it: %s'
++      % (_sbad or 'all six'))
++check(_worn.count('return(false);') == len(PIECES) and _worn.count('return(true);') == 1,
++      'and a missing piece fails the whole test - %d early exits for %d pieces and one success'
++      % (_worn.count('return(false);'), len(PIECES)))
++
++print('4. both effects are full-set only, read their constants, and never share a draw')
++for proc, const in (('clue_hunter_doubles', '^clue_hunter_double_pct'),
++                    ('clue_hunter_skips', '^clue_hunter_skip_pct')):
++    body = nocomment(RS2).split('[proc,%s]' % proc, 1)[1].split('\n[', 1)[0] \
++        if '[proc,%s]' % proc in nocomment(RS2) else ''
++    check(before(body, '~clue_hunter_worn = false', const),
++          '~%s asks for the full set BEFORE it rolls, so a partial set never draws at all' % proc)
++    check(const in body and not re.search(r'random\(100\) < \d', body),
++          '...and the chance is %s rather than a number written into the script' % const)
++check(nocomment(RS2).count('random(100)') == 2,
++      'the two effects roll separately - two draws, not one shared between them, which is what '
++      '"one roll each" meant: %d draws' % nocomment(RS2).count('random(100)'))
++
++print('5. the pieces drop from caskets, and the drop does not need the set')
++_drop = nocomment(RS2).split('[proc,clue_hunter_droproll]', 1)[1].split('\n[', 1)[0] \
++    if '[proc,clue_hunter_droproll]' in nocomment(RS2) else ''
++check('~clue_hunter_worn' not in _drop,
++      'the drop roll does NOT ask whether the outfit is worn, for the obvious reason')
++_dbad = [p['local'] for p in PIECES
++         if 'if (~obj_gettotal(%s) = 0 & random(^clue_hunter_drop_denom) = 0) {' % p['local']
++         not in _drop]
++check(not _dbad,
++      'each piece is rolled only when the player has none of it anywhere - ~obj_gettotal is '
++      'inventory, bank and worn - so an untradeable piece never arrives twice: %s'
++      % (_dbad or 'all six'))
++check(_drop.count('inv_add(trail_rewardinv,') == len(PIECES),
++      'and every one goes into the reward inv the casket already pays into: %d of %d'
++      % (_drop.count('inv_add(trail_rewardinv,'), len(PIECES)))
++check(not re.search(r'random\(\d{2,}\)', _drop),
++      'the denominator is a constant here too, not a bare number')
++
++print('6. the hooks: one for the skip, three for the double and the drop')
++_prog = nocomment(HELPER).split('[proc,trail_clue_progress]', 1)[1].split('\n[', 1)[0] \
++    if '[proc,trail_clue_progress]' in nocomment(HELPER) else ''
++check('~clue_hunter_skips = true' in _prog,
++      'the skip is in ~trail_clue_progress, which every tier goes through - so one hook covers '
++      'easy, medium and hard, and a fourth tier would be covered too')
++check(_prog.count('setbit_range_toint') == 2,
++      '...and it advances the counter a SECOND time rather than replacing the first, which is '
++      'what a skipped step is: %d advances' % _prog.count('setbit_range_toint'))
++_elsewhere = []
++for _root, _dirs, _files in os.walk(os.path.join(C, 'scripts')):
++    for _fn in _files:
++        if not _fn.endswith('.rs2'):
++            continue
++        rel = os.path.relpath(os.path.join(_root, _fn), C)
++        if '~clue_hunter_skips' in nocomment(read(rel)) and 'clue_hunter.rs2' not in rel:
++            _elsewhere.append(os.path.basename(rel))
++check(_elsewhere == ['trail_clue_helper.rs2'],
++      'and it is hooked in exactly one place, so no tier can be missed or done twice: %s'
++      % _elsewhere)
++
++ROLLS = {}
++for t, txt in TIERS.items():
++    code = nocomment(txt)
++    m = re.search(r'def_int \$rolls = calc\((\d+) \+ random\((\d+)\)\);', code)
++    check(m is not None, "%s's casket roll count can be read out of its reward proc" % t)
++    if not m:
++        continue
++    ROLLS[t] = (int(m.group(1)), int(m.group(2)))
++    body = code.split('[proc,trail_clue_%s_reward]' % t, 1)[1].split('\n[', 1)[0]
++    check(before(body, '$rolls = calc(%s + random(%s))' % m.groups(), '~clue_hunter_doubles'),
++          '...and the double is asked AFTER the count is worked out, which is the only place it '
++          'can multiply anything (%s)' % t)
++    check('$rolls = calc($rolls * 2);' in body,
++          '...and it doubles the count rather than setting it, so a %s casket rolls %d-%d instead '
++          'of %d-%d' % (t, ROLLS[t][0] * 2, (ROLLS[t][0] + ROLLS[t][1] - 1) * 2,
++                        ROLLS[t][0], ROLLS[t][0] + ROLLS[t][1] - 1))
++    check(before(body, '~clue_hunter_droproll', '$roll = calc($roll + 1)'),
++          '...and the piece drop is INSIDE the roll loop, so it is once per roll as asked (%s)' % t)
++
++print('7. the existing casket tables are untouched')
++_tabs = {'easy': 27, 'medium': None, 'hard': None}
++for t, txt in TIERS.items():
++    code = nocomment(txt)
++    for kind in ('normal', 'rare'):
++        body = code.split('[proc,trail_clue_%s_%s]' % (t, kind), 1)[1].split('\n[', 1)[0] \
++            if '[proc,trail_clue_%s_%s]' % (t, kind) in code else ''
++        m = re.search(r'def_int \$random = random\((\d+)\);', body)
++        cases = len(re.findall(r'^\s*case \d+ :', body, re.M))
++        check(m is not None and cases == int(m.group(1)),
++              "%s's %s table still has exactly as many cases as its own random() - %s -, so "
++              'nothing was added to it and no case was orphaned'
++              % (t, kind, '%d of %s' % (cases, m.group(1)) if m else 'unreadable'))
++        check(not [n for n in NAMES if n in body],
++              '...and no clue hunter piece is in it (%s %s), because the pieces have their own '
++              'roll and the 1/97 arithmetic in the comment above it stays true' % (t, kind))
++
++print('8. the spec\'s own arithmetic, recomputed')
++src = SPEC['source']
++H = sum(1.0 / k for k in range(1, len(PIECES) + 1))
++want_rolls = round(src['denominator'] * H)
++check(src['expected_rolls_for_the_set'] == want_rolls,
++      'the rolls-for-the-set figure is %d x H(%d) recomputed, not a remembered number: %d against '
++      '%d' % (src['denominator'], len(PIECES), src['expected_rolls_for_the_set'], want_rolls))
++_cbad = []
++for t, (base, span) in ROLLS.items():
++    avg = base + (span - 1) / 2.0
++    want = round(want_rolls / avg)
++    if src['expected_caskets_for_the_set'].get(t) != want:
++        _cbad.append('%s: spec %s, %d/%.1f = %d'
++                     % (t, src['expected_caskets_for_the_set'].get(t), want_rolls, avg, want))
++check(not _cbad,
++      "and each tier's casket figure divides that by the roll count read out of THAT tier's "
++      'reward proc - the three are not the same: %s' % (_cbad or src['expected_caskets_for_the_set']))
++check(src['expected_caskets_for_the_set'].get('easy') in range(550, 675),
++      '...and the easy figure is the "about 600 caskets" that was asked for: %s'
++      % src['expected_caskets_for_the_set'].get('easy'))
++for c, v in (('^clue_hunter_double_pct', SPEC['departures']['double_casket_pct']),
++             ('^clue_hunter_skip_pct', SPEC['departures']['skip_step_pct']),
++             ('^clue_hunter_drop_denom', src['denominator'])):
++    check(re.search(r'^%s = %d$' % (re.escape(c), v), CONST, re.M) is not None,
++          '%s is %d in trail.constant, the same as in the spec' % (c, v))
++check(re.search(r'^\^clue_hunter_pieces = %d$' % len(PIECES), CONST, re.M) is not None,
++      'and ^clue_hunter_pieces is %d, counted from the spec rather than typed' % len(PIECES))
++
++print('9. the generator reproduces what is checked in')
++r = subprocess.run([sys.executable, os.path.join(C, 'tools/gencluehunter.py'), '--check'],
++                   capture_output=True, text=True, cwd=C)
++check(r.returncode == 0,
++      'tools/gencluehunter.py --check: both generated files are already what it writes, so '
++      'nothing here was hand-edited%s' % ('' if r.returncode == 0 else ': ' + r.stdout.strip()[:200]))
++
++print()
++print('ALL PASS' if fails == 0 else '%d FAILED' % fails)
++sys.exit(1 if fails else 0)
+diff --git a/tools/clue_mutate.py b/tools/clue_mutate.py
+new file mode 100644
+index 00000000..e0ad47bd
+--- /dev/null
++++ b/tools/clue_mutate.py
+@@ -0,0 +1,190 @@
++#!/usr/bin/env python3
++"""Mutation test for tools/clue_battery.py.
++
++A check that cannot fail is worse than no check: it reads as coverage and is not. Each entry breaks
++one thing the battery claims to catch - in a throwaway copy of the tree, never in place - and the
++battery has to go red, with the check named in the entry among the ones that fired.
++
++THIS HARNESS HAS THE ANCHOR UNIQUENESS RULE, which tools/follower_mutate.py and
++tools/gamemode_mutate.py have and the five older ones do not. A find string matching more than once
++is a mutation that changes something other than what it names - four of them did exactly that in
++one round of the pet work, silently - so a non-unique pattern is a SKIP and a failure here rather
++than a quiet first-match replace.
++
++    python3 tools/clue_mutate.py
++"""
++import os, shutil, subprocess, sys
++
++C = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
++W = os.path.join(os.environ.get('TMPDIR', '/tmp'), 'clue_mutate_work')
++
++OBJ = 'scripts/minigames/game_trail/configs/clue_hunter.obj'
++RS2 = 'scripts/minigames/game_trail/scripts/clue_hunter.rs2'
++HLP = 'scripts/minigames/game_trail/scripts/trail_clue_helper.rs2'
++CST = 'scripts/minigames/game_trail/configs/trail.constant'
++SPC = 'tools/cluehunterspec.json'
++EZ = 'scripts/minigames/game_trail/scripts/easy/trail_clue_easy_reward.rs2'
++MD = 'scripts/minigames/game_trail/scripts/medium/trail_clue_medium_reward.rs2'
++HD = 'scripts/minigames/game_trail/scripts/hard/trail_clue_hard_reward.rs2'
++
++MUTS = [
++ # (file, find, replace, the check that must go red)
++ # ---- the pieces themselves
++ (OBJ, 'param=magicattack,-6', 'param=magicattack,-5',
++  "1 every piece's bonuses are the item table's, signed"),
++ # THE SIGN TRAP, put back exactly as it would arrive from a careless read.
++ (OBJ, 'param=magicattack,-6', 'param=magicattack,4294967290',
++  '1 and no bonus on any piece is an unconverted unsigned int'),
++ # A SIGN FLIP, which is a different mistake from an off-by-one and worth its own entry. It is
++ # named at the equality check deliberately: the guard beside that check - "the negatives really
++ # are negative" - can only go red if EVERY negative in the file disappears, and any edit that
++ # does that also breaks equality with the spec. So the guard has no mutation of its own, and
++ # saying so here is better than pointing one at it and reading "caught, but by".
++ (OBJ, 'param=magicattack,-6\nparam=rangeattack,-2', 'param=magicattack,6\nparam=rangeattack,2',
++  "1 every piece's bonuses are the item table's, signed"),
++ (OBJ, '[clue_hunter_cloak]', '[clue_hunter_cape]',
++  '1 the generated config holds exactly the six pieces the spec names'),
++ (OBJ, 'model=obj_clue_hunter_boots\n', 'model=obj_clue_hunter_sandals\n',
++  '1 and every model they name is in model.pack AND on disk'),
++ (OBJ, 'wearpos=feet', 'wearpos=hands',
++  "1 and every wearpos row is the cache's"),
++ (OBJ, 'tradeable=no\nweight=700g', 'weight=700g',
++  '1 all six are untradeable'),
++ (OBJ, 'iop2=Wear\ncost=1\nmembers=yes\ntradeable=no\nweight=700g',
++       'iop2=Wear\niop5=Destroy\ncost=1\nmembers=yes\ntradeable=no\nweight=700g',
++  '1 and none carries an inventory op 5'),
++
++ # ---- the full-set test
++ (RS2, 'if (inv_getobj(worn, ^wearpos_feet) ! clue_hunter_boots) {',
++       'if (inv_getobj(worn, ^wearpos_hands) ! clue_hunter_boots) {',
++  '3 all six are looked for, each in the slot its own obj record gives it'),
++ (RS2, 'if (inv_getobj(worn, ^wearpos_back) ! clue_hunter_cloak) {\n    return(false);\n}\n',
++        '',
++  '3 all six are looked for, each in the slot its own obj record gives it'),
++ (RS2, 'if (inv_getobj(worn, ^wearpos_hands) ! clue_hunter_gloves) {\n    return(false);\n}',
++        'if (inv_getobj(worn, ^wearpos_hands) ! clue_hunter_gloves) {\n    return(true);\n}',
++  '3 and a missing piece fails the whole test'),
++
++ # ---- the two effects
++ (RS2, 'if (random(100) < ^clue_hunter_double_pct) {',
++        'if (random(100) < 10) {',
++  '4 ...and the chance is ^clue_hunter_double_pct rather than a number written into the script'),
++ (RS2, 'if (random(100) < ^clue_hunter_skip_pct) {',
++        'if (random(100) < 10) {',
++  '4 ...and the chance is ^clue_hunter_skip_pct rather than a number written into the script'),
++ # The worn test moved AFTER the roll, which is the "a lock after the window opens" mistake in
++ # another shape: a partial set would still burn a draw and, worse, the proc would return true.
++ (RS2, '[proc,clue_hunter_doubles]()(boolean)\nif (~clue_hunter_worn = false) {\n    return(false);\n}\n',
++        '[proc,clue_hunter_doubles]()(boolean)\n',
++  '4 ~clue_hunter_doubles asks for the full set BEFORE it rolls'),
++ (RS2, '[proc,clue_hunter_skips]()(boolean)\nif (~clue_hunter_worn = false) {\n    return(false);\n}\n',
++        '[proc,clue_hunter_skips]()(boolean)\n',
++  '4 ~clue_hunter_skips asks for the full set BEFORE it rolls'),
++
++ # ---- the drop
++ (RS2, '[proc,clue_hunter_droproll]\n',
++        '[proc,clue_hunter_droproll]\nif (~clue_hunter_worn = false) {\n    return;\n}\n',
++  '5 the drop roll does NOT ask whether the outfit is worn'),
++ (RS2, 'if (~obj_gettotal(clue_hunter_garb) = 0 & random(^clue_hunter_drop_denom) = 0) {',
++        'if (random(^clue_hunter_drop_denom) = 0) {',
++  '5 each piece is rolled only when the player has none of it anywhere'),
++ (RS2, 'inv_add(trail_rewardinv, clue_hunter_trousers, 1);', 'mes("");',
++  '5 and every one goes into the reward inv the casket already pays into'),
++
++ # ---- the hooks
++ (HLP, 'if (~clue_hunter_skips = true) {', 'if (false = true) {',
++  '6 the skip is in ~trail_clue_progress'),
++ (HLP, '    %trail_status = setbit_range_toint(%trail_status, calc(~get_trail_progress + 1), 0, 3);\n    mes(',
++        '    mes(',
++  '6 ...and it advances the counter a SECOND time rather than replacing the first'),
++ (EZ, '$rolls = calc($rolls * 2);', '$rolls = calc(8);',
++  '6 ...and it doubles the count rather than setting it, so a easy casket rolls 4-8 instead of 2-4'),
++ (MD, '    ~clue_hunter_droproll;\n', '',
++  '6 ...and the piece drop is INSIDE the roll loop, so it is once per roll as asked (medium)'),
++ # THE SHAPE has to change, not just the neighbourhood: the first version of this entry added a
++ # redundant `$rolls = calc($rolls);` line after the declaration, which left the declaration - and
++ # therefore the regex that reads the roll count - exactly where it was. It survived, correctly.
++ (HD, 'def_int $rolls = calc(4 + random(3));', 'def_int $rolls = 5;',
++  "6 hard's casket roll count can be read out of its reward proc"),
++
++ # ---- the existing tables
++ (EZ, 'case 26 : inv_add(trail_rewardinv, willow_longbow, 1);',
++       'case 26 : inv_add(trail_rewardinv, willow_longbow, 1);\n'
++       '    case 27 : inv_add(trail_rewardinv, clue_hunter_boots, 1);',
++  "7 easy's normal table still has exactly as many cases as its own random()"),
++ (HD, 'def_int $random = random(34);', 'def_int $random = random(35);',
++  "7 hard's rare table still has exactly as many cases as its own random()"),
++
++ # ---- the spec's arithmetic and the constants
++ (SPC, '"expected_rolls_for_the_set": 1837', '"expected_rolls_for_the_set": 1800',
++  '8 the rolls-for-the-set figure is 750 x H(6) recomputed'),
++ (SPC, '"easy": 612', '"easy": 600',
++  "8 and each tier's casket figure divides that by the roll count read out of THAT tier's"),
++ (CST, '^clue_hunter_drop_denom = 750', '^clue_hunter_drop_denom = 700',
++  '8 ^clue_hunter_drop_denom is 750 in trail.constant, the same as in the spec'),
++ (CST, '^clue_hunter_pieces = 6', '^clue_hunter_pieces = 5',
++  '8 and ^clue_hunter_pieces is 6, counted from the spec rather than typed'),
++ (SPC, '"casket_effect": null', '"casket_effect": "doubles it"',
++  "2 the spec records that OSRS's clue hunter outfit has NO casket effect"),
++ (SPC, '"full_set_only": true', '"full_set_only": false',
++  '2 ...and that the effects are full-set only'),
++ (OBJ, 'name=Clue hunter cloak', 'name=Clue hunter cape',
++  '9 tools/gencluehunter.py --check'),
++]
++
++
++def main():
++    if os.path.exists(W):
++        shutil.rmtree(W)
++    shutil.copytree(C, W, ignore=shutil.ignore_patterns('.git', '__pycache__'))
++    fails = loose = 0
++    for path, find, repl, why in MUTS:
++        p = os.path.join(W, path)
++        original = open(p, 'rb').read()
++        raw = original.decode('utf-8')
++        nl = '\r\n' if raw.count('\r\n') > raw.count('\n') / 2 else '\n'
++        f, r2 = find.replace('\n', nl), repl.replace('\n', nl)
++        n = raw.count(f)
++        if n == 0:
++            print('  SKIP (pattern not found) %-44s %s' % (os.path.basename(path), why))
++            fails += 1
++            continue
++        # THE UNIQUENESS RULE. A pattern matching twice means this entry silently changes something
++        # other than what it claims to, and the run still comes back red - which is worse than a
++        # missing mutation because it looks like coverage.
++        if n > 1:
++            print('  SKIP (pattern matches %d times, not unique) %-26s %s'
++                  % (n, os.path.basename(path), why))
++            fails += 1
++            continue
++        open(p, 'w', newline='').write(raw.replace(f, r2, 1))
++        r = subprocess.run([sys.executable, os.path.join(W, 'tools', 'clue_battery.py')],
++                           capture_output=True, text=True, cwd=W)
++        open(p, 'wb').write(original)
++        ok = r.returncode != 0
++        named = why.split(' ', 1)[1] if why[:1].isdigit() else why
++        fired = [l.strip()[5:].strip() for l in r.stdout.split('\n') if l.strip().startswith('FAIL')]
++        onpoint = any(named in x for x in fired)
++        if not ok:
++            state, note = 'GREEN', 'NOT CAUGHT'
++            fails += 1
++        elif onpoint:
++            note = 'caught by its own check'
++            if len(fired) > 1:
++                note += ' (and %d other%s)' % (len(fired) - 1, '' if len(fired) == 2 else 's')
++            state = 'red'
++        else:
++            state, note = 'red', 'caught, but by: %s' % (
++                fired[0][:60] if fired else 'a non-zero exit with no check named, which is a '
++                                            'crash and not a catch')
++            loose += 1
++        print('  %-5s %-70s %s' % (state, why, note))
++    print()
++    if loose:
++        print('%d caught by a check other than the one named - see the note beside each' % loose)
++    print('%s' % ('every mutation was caught' if not fails else '%d MUTATIONS SURVIVED' % fails))
++    return 1 if fails else 0
++
++
++if __name__ == '__main__':
++    sys.exit(main())
+diff --git a/tools/cluehunterspec.json b/tools/cluehunterspec.json
+new file mode 100644
+index 00000000..1f3f9ada
+--- /dev/null
++++ b/tools/cluehunterspec.json
+@@ -0,0 +1,244 @@
++{
++ "_what": "The clue hunter outfit, and the three things Corey asked it to do. Written before any config was edited. tools/clue_battery.py reads this file, so a number changed here without the configs or scripts changing goes red, and the other way round.",
++ "_sources": {
++  "osrs_item_table": "C:\\\\LostCityServer\\\\caches\\\\newest cache, index 2 group 10, decoded by tools/models/objconfig474.py. Every bonus, model id, wearpos, weight and 2d camera below is read out of it.",
++  "wiki": "https://oldschool.runescape.wiki/w/Clue_hunter_outfit, read 2026-09-21."
++ },
++ "what_osrs_actually_does": {
++  "effects": [
++   "stats identical to leather armour",
++   "five of the six count as warm clothing (not the Helm of Raedwald)"
++  ],
++  "casket_effect": null,
++  "step_effect": null,
++  "_note": "NOTHING FOR CLUES. No casket bonus, no step reduction, no drop-rate effect. The wiki page lists the stats and the warm clothing and stops. So every effect below is a departure of this build's own, and is written down as one rather than dressed up as OSRS behaviour.",
++  "obtained_in_osrs": "Dug up at five fixed spots with a spade, the helm needing a nature rune, leather boots and a superantipoison as well. Three of those five places do not exist in this build (Shayzien, and the 2015 Fishing Guild oak), so the source below is Corey's instead."
++ },
++ "departures": {
++  "_who": "Corey, backlog item 7: \"Chance of a double casket or of shortening a clue's steps. Needs the full set, and the set comes from any clue scroll's loot.\" Shape and numbers chosen when asked.",
++  "shape": "both, one roll each",
++  "_shape": "Two independent effects. They fire at different moments - the skip when a clue is handed in, the double when one is finished - so they never share a random draw and each is checkable on its own.",
++  "double_casket_pct": 10,
++  "_double_casket": "With the full set worn, a one-in-ten chance the casket rolls twice as many times. A casket rolls 2 + random(3), so a doubled one rolls 4, 6 or 8 - exactly two caskets' worth, which is what 'double casket' means.",
++  "skip_step_pct": 10,
++  "_skip_step": "With the full set worn, a one-in-ten chance that handing in a clue advances the trail by two steps instead of one. Easy trails are 4 steps, medium 5, hard 6, so this takes about half a step off a hard clue on average. It extends a mechanism that already exists: ~trail_clue_<tier>_complete already finishes early when progress + 2 >= maxsteps and a coin flip comes up, so early completion is not something this round invents.",
++  "full_set_only": true,
++  "_full_set_only": "Corey's brief. A per-piece version was offered and not chosen, so a partial set does nothing at all beyond its leather-armour stats."
++ },
++ "source": {
++  "where": "the casket reward roll, in all three tiers",
++  "denominator": 750,
++  "_denominator": "Per casket ROLL - not per casket - each piece the player does not already own has a 1/750 chance. Corey named 1/1500 first and then halved it to land the full set at about 600 caskets rather than 1,200.",
++  "not_the_rare_table": "The pieces deliberately do NOT go in the existing rare tables. Those reach 1/97 per roll through arithmetic that is derived and commented in the reward scripts - 1/13 to the rare table over 108 rewards in OSRS, worked back to 1/97 here - and adding six entries would move every existing rare's rate and invalidate that comment. A separate roll hits the asked-for number exactly and leaves the tables alone.",
++  "no_duplicates": "A piece already in the inventory, the bank or worn is not rolled for, so an untradeable outfit piece never arrives twice. That also makes the rate for a given piece exactly 1/1500 until it is owned, which is what the number means.",
++  "expected_rolls_for_the_set": 1837,
++  "_expected": "Six independent waits at 1/750, so 750 x H(6) = 1837 rolls for the set. Divided by each tier's average roll count that is about 612 easy caskets, 459 medium or 367 hard. Corey asked for about 600, which easy clues hit; the harder tiers are faster because they roll more times. Every figure here is recomputed by tools/clue_battery.py from the denominator and the piece count, so the spec cannot quietly disagree with itself.",
++  "expected_caskets_for_the_set": {
++   "easy": 612,
++   "medium": 459,
++   "hard": 367
++  },
++  "rolls_per_casket": {
++   "easy": [
++    2,
++    4
++   ],
++   "medium": [
++    3,
++    5
++   ],
++   "hard": [
++    4,
++    6
++   ]
++  },
++  "_rolls_per_casket": "Read out of the three reward scripts, which are not the same: easy rolls 2 + random(3), medium 3 + random(3), hard 4 + random(3). So the number of caskets the set takes depends on which tier is being farmed, and a single figure would have been wrong for two of the three."
++ },
++ "conventions_this_build_imposes": {
++  "destroy_op": "OSRS gives every piece a Destroy option at inventory op 5. Not carried over: in this build opheld5 is Drop, served globally by player/scripts/drop.rs2, so a Destroy there would take Drop off the item. Same reason the Max cape folded its Spellbook op into Features. The pieces are tradeable=no instead, which is how this fork ships an earned set.",
++  "warm_clothing": "Five of the six are warm clothing in OSRS. There is no cold-damage mechanic in this build - no Wintertodt - so there is nothing for that to do, and no param is invented for it."
++ },
++ "pieces": [
++  {
++   "local": "helm_of_raedwald",
++   "osrs_id": 19687,
++   "osrs_name": "Helm of Raedwald",
++   "desc": "An ancient helmet of King Raedwald Indanorf. First discovered by Pikachu Yip.",
++   "model": 31641,
++   "manwear": 31625,
++   "womanwear": 31632,
++   "manhead": 31639,
++   "womanhead": 31639,
++   "wearpos": "hat",
++   "wearpos2": "head",
++   "weight": 1000,
++   "cost": 1,
++   "zoom2d": 656,
++   "xan2d": 71,
++   "yan2d": 2,
++   "xof2d": null,
++   "yof2d": -2,
++   "iops": {
++    "1": "Wear",
++    "4": "Destroy"
++   },
++   "bonuses": {
++    "magicattack": -6,
++    "rangeattack": -2,
++    "stabdefence": 6,
++    "slashdefence": 7,
++    "crushdefence": 5,
++    "magicdefence": -1,
++    "rangedefence": 6
++   }
++  },
++  {
++   "local": "clue_hunter_garb",
++   "osrs_id": 19689,
++   "osrs_name": "Clue hunter garb",
++   "desc": "Stark and full of vigour.",
++   "model": 31644,
++   "manwear": 31630,
++   "womanwear": 31637,
++   "manhead": null,
++   "womanhead": null,
++   "wearpos": "torso",
++   "wearpos2": "arms",
++   "weight": 2000,
++   "cost": 1,
++   "zoom2d": 1476,
++   "xan2d": 550,
++   "yan2d": null,
++   "xof2d": null,
++   "yof2d": 4,
++   "iops": {
++    "1": "Wear",
++    "4": "Destroy"
++   },
++   "bonuses": {
++    "magicattack": -2,
++    "rangeattack": 2,
++    "stabdefence": 8,
++    "slashdefence": 9,
++    "crushdefence": 10,
++    "magicdefence": 4,
++    "rangedefence": 9
++   }
++  },
++  {
++   "local": "clue_hunter_gloves",
++   "osrs_id": 19691,
++   "osrs_name": "Clue hunter gloves",
++   "desc": "Warm leather gloves lined with wolf fur.",
++   "model": 31640,
++   "manwear": 31627,
++   "womanwear": 31634,
++   "manhead": null,
++   "womanhead": null,
++   "wearpos": "hands",
++   "wearpos2": null,
++   "weight": 500,
++   "cost": 1,
++   "zoom2d": 789,
++   "xan2d": 609,
++   "yan2d": 111,
++   "xof2d": 1,
++   "yof2d": null,
++   "iops": {
++    "1": "Wear",
++    "4": "Destroy"
++   },
++   "bonuses": {
++    "slashdefence": 1,
++    "crushdefence": 2
++   }
++  },
++  {
++   "local": "clue_hunter_trousers",
++   "osrs_id": 19693,
++   "osrs_name": "Clue hunter trousers",
++   "desc": "A promising pair of trousers.",
++   "model": 31643,
++   "manwear": 31628,
++   "womanwear": 31635,
++   "manhead": null,
++   "womanhead": null,
++   "wearpos": "legs",
++   "wearpos2": null,
++   "weight": 2000,
++   "cost": 1,
++   "zoom2d": 1720,
++   "xan2d": 450,
++   "yan2d": null,
++   "xof2d": null,
++   "yof2d": 13,
++   "iops": {
++    "1": "Wear",
++    "4": "Destroy"
++   },
++   "bonuses": {
++    "rangeattack": 4,
++    "stabdefence": 2,
++    "slashdefence": 2,
++    "crushdefence": 1
++   }
++  },
++  {
++   "local": "clue_hunter_boots",
++   "osrs_id": 19695,
++   "osrs_name": "Clue hunter boots",
++   "desc": "Warm leather boots lined with wolf fur.",
++   "model": 31642,
++   "manwear": 31631,
++   "womanwear": 31638,
++   "manhead": null,
++   "womanhead": null,
++   "wearpos": "feet",
++   "wearpos2": null,
++   "weight": 700,
++   "cost": 1,
++   "zoom2d": 1084,
++   "xan2d": 164,
++   "yan2d": 156,
++   "xof2d": 3,
++   "yof2d": -7,
++   "iops": {
++    "1": "Wear",
++    "4": "Destroy"
++   },
++   "bonuses": {
++    "slashdefence": 1,
++    "crushdefence": 1
++   }
++  },
++  {
++   "local": "clue_hunter_cloak",
++   "osrs_id": 19697,
++   "osrs_name": "Clue hunter cloak",
++   "desc": "Winter is coming.",
++   "model": 31645,
++   "manwear": 31626,
++   "womanwear": 31633,
++   "manhead": null,
++   "womanhead": null,
++   "wearpos": "back",
++   "wearpos2": null,
++   "weight": 1000,
++   "cost": 1,
++   "zoom2d": 1380,
++   "xan2d": 208,
++   "yan2d": 1907,
++   "xof2d": -4,
++   "yof2d": -15,
++   "iops": {
++    "1": "Wear",
++    "4": "Destroy"
++   },
++   "bonuses": {
++    "slashdefence": 1,
++    "crushdefence": 1,
++    "rangedefence": 2
++   }
++  }
++ ]
++}
+diff --git a/tools/gencluehunter.py b/tools/gencluehunter.py
+new file mode 100644
+index 00000000..6d62ce40
+--- /dev/null
++++ b/tools/gencluehunter.py
+@@ -0,0 +1,215 @@
++#!/usr/bin/env python3
++"""Write the six clue hunter outfit records from tools/cluehunterspec.json, and render them.
++
++WHY A GENERATOR FOR SIX RECORDS. Because of the signs. The OSRS item table stores a negative
++bonus as an unsigned 32-bit int - the Helm of Raedwald's -6 magic attack comes back as
++4294967290 - and writing that through by hand or by a careless import would put the largest magic
++attack bonus in the game on a leather helmet. The spec holds the signed values, this writes them,
++and tools/clue_battery.py checks the config against the spec so neither can drift alone.
++
++    python3 tools/gencluehunter.py                 # write the config
++    python3 tools/gencluehunter.py --check          # exit 1 if it would change
++    python3 tools/gencluehunter.py --render out.png # and look at the six before shipping
++"""
++import json, os, sys
++
++C = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
++sys.path.insert(0, os.path.join(C, 'tools'))
++SPEC = os.path.join(C, 'tools', 'cluehunterspec.json')
++OUT = os.path.join(C, 'scripts', 'minigames', 'game_trail', 'configs', 'clue_hunter.obj')
++OUT_RS2 = os.path.join(C, 'scripts', 'minigames', 'game_trail', 'scripts', 'clue_hunter.rs2')
++# wearpos constant per piece, so the worn test looks in the slot the piece is actually worn in -
++# the mistake the Rogue outfit's battery check exists to catch.
++SLOT = {'hat': '^wearpos_hat', 'torso': '^wearpos_torso', 'legs': '^wearpos_legs',
++        'hands': '^wearpos_hands', 'feet': '^wearpos_feet', 'back': '^wearpos_back'}
++CATEGORY = {'hat': 'armour_helmet', 'torso': 'armour_body', 'legs': 'armour_legs',
++            'hands': 'armour_hands', 'feet': 'armour_boots', 'back': 'armour_cape'}
++
++
++def build(spec):
++    d = spec['departures']
++    L = ['// THE CLUE HUNTER OUTFIT. GENERATED - do not hand-edit.',
++         '//   python3 tools/gencluehunter.py',
++         '//',
++         '// Six objs out of a modern OSRS cache (19687, 19689, 19691, 19693, 19695, 19697), models',
++         '// re-encoded by tools/models/importosrs.py. The bonuses, wearpos rows, weights and 2d',
++         '// cameras below are the item table\'s own numbers, SIGNED: the cache stores the helm\'s',
++         '// -6 magic attack as 4294967290, and writing that through would have put the largest',
++         '// magic attack bonus in the game on a leather helmet.',
++         '//',
++         '// WHAT THEY DO IS NOT OSRS\'S. In OSRS this outfit has leather-armour stats, counts as',
++         '// warm clothing, and does nothing whatsoever for clues. Here the full set gives a',
++         '// %d%% chance of a double casket and a %d%% chance of skipping a trail step - both asked'
++         % (d['double_casket_pct'], d['skip_step_pct']),
++         '// for by name. clue_hunter.rs2 holds them and claude/clue-hunter-outfit.md says why.',
++         '//',
++         '// NO DESTROY OP, though OSRS gives every piece one at inventory op 5: opheld5 is Drop in',
++         '// this build, served globally by player/scripts/drop.rs2, so a Destroy there would take',
++         '// Drop off the item. tradeable=no instead, the way this fork ships an earned set.',
++         '']
++    for p in spec['pieces']:
++        L.append('[%s]' % p['local'])
++        L.append('name=%s' % p['osrs_name'])
++        if p.get('desc'):
++            L.append('desc=%s' % p['desc'])
++        L.append('model=obj_%s' % p['local'])
++        L.append('manwear=obj_%s_manwear,0' % p['local'])
++        L.append('womanwear=obj_%s_womanwear,0' % p['local'])
++        if p.get('manhead'):
++            L.append('manhead=obj_%s_manhead' % p['local'])
++        if p.get('womanhead'):
++            L.append('womanhead=obj_%s_womanhead' % p['local'])
++        L.append('wearpos=%s' % p['wearpos'])
++        if p.get('wearpos2'):
++            L.append('wearpos2=%s' % p['wearpos2'])
++        for cfg, k in (('2dzoom', 'zoom2d'), ('2dxan', 'xan2d'), ('2dyan', 'yan2d'),
++                       ('2dxof', 'xof2d'), ('2dyof', 'yof2d')):
++            if p.get(k) is not None:
++                L.append('%s=%s' % (cfg, p[k]))
++        L.append('iop2=Wear')
++        if p.get('cost') is not None:
++            L.append('cost=%d' % p['cost'])
++        L.append('members=yes')
++        L.append('tradeable=no')
++        if p.get('weight') is not None:
++            L.append('weight=%dg' % p['weight'])
++        L.append('category=%s' % CATEGORY[p['wearpos']])
++        for k, v in p['bonuses'].items():
++            L.append('param=%s,%d' % (k, v))
++        L.append('')
++    return '\n'.join(L)
++
++
++def build_rs2(spec):
++    d, src = spec['departures'], spec['source']
++    P = spec['pieces']
++    L = ['// WHAT THE CLUE HUNTER OUTFIT DOES. GENERATED - do not hand-edit.',
++         '//   python3 tools/gencluehunter.py',
++         '//',
++         "// NONE OF THIS IS OSRS'S. There the outfit has leather-armour stats, counts as warm",
++         '// clothing, and does nothing at all for clues - no casket bonus, no step reduction. All',
++         '// three effects below were asked for by name, and tools/cluehunterspec.json records that',
++         '// under what_osrs_actually_does so nobody later reads them as canon.',
++         '//',
++         '// WHERE EACH ONE IS HOOKED, and why there:',
++         '//   ~clue_hunter_doubles   the three ~trail_clue_<tier>_reward procs, right after they',
++         '//                          work out how many times to roll - which is the only place a',
++         '//                          "double casket" can mean anything precise.',
++         '//   ~clue_hunter_skips     ~trail_clue_progress in trail_clue_helper.rs2, which every',
++         '//                          tier goes through, so one hook covers easy, medium and hard.',
++         '//   ~clue_hunter_droproll  inside the same reward loop, once per roll. It does NOT ask',
++         '//                          whether the set is worn, for the obvious reason.',
++         '',
++         '// ALL SIX, EACH IN THE SLOT IT IS ACTUALLY WORN IN. Corey asked for a full-set effect, so',
++         '// a partial set does nothing beyond its stats. Looking a piece up in the wrong slot is',
++         '// the mistake the Rogue outfit battery check was written for, and clue_battery.py checks',
++         '// this the same way - against the wearpos in the obj config, not against a list here.',
++         '[proc,clue_hunter_worn]()(boolean)']
++    for pc in P:
++        L.append('if (inv_getobj(worn, %s) ! %s) {' % (SLOT[pc['wearpos']], pc['local']))
++        L.append('    return(false);')
++        L.append('}')
++    L += ['return(true);',
++          '',
++          '// A DOUBLED CASKET IS TWICE THE ROLLS. A casket rolls 2 + random(3) times, so doubling',
++          '// the count gives 4, 6 or 8 - exactly two caskets\' worth of the same table, rather than',
++          '// a second roll on a different one.',
++          '[proc,clue_hunter_doubles]()(boolean)',
++          'if (~clue_hunter_worn = false) {',
++          '    return(false);',
++          '}',
++          'if (random(100) < ^clue_hunter_double_pct) {',
++          '    return(true);',
++          '}',
++          'return(false);',
++          '',
++          '// A SKIPPED STEP advances the trail twice for one hand-in. This is not a new idea in the',
++          '// file: ~trail_clue_<tier>_complete already finishes a trail early when progress + 2',
++          '// reaches maxsteps and a coin flip agrees, so early completion predates the outfit.',
++          '[proc,clue_hunter_skips]()(boolean)',
++          'if (~clue_hunter_worn = false) {',
++          '    return(false);',
++          '}',
++          'if (random(100) < ^clue_hunter_skip_pct) {',
++          '    return(true);',
++          '}',
++          'return(false);',
++          '',
++          '// THE SET COMES OUT OF CASKETS, one roll per piece per casket roll, and only for a piece',
++          '// the player does not already have somewhere - inventory, bank or worn. Two reasons: an',
++          '// untradeable outfit piece arriving twice is pure clutter, and skipping the ones already',
++          '// owned is what makes the rate for a given piece exactly 1/^clue_hunter_drop_denom until',
++          '// it is found, which is the number that was asked for.',
++          '//',
++          '// DELIBERATELY NOT IN THE RARE TABLES. Those reach 1/97 a roll through arithmetic that',
++          '// is derived and commented in the reward scripts, and six new entries would move every',
++          '// existing rare\'s rate and make that comment wrong.',
++          '[proc,clue_hunter_droproll]']
++    for pc in P:
++        L.append('if (~obj_gettotal(%s) = 0 & random(^clue_hunter_drop_denom) = 0) {' % pc['local'])
++        L.append('    inv_add(trail_rewardinv, %s, 1);' % pc['local'])
++        L.append('}')
++    L.append('')
++    return '\n'.join(L)
++
++
++def render(spec, out_png):
++    import ob2render
++    from PIL import Image, ImageDraw
++    size, cols, pad, lab = 192, 3, 8, 16
++    tiles = []
++    for p in spec['pieces']:
++        path = os.path.join(C, 'models', 'obj', 'obj_%s.ob2' % p['local'])
++        if not os.path.exists(path):
++            print('  MISSING %s' % path)
++            return 1
++        m = ob2render.Model(path)
++        cam = {}
++        for k, arg in (('xan2d', 'xan'), ('yan2d', 'yan'), ('zoom2d', 'zoom'),
++                       ('xof2d', 'xof'), ('yof2d', 'yof')):
++            if p.get(k) is not None:
++                cam[arg] = p[k]
++        tiles.append((p['local'], ob2render.render(m, size=size, **cam), m))
++        print('  %-24s %d verts, %d faces' % (p['local'], m.vcount, m.fcount))
++    rows = (len(tiles) + cols - 1) // cols
++    im = Image.new('RGB', (cols * (size + pad) + pad, rows * (size + pad + lab) + pad),
++                   (18, 18, 20))
++    d = ImageDraw.Draw(im)
++    for i, (name, tile, m) in enumerate(tiles):
++        r, c = divmod(i, cols)
++        x, y = pad + c * (size + pad), pad + r * (size + pad + lab)
++        im.paste(tile, (x, y))
++        d.text((x + 2, y + size + 3), '%s  %dv/%df' % (name, m.vcount, m.fcount),
++               fill=(190, 190, 195))
++    im.save(out_png)
++    print('wrote', out_png)
++    return 0
++
++
++def main():
++    spec = json.load(open(SPEC))
++    text = build(spec)
++    if '--render' in sys.argv:
++        return render(spec, sys.argv[sys.argv.index('--render') + 1])
++    want = {OUT: text, OUT_RS2: build_rs2(spec)}
++    if '--check' in sys.argv:
++        bad = []
++        for path, body in want.items():
++            # Line-ending blind: the repo is LF and text=auto can hand a Windows checkout CRLF.
++            have = open(path, newline='').read() if os.path.exists(path) else None
++            if have is None or have.replace('\r\n', '\n') != body:
++                bad.append(os.path.relpath(path, C))
++        if bad:
++            print('gencluehunter --check: %s would change' % ', '.join(bad))
++            return 1
++        print('gencluehunter --check: both generated files are already what this writes')
++        return 0
++    for path, body in want.items():
++        os.makedirs(os.path.dirname(path), exist_ok=True)
++        open(path, 'w', newline='').write(body)
++        print('wrote %s' % os.path.relpath(path, C))
++    return 0
++
++
++if __name__ == '__main__':
++    sys.exit(main())
+-- 
+2.43.0
+

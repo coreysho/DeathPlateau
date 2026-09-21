@@ -1,0 +1,811 @@
+From 0c869694d54671a6af32a42cafc7daf36e2d82b1 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Mon, 21 Sep 2026 04:28:40 +0000
+Subject: [PATCH] Lvl-6 Enchant, and the rule that says a button the client
+ draws does nothing
+
+THE SPELL WAS ALWAYS IN THE INTERFACE. magic.if has drawn it since this fork
+began, as [com_549] with its unpacked name, carrying Jagex's own checks:
+
+    script1=gt,0    cosmic runes
+    script2=gt,19   fire runes
+    script3=gt,19   earth runes
+    script4=gt,86   magic level
+    action=Enchant Lvl-6 Jewelry
+
+Level 87, 20 fire, 20 earth, 1 cosmic - which is the wiki's spell, arrived at
+from the other direction. Ring of stone and Amulet of fury are in the obj pack
+with their real names, the spotanim enchant_amulet2_lvl6 and the synths
+enchant_onyx_ring and enchant_onyx_amulet are in their packs, and onyx rings,
+necklaces and amulets have all been craftable at tier 6 of the jewellery ladder
+the whole time. Only the id, the dbrow and the trigger were missing, so clicking
+the button did nothing at all - no error, no log line, no failing check.
+
+That is the third time: Trollheim, Bones to Peaches and Ape Atoll were the same
+shape, and each was found by accident while looking at something else.
+
+THE XP IS NOT A GUESS. The five rows above are 175, 370, 590, 670 and 780, and
+the wiki's figures for those spells are 17.5, 37, 59, 67 and 78. The scale is
+this table's, so the wiki's 97 becomes 970 by arithmetic. The battery checks the
+whole sequence rather than the one number.
+
+NO BERSERKER NECKLACE, and that is the honest answer to the bug-list line. There
+is no such obj anywhere in this cache. The onyx necklace's own description is "I
+wonder if this is valuable" where the strung amulet's is "I wonder if I can get
+this enchanted" - the amulet was enchantable at this revision and the necklace
+was not. Importing one is an art round like the slayer helmets, not a row here,
+and a check holds the door: if a berserker_necklace obj ever appears in
+obj.pack, the battery goes red and asks for the row.
+
+The amulet's ANIM is the one inferred thing and it is flagged in the row's
+comment. The amulet2 family runs human_enchantamuletlvl1 at lvl4 and lvl2 at
+lvl5, so lvl6 takes lvl3. Its spotanim is the cache's own.
+
+RULE 23 IS THE GENERAL VERSION. A spellbook button drawn from a magic sprite
+sheet, carrying a real action, that no trigger in any .rs2 names. It found four
+more the hour it was written - Teleother Lumbridge, Teleother Falador, Teleother
+Camelot and Tele Block, all genuinely unbuilt - and they are declared with a
+reason each in tools/unwiredspells.json, so the rule is green today and goes red
+on the NEXT one rather than on the backlog.
+
+IT ALSO FOUND THE REAL ANCIENT SPELLBOOK. scripts/interfaces/inter_267.if is the
+377 cache's own Ancient Magicks panel: Jagex's grid, the level tooltips ("Level
+94 : Ice Barrage"), all 16 combat spells and all 8 ancient teleports. The server
+does not use it. ancient_magic.if is a hand-built reconstruction with an invented
+layout, written when this file could not be found - and it could not be found
+because an interface that IS the ancient spellbook contains no searchable word,
+every component being com_<n>. magic_combat_debug.rs2 still calls the real one
+"unidentifiable". Swapping to it is its own round; it is named in the spec and in
+the doc rather than quietly excused.
+
+tools/interfaceindex.py is the answer to that whole class: it prints each
+unidentified interface's player-visible strings, so 133 interfaces read as a list
+of features instead of a list of numbers. inter_110 is a fractional still,
+inter_113 a temple repair, inter_267 the ancient book.
+
+WHY obtainable.py NEVER SAID ANY OF THIS. Both enchanted onyx objs are defined
+only in scripts/_unpack/377/all.obj, so the sweep files them under "the 377
+cache's own, which this server has no content for" - a 2,713-item bucket it never
+prints. That label is wrong for an item whose whole family is wired. The sweep is
+not changed here; the new rule covers the case from the other end, and the doc
+records the blind spot.
+
+rs2check 0 ERROR 0 CHECK, selftest PASS on all 22 rules, thirteen batteries PASS,
+33 enchant mutations each caught by its own check, mutate_labels clean on the new
+harness. Not built: npm still 403s on zod, so CI's pack job is the build.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01Dc7giZ7Qnh4qy1CYPTDrmH
+---
+ .github/workflows/content.yml                 |   2 +
+ pack/interface.pack                           |   2 +-
+ .../configs/magic/spells.constant             |  10 +
+ .../skill_magic/configs/magic_spells.dbrow    |  18 ++
+ scripts/skill_magic/interfaces/magic.if       |   2 +-
+ .../skill_magic/scripts/spells/enchant.rs2    |   1 +
+ tools/enchant_battery.py                      | 178 ++++++++++++++++++
+ tools/enchant_mutate.py                       | 165 ++++++++++++++++
+ tools/interfaceindex.py                       |  88 +++++++++
+ tools/rs2check.py                             |  89 +++++++++
+ tools/unwiredspells.json                      |  17 ++
+ 11 files changed, 570 insertions(+), 2 deletions(-)
+ create mode 100644 tools/enchant_battery.py
+ create mode 100644 tools/enchant_mutate.py
+ create mode 100644 tools/interfaceindex.py
+ create mode 100644 tools/unwiredspells.json
+
+diff --git a/.github/workflows/content.yml b/.github/workflows/content.yml
+index bfcc90df..a22eaeb1 100644
+--- a/.github/workflows/content.yml
++++ b/.github/workflows/content.yml
+@@ -152,6 +152,7 @@ jobs:
+         - combat_battery.py
+         - clue_battery.py
+         - boss_battery.py
++        - enchant_battery.py
+         # banktab_sim is a simulator, not a battery, but it also holds the CONTENT half of a
+         # contract with Client.java - the bank grid's option wording, which is what the client
+         # gates the placeholder Release option on. It was never in this matrix.
+@@ -200,6 +201,7 @@ jobs:
+         - cert_mutate.py
+         - clue_mutate.py
+         - boss_mutate.py
++        - enchant_mutate.py
+ 
+     # NOT IN EITHER LIST, and it is not deliberate: gamemode, barrows, leprechaun and follower all
+     # have a battery and a mutation harness and none of the four is here, so the XP rate modes, the
+diff --git a/pack/interface.pack b/pack/interface.pack
+index ace72619..4d439886 100644
+--- a/pack/interface.pack
++++ b/pack/interface.pack
+@@ -5881,7 +5881,7 @@
+ 6000=inter_129:com_6
+ 6001=inter_129:com_7
+ 6002=inter_129:com_8
+-6003=magic:com_549
++6003=magic:enchant_lvl6
+ 6004=magic:com_550
+ 6005=magic:com_551
+ 6006=magic:com_552
+diff --git a/scripts/skill_combat/configs/magic/spells.constant b/scripts/skill_combat/configs/magic/spells.constant
+index be799586..49d7e30d 100644
+--- a/scripts/skill_combat/configs/magic/spells.constant
++++ b/scripts/skill_combat/configs/magic/spells.constant
+@@ -105,3 +105,13 @@
+ // counts - and only the id, the dbrow and the trigger were missing. The component was still
+ // carrying its unpacked name (com_569), so nothing could reference it.
+ ^ape_atoll_teleport = 227
++
++// Lvl-6 Enchant (Corey, 2026-09-21). Released 4 Oct 2005 with the onyx, so 377 has all of it:
++// the button is drawn in magic.if at x=48 y=193 with the real checks (cosmic 1, fire 20,
++// earth 20, magic > 86), the objs Ring of stone and Amulet of fury are in the cache, and so are
++// the spotanim enchant_amulet2_lvl6 and the synths enchant_onyx_ring / enchant_onyx_amulet.
++// Only the id, the dbrow and the trigger were missing, and the component was still carrying its
++// unpacked name (com_549) so nothing could reference it. Same story as Trollheim and Ape Atoll.
++// No berserker necklace: the onyx NECKLACE's enchant is not in this cache, and its desc says
++// "I wonder if this is valuable" where the amulet's says "I wonder if I can get this enchanted".
++^enchant_lvl6 = 228
+diff --git a/scripts/skill_magic/configs/magic_spells.dbrow b/scripts/skill_magic/configs/magic_spells.dbrow
+index 2a6883eb..83ecf4b5 100644
+--- a/scripts/skill_magic/configs/magic_spells.dbrow
++++ b/scripts/skill_magic/configs/magic_spells.dbrow
+@@ -59,6 +59,24 @@ data=convertobj,strung_dragonstone_amulet,amulet_of_glory,human_enchantamuletlvl
+ data=additional_reqmessage,This spell can only be cast on dragonstone rings and amulets.
+ data=specificobj_reqmessage,unstrung_dragonstone_amulet,You need to string the dragonstone amulet before enchanting it.
+ 
++// Lvl-6 Enchant. Level, runes and xp are the wiki's, and the wiki's xp for Lvl-1..Lvl-5 is this
++// table's numbers divided by ten, so 970 follows the same scale rather than being picked.
++// The ring's anim and spotanim are the ones every other enchant-a-ring row uses. The amulet's
++// spotanim is the cache's own enchant_amulet2_lvl6; its ANIM is inferred - the amulet2 family
++// runs human_enchantamuletlvl1 at lvl4 and lvl2 at lvl5, so lvl6 takes lvl3. Flagged, not known.
++// No onyx NECKLACE row: the berserker necklace has no obj in this cache (see spells.constant).
++[magic_spell_enchant_level6]
++table=magic_spell_table
++data=spell,^enchant_lvl6
++data=members,true
++data=levelrequired,87
++data=runesrequired,firerune,20,earthrune,20,cosmicrune,1
++data=experience,970
++data=convertobj,onyx_ring,enchanted_onyx_ring,human_cast_enchantring,enchant_ring,enchant_onyx_ring
++data=convertobj,strung_onyx_amulet,enchanted_onyx_amulet,human_enchantamuletlvl3,enchant_amulet2_lvl6,enchant_onyx_amulet
++data=additional_reqmessage,This spell can only be cast on onyx rings and amulets.
++data=specificobj_reqmessage,unstrung_onyx_amulet,You need to string the onyx amulet before enchanting it.
++
+ [magic_spell_teleport_varrock]
+ table=magic_spell_table
+ data=spell,^varrock_teleport
+diff --git a/scripts/skill_magic/interfaces/magic.if b/scripts/skill_magic/interfaces/magic.if
+index 1bbe1a1b..ebd7b39b 100644
+--- a/scripts/skill_magic/interfaces/magic.if
++++ b/scripts/skill_magic/interfaces/magic.if
+@@ -9320,7 +9320,7 @@ actionverb=Cast on
+ actiontarget=npc,player
+ action=Teleother Camelot
+ 
+-[com_549]
++[enchant_lvl6]
+ layer=com_510
+ type=graphic
+ x=48
+diff --git a/scripts/skill_magic/scripts/spells/enchant.rs2 b/scripts/skill_magic/scripts/spells/enchant.rs2
+index 7040892f..9dafc5c4 100644
+--- a/scripts/skill_magic/scripts/spells/enchant.rs2
++++ b/scripts/skill_magic/scripts/spells/enchant.rs2
+@@ -3,6 +3,7 @@
+ [opheldt,magic:enchant_lvl3]@magic_spell_enchant(^enchant_lvl3, last_slot);
+ [opheldt,magic:enchant_lvl4]@magic_spell_enchant(^enchant_lvl4, last_slot);
+ [opheldt,magic:enchant_lvl5]@magic_spell_enchant(^enchant_lvl5, last_slot);
++[opheldt,magic:enchant_lvl6]@magic_spell_enchant(^enchant_lvl6, last_slot);
+ 
+ [label,magic_spell_enchant](int $spell, int $slot)
+ if_settabactive(^tab_magic);
+diff --git a/tools/enchant_battery.py b/tools/enchant_battery.py
+new file mode 100644
+index 00000000..3ab2d63a
+--- /dev/null
++++ b/tools/enchant_battery.py
+@@ -0,0 +1,178 @@
++"""Battery for Lvl-6 Enchant, and for the rule that found it.
++
++The spell was never written: the 377 interface draws the button, with its real level check and
++its real rune checks, and the server had no trigger for it. So the interesting checks here are
++the ones that hold the hand-written dbrow against the CACHE's own button - the level, the three
++rune counts - because those two came from different places and neither was copied from the other.
++The wiki supplies the xp, on the scale the five rows above it already use.
++
++The second half checks the linter rule and its exception spec, which is the part that generalises:
++the spec must not excuse a button that is wired, or name one that does not exist.
++
++    python3 tools/enchant_battery.py
++"""
++import json
++import os
++import re
++
++C = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
++
++
++def read(p):
++    return open(os.path.join(C, p), newline='').read().replace('\r\n', '\n')
++
++
++fails = 0
++
++
++def check(ok, what):
++    global fails
++    print(('  ok   ' if ok else '  FAIL ') + what)
++    if not ok:
++        fails += 1
++
++
++DBROW = read('scripts/skill_magic/configs/magic_spells.dbrow')
++CONST = read('scripts/skill_combat/configs/magic/spells.constant')
++TRIG = read('scripts/skill_magic/scripts/spells/enchant.rs2')
++MAGICIF = read('scripts/skill_magic/interfaces/magic.if')
++IFPACK = read('pack/interface.pack')
++OBJPACK = read('pack/obj.pack')
++ALLOBJ = read('scripts/_unpack/377/all.obj')
++RS2CHECK = read('tools/rs2check.py')
++SPEC = json.loads(read('tools/unwiredspells.json'))
++
++
++def block(txt, name):
++    """The [name] block of a config, without the next block's header."""
++    key = '[' + name + ']'
++    if key not in txt:
++        return ''
++    return txt.split(key, 1)[1].split('\n[', 1)[0]
++
++
++def objname(name):
++    m = re.search(r'^name=(.+)$', block(ALLOBJ, name), re.M)
++    return m.group(1).strip() if m else None
++
++
++ROW = block(DBROW, 'magic_spell_enchant_level6')
++BUTTON = block(MAGICIF, 'enchant_lvl6')
++
++# ============================================================================ 1
++print('1. the row and the cache\'s own button agree, and they came from different places')
++check(ROW != '', 'magic_spell_table has a Lvl-6 Enchant row at all')
++check('data=levelrequired,87' in ROW, 'the row asks for level 87')
++check('script4=gt,86' in BUTTON, "...and the button the client draws lights up above 86, which is 87")
++check('data=runesrequired,firerune,20,earthrune,20,cosmicrune,1' in ROW,
++      'the row costs 20 fire, 20 earth and 1 cosmic')
++check(re.search(r'script2op1=inv_count,inventory:inv,firerune\b', BUTTON) is not None
++      and 'script2=gt,19' in BUTTON,
++      '...and the button counts fire runes and wants more than 19 of them')
++check(re.search(r'script3op1=inv_count,inventory:inv,earthrune\b', BUTTON) is not None
++      and 'script3=gt,19' in BUTTON, '...earth the same')
++check(re.search(r'script1op1=inv_count,inventory:inv,cosmicrune\b', BUTTON) is not None
++      and 'script1=gt,0' in BUTTON, '...and one cosmic')
++check('data=experience,970' in ROW, 'it gives 970 xp')
++# The five rows above are 175, 370, 590, 670, 780 and the wiki's figures for those spells are
++# 17.5, 37, 59, 67 and 78. The scale is the table's, so 97 -> 970 is arithmetic, not a choice.
++check(re.findall(r'data=experience,(\d+)', DBROW)[:6] ==
++      ['175', '370', '590', '670', '780', '970'],
++      '...which is the wiki figure on the same times-ten scale as the five rows above it')
++check('data=members,true' in ROW, 'and it is members, like every onyx item')
++
++# ============================================================================ 2
++print('2. the two conversions, and the third that does not exist')
++check('data=convertobj,onyx_ring,enchanted_onyx_ring,' in ROW, 'onyx ring becomes the enchanted ring')
++check(objname('enchanted_onyx_ring') == 'Ring of stone',
++      "...which the cache calls Ring of stone, so it is the right obj")
++check('data=convertobj,strung_onyx_amulet,enchanted_onyx_amulet,' in ROW,
++      'the STRUNG onyx amulet becomes the enchanted amulet')
++check(objname('enchanted_onyx_amulet') == 'Amulet of fury', '...which the cache calls Amulet of fury')
++check('data=specificobj_reqmessage,unstrung_onyx_amulet,' in ROW,
++      'an unstrung one is told to get a string on it first')
++check('convertobj,unstrung_onyx_amulet' not in ROW, '...and cannot be enchanted while unstrung')
++# The one Corey asked for and the one this cache cannot have. If a berserker necklace is ever
++# imported, this check goes red and the row below it should be written.
++check(not re.search(r'^\d+=berserker_necklace$', OBJPACK, re.M),
++      'there is still no berserker necklace obj in this cache')
++check('convertobj,onyx_necklace' not in ROW,
++      '...so the onyx necklace has no row, rather than one pointing at nothing')
++
++print('3. every effect the row names is really in the packs')
++for kind, pack, names in (
++        ('seq', read('pack/seq.pack'), ['human_cast_enchantring', 'human_enchantamuletlvl3']),
++        ('spotanim', read('pack/spotanim.pack'), ['enchant_ring', 'enchant_amulet2_lvl6']),
++        ('synth', read('pack/synth.pack'), ['enchant_onyx_ring', 'enchant_onyx_amulet'])):
++    for n in names:
++        check(re.search(r'^\d+=' + re.escape(n) + r'$', pack, re.M) is not None
++              and n in ROW, '%s %s is in %s.pack and the row uses it' % (kind, n, kind))
++
++# ============================================================================ 4
++print('4. the wiring: an id, a trigger, and a component that can be named')
++ids = dict(re.findall(r'\^(\w+)\s*=\s*(\d+)', CONST))
++check(ids.get('enchant_lvl6') == '228', '^enchant_lvl6 is 228')
++check(list(ids.values()).count('228') == 1, '...and nothing else in spells.constant is 228')
++check('data=spell,^enchant_lvl6' in ROW, 'the row is keyed on that constant')
++check('[opheldt,magic:enchant_lvl6]@magic_spell_enchant(^enchant_lvl6, last_slot);' in TRIG,
++      'and an opheldt trigger casts it through the same label as the other five')
++check('[com_549]' not in MAGICIF, 'the component no longer carries its unpacked name')
++check('6003=magic:enchant_lvl6' in IFPACK,
++      '...and interface.pack renames it in place, at the id the cache gave it')
++check('actiontarget=heldobj' in BUTTON and 'buttontype=target' in BUTTON,
++      'the button targets a held item, which is what opheldt answers')
++
++# ============================================================================ 5
++print('5. the rule that found it, and its list of excuses')
++check('def check_castable_buttons()' in RS2CHECK, 'rs2check has the uncastable-button rule')
++check('23:   ("probe_spellbook.if", 3),' in RS2CHECK,
++      '...and the selftest proves it can go red, which an inert rule cannot')
++check('check_castable_buttons()' in RS2CHECK.split('def main(')[1],
++      '...and main() actually runs it')
++buttons, cur, kv = {}, None, {}
++for raw in MAGICIF.split('\n'):
++    s = raw.split('//')[0].strip()
++    if s.startswith('[') and s.endswith(']'):
++        if cur and kv.get('graphic', '').startswith('magicoff'):
++            buttons[cur] = kv
++        cur, kv = s[1:-1], {}
++    elif '=' in s and cur:
++        k, v = s.split('=', 1)
++        kv.setdefault(k.strip(), v.strip())
++if cur and kv.get('graphic', '').startswith('magicoff'):
++    buttons[cur] = kv
++spec_keys = [k for k in SPEC if not k.startswith('_')]
++check(len(spec_keys) == 5, 'the spec excuses five things and no more')
++wired = set()
++for dp, _d, fs in os.walk(os.path.join(C, 'scripts')):
++    for fn in fs:
++        if fn.endswith('.rs2'):
++            body = open(os.path.join(dp, fn), newline='').read().replace('\r\n', '\n')
++            wired |= set(re.findall(r'^\s*\[[a-z_]+\s*,\s*([a-z0-9_]+):([a-z0-9_]+)\s*\]',
++                                    body, re.M))
++# These two are aggregated rather than one check per key, so the wording a mutation has to be
++# named after is a line this battery prints on a CLEAN tree - tools/mutate_labels.py reads the
++# clean run, and a message that only exists once something is broken cannot be a label.
++ghosts, stale = [], []
++for k in spec_keys:
++    iface, comp = k.split(':', 1)
++    check(bool(SPEC[k].strip()), '%s carries a reason' % k)
++    if comp == '*':
++        continue
++    if iface == 'magic' and comp not in buttons:
++        ghosts.append(k)
++    if (iface, comp) in wired:
++        stale.append(k)
++check(not ghosts, 'every key names a component that exists'
++      + (' - these do not: %s' % ghosts if ghosts else ''))
++check(not stale, 'nothing in the spec is excusing a button that is wired'
++      + (' - but these are: %s' % stale if stale else ''))
++# Not just "is it excused" - the excuse has to say WHAT the server is running instead and where
++# the finding is written down, or the entry becomes the place the finding goes to die.
++_anc = SPEC.get('inter_267:*', '')
++check('ancient_magic.if' in _anc and 'claude/' in _anc,
++      'and the real ancient spellbook is named in it rather than quietly skipped')
++
++print()
++print('enchant battery: %s' % ('%d FAILED' % fails if fails else 'all checks pass'))
++raise SystemExit(1 if fails else 0)
+diff --git a/tools/enchant_mutate.py b/tools/enchant_mutate.py
+new file mode 100644
+index 00000000..bd319c7a
+--- /dev/null
++++ b/tools/enchant_mutate.py
+@@ -0,0 +1,165 @@
++#!/usr/bin/env python3
++"""Mutation test for tools/enchant_battery.py. Same runner as compost_mutate.py.
++
++Every entry breaks Lvl-6 Enchant, or the rule that found it, in one specific way, and expects the
++battery to go red with the check that is named. A GREEN line is a hole in the battery.
++
++Anchors are chosen to be unique to the lvl-6 row - twice now a mutation in this repo has edited
++the wrong thing because replace(..., 1) takes the FIRST match and an identical line sat higher in
++the file. Every pattern below was counted before it was used.
++
++    python3 tools/enchant_mutate.py
++    python3 tools/enchant_mutate.py "spec"     # just the ones whose name contains that
++"""
++import os, shutil, subprocess, sys
++
++C = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
++W = os.path.join(os.environ.get('TMPDIR', '/tmp'), 'enchant_mutate_work')
++
++DBROW = 'scripts/skill_magic/configs/magic_spells.dbrow'
++CONST = 'scripts/skill_combat/configs/magic/spells.constant'
++TRIG = 'scripts/skill_magic/scripts/spells/enchant.rs2'
++MAGICIF = 'scripts/skill_magic/interfaces/magic.if'
++IFPACK = 'pack/interface.pack'
++OBJPACK = 'pack/obj.pack'
++ALLOBJ = 'scripts/_unpack/377/all.obj'
++RS2 = 'tools/rs2check.py'
++SPEC = 'tools/unwiredspells.json'
++
++MUTS = [
++ # ---- 1, the numbers, and the cache's own button as the second opinion
++ (DBROW, 'data=levelrequired,87', 'data=levelrequired,88',
++  '1 the row asks for level 87'),
++ (MAGICIF, 'script4=gt,86\ngraphic=magicoff2,34', 'script4=gt,87\ngraphic=magicoff2,34',
++  '1 ...and the button the client draws lights up above 86, which is 87'),
++ (DBROW, 'data=runesrequired,firerune,20,earthrune,20,cosmicrune,1',
++         'data=runesrequired,firerune,15,earthrune,15,cosmicrune,1',
++  '1 the row costs 20 fire, 20 earth and 1 cosmic'),
++ (MAGICIF, 'script2=gt,19', 'script2=gt,14',
++  '1 ...and the button counts fire runes and wants more than 19 of them'),
++ (MAGICIF, 'script3=gt,19', 'script3=gt,14', '1 ...earth the same'),
++ (MAGICIF, 'script1op1=inv_count,inventory:inv,cosmicrune\n'
++           'script1op2=inv_count,rune_pouch_mirror:runes,cosmicrune\n'
++           'script2op1=inv_count,inventory:inv,firerune',
++           'script1op1=inv_count,inventory:inv,naturerune\n'
++           'script1op2=inv_count,rune_pouch_mirror:runes,naturerune\n'
++           'script2op1=inv_count,inventory:inv,firerune',
++  '1 ...and one cosmic'),
++ (DBROW, 'data=experience,970', 'data=experience,780', '1 it gives 970 xp'),
++ (DBROW, 'data=members,true\ndata=levelrequired,87', 'data=members,false\ndata=levelrequired,87',
++  '1 and it is members, like every onyx item'),
++
++ # ---- 2, what turns into what
++ (DBROW, 'data=convertobj,onyx_ring,enchanted_onyx_ring,', 'data=convertobj,onyx_ring,ring_of_wealth,',
++  '2 onyx ring becomes the enchanted ring'),
++ (ALLOBJ, 'name=Ring of stone', 'name=Ring of pebbles',
++  '2 ...which the cache calls Ring of stone, so it is the right obj'),
++ (DBROW, 'data=convertobj,strung_onyx_amulet,enchanted_onyx_amulet,', '',
++  '2 the STRUNG onyx amulet becomes the enchanted amulet'),
++ (ALLOBJ, 'name=Amulet of fury', 'name=Amulet of mild irritation',
++  '2 ...which the cache calls Amulet of fury'),
++ (DBROW, 'data=specificobj_reqmessage,unstrung_onyx_amulet,', 'data=ignored_reqmessage,unstrung_onyx_amulet,',
++  '2 an unstrung one is told to get a string on it first'),
++ (DBROW, 'data=convertobj,strung_onyx_amulet,enchanted_onyx_amulet,',
++         'data=convertobj,unstrung_onyx_amulet,enchanted_onyx_amulet,',
++  '2 ...and cannot be enchanted while unstrung'),
++ (OBJPACK, '6585=enchanted_onyx_amulet', '6585=berserker_necklace',
++  '2 there is still no berserker necklace obj in this cache'),
++ (DBROW, 'data=additional_reqmessage,This spell can only be cast on onyx rings and amulets.',
++         'data=convertobj,onyx_necklace,onyx_necklace,human_cast_enchantring,enchant_ring,enchant_onyx_ring',
++  '2 ...so the onyx necklace has no row, rather than one pointing at nothing'),
++
++ # ---- 3, the effects
++ (DBROW, 'human_enchantamuletlvl3,enchant_amulet2_lvl6', 'human_enchantamuletlvl9,enchant_amulet2_lvl6',
++  '3 seq human_enchantamuletlvl3 is in seq.pack and the row uses it'),
++ (DBROW, 'enchant_amulet2_lvl6,enchant_onyx_amulet', 'enchant_amulet2_lvl7,enchant_onyx_amulet',
++  '3 spotanim enchant_amulet2_lvl6 is in spotanim.pack and the row uses it'),
++ (DBROW, 'enchant_ring,enchant_onyx_ring', 'enchant_ring,enchant_onyx_band',
++  '3 synth enchant_onyx_ring is in synth.pack and the row uses it'),
++
++ # ---- 4, the wiring
++ (CONST, '^enchant_lvl6 = 228', '^enchant_lvl6 = 229', '4 ^enchant_lvl6 is 228'),
++ (CONST, '^ape_atoll_teleport = 227', '^ape_atoll_teleport = 228',
++  '4 ...and nothing else in spells.constant is 228'),
++ (TRIG, '[opheldt,magic:enchant_lvl6]@magic_spell_enchant(^enchant_lvl6, last_slot);', '',
++  '4 and an opheldt trigger casts it through the same label as the other five'),
++ (MAGICIF, '[enchant_lvl6]', '[com_549]', '4 the component no longer carries its unpacked name'),
++ (IFPACK, '6003=magic:enchant_lvl6', '6003=magic:com_549',
++  '4 ...and interface.pack renames it in place, at the id the cache gave it'),
++ (MAGICIF, 'actiontarget=heldobj\naction=Enchant Lvl-6 Jewelry',
++           'actiontarget=npc\naction=Enchant Lvl-6 Jewelry',
++  '4 the button targets a held item, which is what opheldt answers'),
++
++ # ---- 5, the rule and its excuses. The rule is only coverage if it can go red, and the spec is
++ # only honest if it cannot quietly grow to cover the next thing that breaks.
++ (RS2, 'def check_castable_buttons():', 'def check_castable_buttons_disabled():',
++  '5 rs2check has the uncastable-button rule'),
++ (RS2, '    23:   ("probe_spellbook.if", 3),\n', '',
++  '5 ...and the selftest proves it can go red, which an inert rule cannot'),
++ (RS2, '        check_interfaces()\n        check_castable_buttons()\n\n    errors',
++       '        check_interfaces()\n\n    errors',
++  '5 ...and main() actually runs it'),
++ (SPEC, '"Teleother Lumbridge, level 74. Needs the teleother accept/decline dialogue and '
++         'target consent - none of that exists yet."', '""',
++  '5 magic:com_511 carries a reason'),
++ (SPEC, '"magic:com_521"', '"magic:com_5210"', '5 every key names a component that exists'),
++ (SPEC, '"magic:com_531"', '"magic:enchant_lvl6"',
++  '5 nothing in the spec is excusing a button that is wired'),
++ (SPEC, 'ancient_magic.if is a hand-built reconstruction with an invented layout, made when '
++         'this file could not be found', 'the server uses something else',
++  '5 and the real ancient spellbook is named in it rather than quietly skipped'),
++ (SPEC, '  "magic:com_541": ', '  "magic:com_542": "spare",\n  "magic:com_541": ',
++  '5 the spec excuses five things and no more'),
++]
++
++
++def main():
++    if os.path.exists(W):
++        shutil.rmtree(W)
++    shutil.copytree(C, W, ignore=shutil.ignore_patterns('.git', '__pycache__'))
++    only = sys.argv[1] if len(sys.argv) > 1 else None
++    muts = [m for m in MUTS if not only or only in m[3]]
++    fails = loose = 0
++    for path, find, repl, why in muts:
++        p = os.path.join(W, path)
++        original = open(p, 'rb').read()
++        raw = original.decode('utf-8')
++        nl = '\r\n' if raw.count('\r\n') > raw.count('\n') / 2 else '\n'
++        f, r2 = find.replace('\n', nl), repl.replace('\n', nl)
++        if f not in raw:
++            print('  SKIP (pattern not found) %-34s %s' % (os.path.basename(path), why))
++            fails += 1
++            continue
++        if raw.count(f) != 1:
++            print('  SKIP (pattern is not unique - %d hits) %-20s %s'
++                  % (raw.count(f), os.path.basename(path), why))
++            fails += 1
++            continue
++        open(p, 'w', newline='').write(raw.replace(f, r2, 1))
++        r = subprocess.run([sys.executable, os.path.join(W, 'tools', 'enchant_battery.py')],
++                           capture_output=True, text=True, cwd=W)
++        open(p, 'wb').write(original)
++        ok = r.returncode != 0
++        named = why.split(' ', 1)[1] if why[:1].isdigit() else why
++        fired = [l.strip()[5:].strip() for l in r.stdout.split('\n') if l.strip().startswith('FAIL')]
++        onpoint = any(named in x for x in fired)
++        if not ok:
++            state, note = 'GREEN', 'NOT CAUGHT'; fails += 1
++        elif onpoint:
++            state, note = 'red', 'caught by its own check'
++        else:
++            state, note = 'red', 'caught, but by: %s' % (fired[0][:52] if fired else 'a non-zero exit')
++            loose += 1
++        print('  %-5s %-64s %s' % (state, why, note))
++    print()
++    if fails:
++        print('%d MUTATIONS SURVIVED' % fails)
++    elif loose:
++        print('every mutation was caught, but %d by a check other than its own' % loose)
++    else:
++        print('every mutation was caught, each by its own check')
++    return 1 if fails else 0
++
++
++if __name__ == '__main__':
++    sys.exit(main())
+diff --git a/tools/interfaceindex.py b/tools/interfaceindex.py
+new file mode 100644
+index 00000000..16b23473
+--- /dev/null
++++ b/tools/interfaceindex.py
+@@ -0,0 +1,88 @@
++#!/usr/bin/env python3
++"""What is in the unpacked interface pool.
++
++scripts/interfaces/ holds 280 interfaces straight out of the 377 cache. The ones that were
++identified have real names; the rest are still inter_<id>.if with every component called com_<n>.
++Nothing in them is searchable: an interface that IS the ancient spellbook does not contain the
++word "ancient" anywhere, so a grep for the thing you are looking for finds nothing and you
++conclude the cache does not have it. That happened - the ancient book was rebuilt by hand with an
++invented layout while inter_267.if sat in the repo with Jagex's own grid in it.
++
++The strings a player would SEE are the way in. An interface's action verbs, options and tooltips
++say what it is in plain English. So: print them, one interface at a time, and the pool reads as a
++list of features rather than a list of numbers.
++
++    python3 tools/interfaceindex.py            # every unidentified interface that says anything
++    python3 tools/interfaceindex.py teleport   # only those whose text matches
++    python3 tools/interfaceindex.py --all      # named interfaces too
++
++Run it from the content root.
++"""
++import os
++import re
++import sys
++
++ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
++DIRS = ('scripts',)
++# An interface still carrying its cache id, rather than one somebody has identified and renamed.
++UNIDENTIFIED = re.compile(r'^inter_\d+$')
++# The fields that hold text a player reads. Not `name=` - that is a component's own label in some
++# interfaces and a colour name in others.
++SAYS = re.compile(r'^(?:action|option|actionverb|tooltip|text)=(.+)$', re.M)
++# Layout filler, not a clue. "line3" and "%1" are the slots a script writes into, and every
++# interface in the cache has a Close Window. Leaving them in buries the one line that identifies
++# the interface under twenty that do not.
++NOISE = re.compile(r'^(?:line\s?\d+|text|%\d+%?|-|\.\.\.|close window|close|ok|cancel|'
++                   r'click here to continue|please wait\.*|null)$', re.I)
++
++
++def interfaces():
++    for dp, _dirs, files in os.walk(os.path.join(ROOT, DIRS[0])):
++        for fn in sorted(files):
++            if fn.endswith('.if'):
++                yield os.path.join(dp, fn)
++
++
++def strings(text):
++    """Player-visible text, in file order, without the duplicates."""
++    out = []
++    for m in SAYS.finditer(text):
++        s = m.group(1).strip()
++        # colour tags and the empty labels that pad a layout
++        s = re.sub(r'@\w{3}@', '', s).strip()
++        if s and not NOISE.match(s) and s not in out:
++            out.append(s)
++    return out
++
++
++def main():
++    args = [a for a in sys.argv[1:]]
++    show_named = '--all' in args
++    if show_named:
++        args.remove('--all')
++    needle = args[0].lower() if args else None
++
++    shown = 0
++    for path in interfaces():
++        rel = os.path.relpath(path, ROOT)
++        name = os.path.basename(path)[:-3]
++        if not show_named and not UNIDENTIFIED.match(name):
++            continue
++        text = open(path, encoding='utf-8', errors='replace').read()
++        said = strings(text)
++        if not said:
++            continue
++        if needle and needle not in ' '.join(said).lower() and needle not in name:
++            continue
++        shown += 1
++        print('%s  (%s, %d components)' % (name, rel, text.count('\n[')))
++        for s in said[:24]:
++            print('    %s' % s[:90])
++        if len(said) > 24:
++            print('    ... and %d more' % (len(said) - 24))
++        print()
++    print('%d interface%s' % (shown, '' if shown == 1 else 's'))
++
++
++if __name__ == '__main__':
++    main()
+diff --git a/tools/rs2check.py b/tools/rs2check.py
+index fd042af8..f4d3898d 100644
+--- a/tools/rs2check.py
++++ b/tools/rs2check.py
+@@ -31,6 +31,7 @@ mistakes shipped with an off-by-one mistake, and only a probe file with a known
+ answer found it. There is a --selftest for that reason.
+ """
+ 
++import json
+ import io
+ import os
+ import re
+@@ -889,6 +890,80 @@ def check_spell_rows():
+                            "session on the first cast" % (m.group(1), m.group(1)))
+ 
+ 
++# --------------------------------------------------------------------------- rule 23
++
++# A spellbook button the cache draws, with a real action on it, that nothing can cast.
++#
++# The 377 interfaces are in this repo verbatim, and they are AHEAD of the content: the client
++# already offers spells the server was never taught. Lvl-6 Enchant sat there for the whole life of
++# this fork as [com_549] with action=Enchant Lvl-6 Jewelry, its real level check (magic > 86) and
++# its real rune checks, while Ring of stone and Amulet of fury sat in the obj pack unreachable.
++# Trollheim, Bones to Peaches and Ape Atoll were the same story and were each found by accident.
++#
++# Nothing found them on purpose, because the symptom is silence: the button is drawn, the player
++# clicks it, and the server has no trigger for that component, so absolutely nothing happens. No
++# error, no log line, no failing check. This rule is the thing that looks.
++#
++# A button counts as castable if any trigger header in any .rs2 names it - [opheldt,magic:x],
++# [if_button,magic:x], [apnpct,...], anything. The known-unbuilt ones live in
++# tools/unwiredspells.json with a reason each, so the rule is green today and goes red on the
++# next one rather than on the backlog.
++UNWIRED_SPEC = os.path.join(os.path.dirname(os.path.abspath(__file__)), "unwiredspells.json")
++
++
++def _spellbook_buttons():
++    """(interface, component, line, action, path) for every button drawn from a magic sprite."""
++    for path in walk({".if"}):
++        iface = os.path.basename(path)[:-3]
++        cur, start, kv = None, 0, {}
++        lines = text(path).split("\n")
++        blocks = []
++        for n, raw in enumerate(lines, 1):
++            s = raw.split("//")[0].strip()
++            if s.startswith("[") and s.endswith("]"):
++                if cur:
++                    blocks.append((cur, start, kv))
++                cur, start, kv = s[1:-1], n, {}
++            elif "=" in s and cur:
++                k, v = s.split("=", 1)
++                kv.setdefault(k.strip(), v.strip())
++        if cur:
++            blocks.append((cur, start, kv))
++        for name, n, kv in blocks:
++            if not kv.get("graphic", "").startswith("magicoff"):
++                continue
++            act = kv.get("action") or kv.get("option")
++            if act:
++                yield iface, name, n, act, path
++
++
++def check_castable_buttons():
++    spec = {}
++    try:
++        with open(UNWIRED_SPEC) as f:
++            spec = {k: v for k, v in json.load(f).items() if not k.startswith("_")}
++    except Exception as e:      # a missing or broken spec must not silently excuse everything
++        report("ERROR", UNWIRED_SPEC, 0, 23, "cannot read the unwired-spell spec: %s" % e)
++        return
++    buttons = list(_spellbook_buttons())
++    if not buttons:
++        return
++    wired = set()
++    trig = re.compile(r"^\s*\[[a-z_]+\s*,\s*([a-z0-9_]+):([a-z0-9_]+)\s*\]", re.M)
++    for path in walk({".rs2"}):
++        for m in trig.finditer(text(path)):
++            wired.add((m.group(1), m.group(2)))
++    for iface, name, n, act, path in buttons:
++        if (iface, name) in wired:
++            continue
++        if "%s:%s" % (iface, name) in spec or "%s:*" % iface in spec:
++            continue
++        report("ERROR", path, n, 23,
++               "[%s] is a spellbook button the cache draws with action=\"%s\", and no trigger in "
++               "any .rs2 names %s:%s - the client offers the spell and clicking it does nothing"
++               % (name, act, iface, name))
++
++
+ def check_duplicates(T):
+     for trig, places in sorted(T["triggers"].items()):
+         if len(places) > 1:
+@@ -1033,6 +1108,13 @@ inv_add(inv, probe_obj, 1);
+     "probe_clean.enum": "\n[probe_int_enum]\ninputtype=int\noutputtype=int\nval=0,1\n",
+     # rule 20: a type=text with no font, which packs as fonts[255] and kills the client on load
+     "probe.if": "type=overlay\n\n[probe_nofont]\ntype=text\nx=0\ny=0\nwidth=10\nheight=10\n",
++    # rule 23: a spellbook button drawn from the magic sprite sheet, with a real action on it,
++    # that no trigger in the fixture names. tools/unwiredspells.json is read from the real tools
++    # directory even in the selftest, so this interface name must stay out of it.
++    "probe_spellbook.if": "type=overlay\n\n[probe_uncastable]\ntype=graphic\nx=0\ny=0\n"
++                          "width=20\nheight=20\ngraphic=magicoff,0\nactivegraphic=magicon,0\n"
++                          "buttontype=target\nactionverb=Cast on\nactiontarget=heldobj\n"
++                          "action=Probe Uncastable\n",
+     "probe_clean.if": ("type=overlay\n\n[probe_ok]\ntype=text\nx=0\ny=0\nwidth=10\nheight=10\n"
+                        "font=p12_full\nshadowed=yes\n"),
+ }
+@@ -1095,6 +1177,11 @@ ALL_RULES = {
+     # 21 found four session-killers the hour it was written, on top of the one that prompted it.
+     21:   ("probe_spell.rs2", 3),
+     22:   ("probe.dbrow", 15),
++    # 23 is the newest: a spellbook button the client draws and the server has no trigger for.
++    # Found Lvl-6 Enchant the day it was written - drawn since the fork began, with Ring of stone
++    # and Amulet of fury sitting unreachable in the obj pack - plus the four teleother/teleblock
++    # buttons and the real ancient spellbook, which the server does not use at all.
++    23:   ("probe_spellbook.if", 3),
+ }
+ 
+ 
+@@ -1151,6 +1238,7 @@ def selftest():
+         check_spell_rows()
+         check_spell_row_fields()
+         check_interfaces()
++        check_castable_buttons()
+         got = {}
+         for sev, path, line, rule, msg in findings:
+             got.setdefault(rule, []).append((sev, path, line, msg))
+@@ -1268,6 +1356,7 @@ def main(argv):
+         check_spell_rows()
+         check_spell_row_fields()
+         check_interfaces()
++        check_castable_buttons()
+ 
+     errors = [f for f in findings if f[0] == "ERROR"]
+     checks = [f for f in findings if f[0] == "CHECK"]
+diff --git a/tools/unwiredspells.json b/tools/unwiredspells.json
+new file mode 100644
+index 00000000..6cf6f4c6
+--- /dev/null
++++ b/tools/unwiredspells.json
+@@ -0,0 +1,17 @@
++{
++  "_comment": [
++    "Spellbook buttons rs2check rule 23 knows about: a button the 377 cache draws, with a real",
++    "action on it, that no trigger in this content can cast. Every entry is a spell the client",
++    "already offers and the server does not answer. They are declared here rather than left out",
++    "of the rule, so the rule can stay red for the NEXT one.",
++    "",
++    "A key is interface:component, or interface:* for a whole interface."
++  ],
++
++  "magic:com_511": "Teleother Lumbridge, level 74. Needs the teleother accept/decline dialogue and target consent - none of that exists yet.",
++  "magic:com_521": "Teleother Falador, level 82. Same as above.",
++  "magic:com_541": "Teleother Camelot, level 90. Same as above.",
++  "magic:com_531": "Tele Block, level 85. Needs a teleport-blocked timer on the target and the wilderness teleport paths to honour it.",
++
++  "inter_267:*": "The REAL Ancient Magicks spellbook out of the 377 cache - Jagex's own grid, the level tooltips, the 16 combat spells and the 8 ancient teleports. The server does not use it: ancient_magic.if is a hand-built reconstruction with an invented layout, made when this file could not be found (it has no searchable word in it - see tools/interfaceindex.py). Swapping to the real one is its own round. See claude/lvl6-enchant-and-the-real-ancient-book.md."
++}
+-- 
+2.43.0
+
