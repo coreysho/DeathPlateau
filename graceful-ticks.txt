@@ -1,0 +1,31 @@
+Graceful, in ticks. One tick is 0.6s.
+Recovery is the standing-still branch of updateEnergy(); the drain is the moving branch.
+
+RESTING FROM EMPTY TO FULL
+  agility   bare                   OSRS full set (+30%)   this build (+50%)     
+  1         1250 ticks (750s)      1000 ticks (600s)      834 ticks (500s), 1.50x
+  20        910 ticks (546s)       715 ticks (429s)       625 ticks (375s), 1.46x
+  40        715 ticks (429s)       556 ticks (334s)       477 ticks (286s), 1.50x
+  60        556 ticks (334s)       435 ticks (261s)       371 ticks (223s), 1.50x
+  80        477 ticks (286s)       371 ticks (223s)       323 ticks (194s), 1.48x
+  99        417 ticks (250s)       323 ticks (194s)       278 ticks (167s), 1.50x
+
+RUNNING FROM FULL TO EMPTY, by what you are carrying
+  carried        with Graceful  ticks of running
+  0 kg           -25 kg         bare 150 (90s) -> 150 (90s), 1.00x
+  5 kg           -20 kg         bare 139 (83s) -> 150 (90s), 1.08x
+  10 kg          -15 kg         bare 130 (78s) -> 150 (90s), 1.15x
+  15 kg          -10 kg         bare 122 (73s) -> 150 (90s), 1.23x
+  25 kg          0 kg           bare 108 (65s) -> 150 (90s), 1.39x
+  40 kg          15 kg          bare 93 (56s) -> 122 (73s), 1.31x
+  64 kg          39 kg          bare 75 (45s) -> 94 (56s), 1.25x
+
+WHAT TO CHECK IN GAME
+  Stand still at Agility 1 with nothing on: energy should fill in about 1250 ticks (750s).
+  Do it in the full set: about 834 ticks (500s).
+  A piece is worth its own percent and nothing more - there is no set bonus at all, so
+  five of the six should measure between 40% and 43% depending on which one is off,
+  never 50%. That is the difference between this and OSRS, where the sixth piece is worth
+  its own percent plus another ten.
+  And a piece in the BACKPACK should change the recovery not at all, while still taking
+  its weight off - the weight counts what you carry, the recovery counts what you wear.
