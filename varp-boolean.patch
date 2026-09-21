@@ -1,0 +1,199 @@
+From 7309726a239615be91189a29928888128adda576 Mon Sep 17 00:00:00 2001
+From: Claude Opus 5 <noreply@anthropic.com>
+Date: Mon, 21 Sep 2026 16:03:13 +0000
+Subject: [PATCH] A varp is an int unless it says type=boolean, and rule 24 is
+ that, checked
+
+FIXES THE BUILD, AGAIN, IN THE SAME FILE. %tan_window_canifis was declared with no
+type=, which makes it an int, and the script reads and writes it as a boolean:
+
+    ERROR: Type mismatch: 'boolean' was given but 'int' was expected.   (x2)
+    ERROR: Operator '=' cannot be applied to 'int', 'boolean'.
+
+Three errors in one file, and the compiler points at the script, where nothing is
+wrong. The declaration is what was missing. bees.varp and quest_fishingcompo.varp are
+the two files in this repo that got it right, and neither was read first - the usual
+story.
+
+rs2check RULE 24 is that error moved earlier: a varp compared or assigned against the
+literals true or false whose block does not declare type=boolean. It fires on exactly
+the three lines the build named and on nothing else in 1714 scripts, and --selftest
+covers it, so all 23 rules go red in the right place.
+
+This one is worth having where the pointer lint was not. It asks one question with one
+answer, it has no false positives, and its entire value is that the cloud sandbox
+cannot run a build - the compiler already catches this in a second. A rule that
+duplicates the compiler is worth shipping when you cannot run the compiler; a rule that
+GUESSES at what the compiler does, which is what the active_npc lint was doing with its
+nine false positives, is not.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_015mjzJ5S7cQ1h1aE5KeBabD
+---
+ .../configs/leather/tan_window.varp           |  4 ++
+ tools/rs2check.py                             | 57 ++++++++++++++++++-
+ tools/windows_battery.py                      |  4 ++
+ tools/windows_mutate.py                       |  7 ++-
+ 4 files changed, 69 insertions(+), 3 deletions(-)
+
+diff --git a/scripts/skill_crafting/configs/leather/tan_window.varp b/scripts/skill_crafting/configs/leather/tan_window.varp
+index d77dba5e..1f2a1e5e 100644
+--- a/scripts/skill_crafting/configs/leather/tan_window.varp
++++ b/scripts/skill_crafting/configs/leather/tan_window.varp
+@@ -11,6 +11,10 @@
+ // answer is kept here. scope=temp because it means nothing between sessions; protect=no because
+ // [if_button] reads it. skill_guide.varp and game_options.varp carry the same pair for the same
+ // reason and say so in their own comments.
++// type=boolean, because A VARP IS AN int UNLESS IT SAYS OTHERWISE and `= true` against an
++// untyped one is a build error - 'Type mismatch: boolean was given but int was expected',
++// three times in one file. bees.varp and quest_fishingcompo.varp are the two precedents.
+ [tan_window_canifis]
++type=boolean
+ scope=temp
+ protect=no
+diff --git a/tools/rs2check.py b/tools/rs2check.py
+index f4d3898d..b7933837 100644
+--- a/tools/rs2check.py
++++ b/tools/rs2check.py
+@@ -162,7 +162,8 @@ def build_tables():
+         "labels": {},
+         "triggers": defaultdict(list),   # "[trig,subject]" -> [(path,line)]
+         "constants": set(),
+-        "player_varps": {},  # name -> protected(bool)
++        "player_varps": {},
++        "varp_types": {},   # name -> declared type= ("int" when the block does not say)
+         "other_vars": set(),
+         "dbcolumns": {},    # "table:column" -> arity
+         "packs": {},        # kind -> set(names)
+@@ -215,6 +216,8 @@ def build_tables():
+                 t["player_varps"][cur] = True
+             elif cur and raw.strip().replace(" ", "") == "protect=no":
+                 t["player_varps"][cur] = False
++            elif cur and raw.strip().startswith("type="):
++                t["varp_types"][cur] = raw.split("=", 1)[1].strip()
+     for path in walk({".varn", ".vars", ".varbit"}):
+         for raw in text(path).split("\n"):
+             h = re.match(r"^\[([^\]]+)\]", raw)
+@@ -964,6 +967,46 @@ def check_castable_buttons():
+                % (name, act, iface, name))
+ 
+ 
++# --------------------------------------------------------------------------- rule 24
++
++# A varp used as a boolean that is not declared as one.
++#
++# A VARP IS AN int UNLESS ITS BLOCK SAYS type=boolean. The four-cache-windows round wrote
++#
++#     %tan_window_canifis = false;
++#
++# against an untyped varp and the server build refused it three times in one file - "Type mismatch:
++# 'boolean' was given but 'int' was expected", and on the comparison "Operator '=' cannot be applied
++# to 'int', 'boolean'". There is nothing wrong with the script; the declaration is what is missing,
++# and the error does not say so.
++#
++# bees.varp and quest_fishingcompo.varp are the two files that got it right, so the shape is
++# already in the repo - which is the usual story: the precedent existed and nobody read it.
++#
++# This is a narrow rule on purpose. It does not try to type-check varps in general; it asks one
++# question with one answer, about the literals `true` and `false`, where the compiler's message
++# points at the script rather than at the config.
++BOOL_USE = re.compile(r"%([a-zA-Z_0-9]+)\s*(?:=|!)\s*(?:true|false)\b|"
++                      r"\b(?:true|false)\s*(?:=|!)\s*%([a-zA-Z_0-9]+)")
++
++
++def check_varp_booleans(T):
++    for path in walk({".rs2"}):
++        for n, raw in enumerate(text(path).split("\n"), 1):
++            line = raw.split("//")[0]
++            for m in BOOL_USE.finditer(line):
++                name = m.group(1) or m.group(2)
++                if name not in T["player_varps"]:
++                    continue
++                declared = T["varp_types"].get(name, "int")
++                if declared != "boolean":
++                    report("ERROR", path, n, 24,
++                           "%%%s is compared or assigned against true/false but its varp block "
++                           "declares type=%s - a varp is an int unless it says otherwise, and the "
++                           "build fails with 'boolean was given but int was expected'"
++                           % (name, declared))
++
++
+ def check_duplicates(T):
+     for trig, places in sorted(T["triggers"].items()):
+         if len(places) > 1:
+@@ -1115,6 +1158,9 @@ inv_add(inv, probe_obj, 1);
+                           "width=20\nheight=20\ngraphic=magicoff,0\nactivegraphic=magicon,0\n"
+                           "buttontype=target\nactionverb=Cast on\nactiontarget=heldobj\n"
+                           "action=Probe Uncastable\n",
++    # rule 24: a varp used as a boolean whose block does not declare type=boolean
++    "probe_bool.varp": "\n[probe_untyped_bool]\nscope=temp\nprotect=no\n",
++    "probe_bool.rs2": "\n[proc,probe_bool]\n%probe_untyped_bool = true;\n",
+     "probe_clean.if": ("type=overlay\n\n[probe_ok]\ntype=text\nx=0\ny=0\nwidth=10\nheight=10\n"
+                        "font=p12_full\nshadowed=yes\n"),
+ }
+@@ -1182,6 +1228,13 @@ ALL_RULES = {
+     # and Amulet of fury sitting unreachable in the obj pack - plus the four teleother/teleblock
+     # buttons and the real ancient spellbook, which the server does not use at all.
+     23:   ("probe_spellbook.if", 3),
++    # 24 is the newest, and it is the compiler's own error moved earlier. A varp is an int unless
++    # its block says type=boolean, and `%x = false` against an untyped one fails the build with
++    # "boolean was given but int was expected" - pointing at the script, where nothing is wrong.
++    # Cost a deploy in the four-cache-windows round, three errors in one file, with bees.varp and
++    # quest_fishingcompo.varp sitting in the repo having got it right. The value of a rule like
++    # this is ENTIRELY that the cloud sandbox cannot run a build; the compiler already catches it.
++    24:   ("probe_bool.rs2", 3),
+ }
+ 
+ 
+@@ -1239,6 +1292,7 @@ def selftest():
+         check_spell_row_fields()
+         check_interfaces()
+         check_castable_buttons()
++        check_varp_booleans(T)
+         got = {}
+         for sev, path, line, rule, msg in findings:
+             got.setdefault(rule, []).append((sev, path, line, msg))
+@@ -1357,6 +1411,7 @@ def main(argv):
+         check_spell_row_fields()
+         check_interfaces()
+         check_castable_buttons()
++        check_varp_booleans(T)
+ 
+     errors = [f for f in findings if f[0] == "ERROR"]
+     checks = [f for f in findings if f[0] == "CHECK"]
+diff --git a/tools/windows_battery.py b/tools/windows_battery.py
+index c47a0ce5..d9a06c6c 100644
+--- a/tools/windows_battery.py
++++ b/tools/windows_battery.py
+@@ -218,6 +218,10 @@ vp = nocomment(read('scripts/skill_crafting/configs/leather/tan_window.varp'))
+ check('scope=temp' in vp and 'protect=no' in vp,
+       'and that varp is scope=temp protect=no, the pair skill_guide.varp carries for the same reason',
+       'yes')
++# A VARP IS AN int UNLESS IT SAYS type=boolean, and this one is read and written as a boolean. The
++# first version left the type off and the build refused three lines in one file. rs2check rule 24
++# is the general version; this is the local one.
++check('type=boolean' in vp, 'and it is type=boolean, because the script reads it as one', 'yes')
+ tp = read('scripts/skill_crafting/interfaces/tan_window.if')
+ cells = [n for n, kv, _ in blocks(tp) if kv.get('type') == 'layer']
+ check(len(cells) == 8, 'the panel has eight cells', 8)
+diff --git a/tools/windows_mutate.py b/tools/windows_mutate.py
+index 75f35600..3c559c08 100644
+--- a/tools/windows_mutate.py
++++ b/tools/windows_mutate.py
+@@ -48,8 +48,11 @@ MUTS = [
+     # Anchored on the block header as well as the field: the file's own comment explains why
+     # scope=temp is there, so 'scope=temp' alone appears twice and the harness refuses it. Fourth
+     # time a check or a mutation in this project has found its own comment.
+-    ('scripts/skill_crafting/configs/leather/tan_window.varp', '[tan_window_canifis]\nscope=temp',
+-     '[tan_window_canifis]\nscope=perm',
++    ('scripts/skill_crafting/configs/leather/tan_window.varp', '[tan_window_canifis]\ntype=boolean\n',
++     '[tan_window_canifis]\n',
++     'and it is type=boolean, because the script reads it as one'),
++    ('scripts/skill_crafting/configs/leather/tan_window.varp', '[tan_window_canifis]\ntype=boolean\nscope=temp',
++     '[tan_window_canifis]\ntype=boolean\nscope=perm',
+      'and that varp is scope=temp protect=no, the pair skill_guide.varp carries for the same reason'),
+     ('tools/genwindows.py', "'if_sethide(tan_window:cell%d, true);' % i]",
+      "'if_sethide(tan_window:cell%d, false);' % i]",
+-- 
+2.43.0
+

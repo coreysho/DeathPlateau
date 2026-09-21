@@ -1,0 +1,648 @@
+From a599028101974d6724846567840248741a7d6482 Mon Sep 17 00:00:00 2001
+From: Claude Opus 5 <noreply@anthropic.com>
+Date: Mon, 21 Sep 2026 13:42:20 -0400
+Subject: [PATCH] Discord alerts: link a game account with ::discord, and
+ trading post news arrives as a DM
+
+A bot in its own worker thread (server/discord/DiscordThread.ts, discord.js 14) sends
+every trading post notice - an offer on your listing, your offer accepted, declined, or
+beaten to it, your item bought - to the player's Discord as a DM, whether they are
+online or not. It is off unless DISCORD_TOKEN and DISCORD_GUILD_ID are set in .env.
+
+LINKING PROVES BOTH ENDS. ::discord in game gets a six-character code (no 0/O or 1/I/L -
+it is read off the game screen); /link <code> in the server's Discord links the Discord
+account that typed it to the game account that asked. A code is good once, for ten
+minutes. /unlink or ::discord unlink undoes it; /linked lists what is linked. The three
+slash commands are registered as guild commands when the bot starts, so they appear at
+once rather than after global propagation.
+
+A WORKER, because discord.js keeps a gateway socket with its own heartbeat and a DM is
+an HTTP round trip that can be slow or rate-limited, and none of that belongs on the
+tick. The world posts {type: 'notify'} and never waits; the worker owns the bot and its
+link table (data/discord/<profile>.sqlite, apart from everything else). The trading
+post reaches it through the notice hook TradingPost.ts has carried since it was
+written.
+
+If the bot is not in the server DISCORD_GUILD_ID names, startup says so and prints the
+bot's own invite link.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+---
+ package-lock.json                             | 242 +++++++++++++++++-
+ package.json                                  |   1 +
+ src/engine/World.ts                           |  48 ++++
+ src/engine/script/handlers/TradingPostOps.ts  |   2 +
+ .../game/client/handler/ClientCheatHandler.ts |  20 ++
+ src/server/discord/DiscordThread.ts           | 145 +++++++++++
+ src/util/Environment.ts                       |   7 +-
+ 7 files changed, 462 insertions(+), 3 deletions(-)
+ create mode 100644 src/server/discord/DiscordThread.ts
+
+diff --git a/package-lock.json b/package-lock.json
+index e009d71f..b9c23be6 100644
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -17,6 +17,7 @@
+         "@jimp/plugin-quantize": "1.6.1",
+         "@lostcityrs/runescript": "0.9.7",
+         "bcrypt-ts": "9.0.2",
++        "discord.js": "14.27.0",
+         "dotenv": "17.4.2",
+         "ejs": "6.0.1",
+         "fastify": "5.11.3",
+@@ -99,6 +100,136 @@
+       "dev": true,
+       "license": "Apache-2.0"
+     },
++    "node_modules/@discordjs/builders": {
++      "version": "1.14.1",
++      "resolved": "https://registry.npmjs.org/@discordjs/builders/-/builders-1.14.1.tgz",
++      "integrity": "sha512-gSKkhXLqs96TCzk66VZuHHl8z2bQMJFGwrXC0f33ngK+FLNau4hU1PYny3DNJfNdSH+gVMzE85/d5FQ2BpcNwQ==",
++      "license": "Apache-2.0",
++      "dependencies": {
++        "@discordjs/formatters": "^0.6.2",
++        "@discordjs/util": "^1.2.0",
++        "@sapphire/shapeshift": "^4.0.0",
++        "discord-api-types": "^0.38.40",
++        "fast-deep-equal": "^3.1.3",
++        "ts-mixer": "^6.0.4",
++        "tslib": "^2.6.3"
++      },
++      "engines": {
++        "node": ">=16.11.0"
++      },
++      "funding": {
++        "url": "https://github.com/discordjs/discord.js?sponsor"
++      }
++    },
++    "node_modules/@discordjs/collection": {
++      "version": "1.5.3",
++      "resolved": "https://registry.npmjs.org/@discordjs/collection/-/collection-1.5.3.tgz",
++      "integrity": "sha512-SVb428OMd3WO1paV3rm6tSjM4wC+Kecaa1EUGX7vc6/fddvw/6lg90z4QtCqm21zvVe92vMMDt9+DkIvjXImQQ==",
++      "license": "Apache-2.0",
++      "engines": {
++        "node": ">=16.11.0"
++      }
++    },
++    "node_modules/@discordjs/formatters": {
++      "version": "0.6.2",
++      "resolved": "https://registry.npmjs.org/@discordjs/formatters/-/formatters-0.6.2.tgz",
++      "integrity": "sha512-y4UPwWhH6vChKRkGdMB4odasUbHOUwy7KL+OVwF86PvT6QVOwElx+TiI1/6kcmcEe+g5YRXJFiXSXUdabqZOvQ==",
++      "license": "Apache-2.0",
++      "dependencies": {
++        "discord-api-types": "^0.38.33"
++      },
++      "engines": {
++        "node": ">=16.11.0"
++      },
++      "funding": {
++        "url": "https://github.com/discordjs/discord.js?sponsor"
++      }
++    },
++    "node_modules/@discordjs/rest": {
++      "version": "2.6.3",
++      "resolved": "https://registry.npmjs.org/@discordjs/rest/-/rest-2.6.3.tgz",
++      "integrity": "sha512-wvOylxNYJkwKjctS/Mn5GP1w9r3/rzyH+ThD1JlAca6zEdlHs8QWBBUQJpU5Q+W6DoIj/Ljh1IPlZs7hTU+UAg==",
++      "license": "Apache-2.0",
++      "dependencies": {
++        "@discordjs/collection": "^2.1.1",
++        "@discordjs/util": "^1.2.0",
++        "@sapphire/async-queue": "^1.5.3",
++        "@sapphire/snowflake": "^3.5.5",
++        "@vladfrangu/async_event_emitter": "^2.4.6",
++        "discord-api-types": "^0.38.50",
++        "magic-bytes.js": "^1.13.0",
++        "tslib": "^2.6.3",
++        "undici": "^6.27.0"
++      },
++      "engines": {
++        "node": ">=18"
++      },
++      "funding": {
++        "url": "https://github.com/discordjs/discord.js?sponsor"
++      }
++    },
++    "node_modules/@discordjs/rest/node_modules/@discordjs/collection": {
++      "version": "2.1.1",
++      "resolved": "https://registry.npmjs.org/@discordjs/collection/-/collection-2.1.1.tgz",
++      "integrity": "sha512-LiSusze9Tc7qF03sLCujF5iZp7K+vRNEDBZ86FT9aQAv3vxMLihUvKvpsCWiQ2DJq1tVckopKm1rxomgNUc9hg==",
++      "license": "Apache-2.0",
++      "engines": {
++        "node": ">=18"
++      },
++      "funding": {
++        "url": "https://github.com/discordjs/discord.js?sponsor"
++      }
++    },
++    "node_modules/@discordjs/util": {
++      "version": "1.2.0",
++      "resolved": "https://registry.npmjs.org/@discordjs/util/-/util-1.2.0.tgz",
++      "integrity": "sha512-3LKP7F2+atl9vJFhaBjn4nOaSWahZ/yWjOvA4e5pnXkt2qyXRCHLxoBQy81GFtLGCq7K9lPm9R517M1U+/90Qg==",
++      "license": "Apache-2.0",
++      "dependencies": {
++        "discord-api-types": "^0.38.33"
++      },
++      "engines": {
++        "node": ">=18"
++      },
++      "funding": {
++        "url": "https://github.com/discordjs/discord.js?sponsor"
++      }
++    },
++    "node_modules/@discordjs/ws": {
++      "version": "1.2.3",
++      "resolved": "https://registry.npmjs.org/@discordjs/ws/-/ws-1.2.3.tgz",
++      "integrity": "sha512-wPlQDxEmlDg5IxhJPuxXr3Vy9AjYq5xCvFWGJyD7w7Np8ZGu+Mc+97LCoEc/+AYCo2IDpKioiH0/c/mj5ZR9Uw==",
++      "license": "Apache-2.0",
++      "dependencies": {
++        "@discordjs/collection": "^2.1.0",
++        "@discordjs/rest": "^2.5.1",
++        "@discordjs/util": "^1.1.0",
++        "@sapphire/async-queue": "^1.5.2",
++        "@types/ws": "^8.5.10",
++        "@vladfrangu/async_event_emitter": "^2.2.4",
++        "discord-api-types": "^0.38.1",
++        "tslib": "^2.6.2",
++        "ws": "^8.17.0"
++      },
++      "engines": {
++        "node": ">=16.11.0"
++      },
++      "funding": {
++        "url": "https://github.com/discordjs/discord.js?sponsor"
++      }
++    },
++    "node_modules/@discordjs/ws/node_modules/@discordjs/collection": {
++      "version": "2.1.1",
++      "resolved": "https://registry.npmjs.org/@discordjs/collection/-/collection-2.1.1.tgz",
++      "integrity": "sha512-LiSusze9Tc7qF03sLCujF5iZp7K+vRNEDBZ86FT9aQAv3vxMLihUvKvpsCWiQ2DJq1tVckopKm1rxomgNUc9hg==",
++      "license": "Apache-2.0",
++      "engines": {
++        "node": ">=18"
++      },
++      "funding": {
++        "url": "https://github.com/discordjs/discord.js?sponsor"
++      }
++    },
+     "node_modules/@esbuild/aix-ppc64": {
+       "version": "0.28.1",
+       "resolved": "https://registry.npmjs.org/@esbuild/aix-ppc64/-/aix-ppc64-0.28.1.tgz",
+@@ -1953,6 +2084,39 @@
+         "fs-extra": "11.3.0"
+       }
+     },
++    "node_modules/@sapphire/async-queue": {
++      "version": "1.5.5",
++      "resolved": "https://registry.npmjs.org/@sapphire/async-queue/-/async-queue-1.5.5.tgz",
++      "integrity": "sha512-cvGzxbba6sav2zZkH8GPf2oGk9yYoD5qrNWdu9fRehifgnFZJMV+nuy2nON2roRO4yQQ+v7MK/Pktl/HgfsUXg==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=v14.0.0",
++        "npm": ">=7.0.0"
++      }
++    },
++    "node_modules/@sapphire/shapeshift": {
++      "version": "4.0.0",
++      "resolved": "https://registry.npmjs.org/@sapphire/shapeshift/-/shapeshift-4.0.0.tgz",
++      "integrity": "sha512-d9dUmWVA7MMiKobL3VpLF8P2aeanRTu6ypG2OIaEv/ZHH/SUQ2iHOVyi5wAPjQ+HmnMuL0whK9ez8I/raWbtIg==",
++      "license": "MIT",
++      "dependencies": {
++        "fast-deep-equal": "^3.1.3",
++        "lodash": "^4.17.21"
++      },
++      "engines": {
++        "node": ">=v16"
++      }
++    },
++    "node_modules/@sapphire/snowflake": {
++      "version": "3.5.5",
++      "resolved": "https://registry.npmjs.org/@sapphire/snowflake/-/snowflake-3.5.5.tgz",
++      "integrity": "sha512-xzvBr1Q1c4lCe7i6sRnrofxeO1QTP/LKQ6A6qy0iB4x5yfiSfARMEQEghojzTNALDTcv8En04qYNIco9/K9eZQ==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=v14.0.0",
++        "npm": ">=7.0.0"
++      }
++    },
+     "node_modules/@standard-schema/spec": {
+       "version": "1.1.0",
+       "resolved": "https://registry.npmjs.org/@standard-schema/spec/-/spec-1.1.0.tgz",
+@@ -2034,7 +2198,6 @@
+       "version": "8.18.1",
+       "resolved": "https://registry.npmjs.org/@types/ws/-/ws-8.18.1.tgz",
+       "integrity": "sha512-ThVF6DCVhA8kUGy+aazFQ4kXQ7E1Ty7A3ypFOe0IcJV8O/M511G99AW24irKrW56Wt44yG9+ij8FaqoBGkuBXg==",
+-      "dev": true,
+       "license": "MIT",
+       "dependencies": {
+         "@types/node": "*"
+@@ -2270,6 +2433,16 @@
+         "url": "https://opencollective.com/typescript-eslint"
+       }
+     },
++    "node_modules/@vladfrangu/async_event_emitter": {
++      "version": "2.4.7",
++      "resolved": "https://registry.npmjs.org/@vladfrangu/async_event_emitter/-/async_event_emitter-2.4.7.tgz",
++      "integrity": "sha512-Xfe6rpCTxSxfbswi/W/Pz7zp1WWSNn4A0eW4mLkQUewCrXXtMj31lCg+iQyTkh/CkusZSq9eDflu7tjEDXUY6g==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=v14.0.0",
++        "npm": ">=7.0.0"
++      }
++    },
+     "node_modules/abstract-logging": {
+       "version": "2.0.1",
+       "resolved": "https://registry.npmjs.org/abstract-logging/-/abstract-logging-2.0.1.tgz",
+@@ -2695,6 +2868,39 @@
+       "dev": true,
+       "license": "MIT"
+     },
++    "node_modules/discord-api-types": {
++      "version": "0.38.55",
++      "resolved": "https://registry.npmjs.org/discord-api-types/-/discord-api-types-0.38.55.tgz",
++      "integrity": "sha512-ytuaRTzdnHUCXJ6KjL9MrItQX0xKncBKEeYI1Bst4+ud47eejH3cG6gaesYakjpPcUhh68XYS2YwGq3mmujFsA==",
++      "license": "MIT"
++    },
++    "node_modules/discord.js": {
++      "version": "14.27.0",
++      "resolved": "https://registry.npmjs.org/discord.js/-/discord.js-14.27.0.tgz",
++      "integrity": "sha512-qHbFlFG2N7y3LjPySYsL6A1+BnX6bkTVgo842EX0CqVPk/KTMwZkojPHEXKsQUpWZNyz5BISNHK1cPpQw0+m4A==",
++      "license": "Apache-2.0",
++      "dependencies": {
++        "@discordjs/builders": "^1.14.1",
++        "@discordjs/collection": "1.5.3",
++        "@discordjs/formatters": "^0.6.2",
++        "@discordjs/rest": "^2.6.2",
++        "@discordjs/util": "^1.2.0",
++        "@discordjs/ws": "^1.2.3",
++        "@sapphire/snowflake": "3.5.5",
++        "discord-api-types": "^0.38.49",
++        "fast-deep-equal": "3.1.3",
++        "lodash.snakecase": "4.1.1",
++        "magic-bytes.js": "^1.13.0",
++        "tslib": "^2.6.3",
++        "undici": "^6.27.0"
++      },
++      "engines": {
++        "node": ">=18"
++      },
++      "funding": {
++        "url": "https://github.com/discordjs/discord.js?sponsor"
++      }
++    },
+     "node_modules/dotenv": {
+       "version": "17.4.2",
+       "resolved": "https://registry.npmjs.org/dotenv/-/dotenv-17.4.2.tgz",
+@@ -3829,7 +4035,12 @@
+       "version": "4.17.21",
+       "resolved": "https://registry.npmjs.org/lodash/-/lodash-4.17.21.tgz",
+       "integrity": "sha512-v2kDEe57lecTulaDIuNTPy3Ry4gLGJ6Z1O3vE1krgXZNrsQ+LFTGHVxVjcXPs17LhbZVGedAJv8XZ1tvj5FvSg==",
+-      "dev": true,
++      "license": "MIT"
++    },
++    "node_modules/lodash.snakecase": {
++      "version": "4.1.1",
++      "resolved": "https://registry.npmjs.org/lodash.snakecase/-/lodash.snakecase-4.1.1.tgz",
++      "integrity": "sha512-QZ1d4xoBHYUeuouhEq3lk3Uq7ldgyFXGBhg04+oRLnIz8o9T65Eh+8YdroUwn846zchkA9yDsDl5CVVaV2nqYw==",
+       "license": "MIT"
+     },
+     "node_modules/long": {
+@@ -3862,6 +4073,12 @@
+         "url": "https://github.com/sponsors/wellwelwel"
+       }
+     },
++    "node_modules/magic-bytes.js": {
++      "version": "1.13.1",
++      "resolved": "https://registry.npmjs.org/magic-bytes.js/-/magic-bytes.js-1.13.1.tgz",
++      "integrity": "sha512-x5sn4UX2k5gCWlcfmoFwG4TPie8+dctESyqOBdhB5p6MsgWXdBKGmt9nXPObj/JI50TTL928lc5Yt1WntMn1bw==",
++      "license": "MIT"
++    },
+     "node_modules/mime": {
+       "version": "3.0.0",
+       "resolved": "https://registry.npmjs.org/mime/-/mime-3.0.0.tgz",
+@@ -4851,6 +5068,18 @@
+         "typescript": ">=4.8.4"
+       }
+     },
++    "node_modules/ts-mixer": {
++      "version": "6.0.4",
++      "resolved": "https://registry.npmjs.org/ts-mixer/-/ts-mixer-6.0.4.tgz",
++      "integrity": "sha512-ufKpbmrugz5Aou4wcr5Wc1UUFWOLhq+Fm6qa6P0w0K5Qw2yhaUoiWszhCVuNQyNwrlGiscHOmqYoAox1PtvgjA==",
++      "license": "MIT"
++    },
++    "node_modules/tslib": {
++      "version": "2.8.1",
++      "resolved": "https://registry.npmjs.org/tslib/-/tslib-2.8.1.tgz",
++      "integrity": "sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w==",
++      "license": "0BSD"
++    },
+     "node_modules/tsx": {
+       "version": "4.23.12",
+       "resolved": "https://registry.npmjs.org/tsx/-/tsx-4.23.12.tgz",
+@@ -4932,6 +5161,15 @@
+         "url": "https://github.com/sponsors/sindresorhus"
+       }
+     },
++    "node_modules/undici": {
++      "version": "6.28.1",
++      "resolved": "https://registry.npmjs.org/undici/-/undici-6.28.1.tgz",
++      "integrity": "sha512-zWpdTVD54H48CIybL0rWQ3ukpb9d23wM7eH5RtfdmeP70cWHNjtfo7P4vZX+5CoDcO53J4Pu5uXp7lNfjc6DRA==",
++      "license": "MIT",
++      "engines": {
++        "node": ">=18.17"
++      }
++    },
+     "node_modules/undici-types": {
+       "version": "7.18.2",
+       "resolved": "https://registry.npmjs.org/undici-types/-/undici-types-7.18.2.tgz",
+diff --git a/package.json b/package.json
+index 58e28d7e..57d1e1d9 100644
+--- a/package.json
++++ b/package.json
+@@ -45,6 +45,7 @@
+     "@jimp/plugin-quantize": "1.6.1",
+     "@lostcityrs/runescript": "0.9.7",
+     "bcrypt-ts": "9.0.2",
++    "discord.js": "14.27.0",
+     "dotenv": "17.4.2",
+     "ejs": "6.0.1",
+     "fastify": "5.11.3",
+diff --git a/src/engine/World.ts b/src/engine/World.ts
+index 0563e5ba..1c8eac84 100644
+--- a/src/engine/World.ts
++++ b/src/engine/World.ts
+@@ -113,6 +113,8 @@ class World {
+     private friendThread = new Worker(new URL('../server/friend/FriendThread.ts', import.meta.url));
+     private loggerThread = new Worker(new URL('../server/logger/LoggerThread.ts', import.meta.url));
+     private devThread: Worker | null = null;
++    // custom (2026-09-21) - only when Discord is configured; see server/discord/DiscordThread.ts
++    private discordThread: Worker | null = Environment.DISCORD_TOKEN && Environment.DISCORD_GUILD_ID ? new Worker(new URL('../server/discord/DiscordThread.ts', import.meta.url)) : null;
+ 
+     private static readonly PLAYERS: number = Environment.NODE_MAX_PLAYERS;
+     private static readonly NPCS: number = Environment.NODE_MAX_NPCS;
+@@ -192,6 +194,52 @@ class World {
+                 console.error(err);
+             }
+         });
++
++        this.discordThread?.on('message', msg => {
++            try {
++                this.onDiscordMessage(msg);
++            } catch (err) {
++                console.error(err);
++            }
++        });
++    }
++
++    // ---- the Discord relay (custom, 2026-09-21) ----
++
++    get discordEnabled(): boolean {
++        return this.discordThread !== null;
++    }
++
++    // A one-time code for /link. Unambiguous characters only - no 0/O, 1/I/L - because it is read off
++    // the game screen and typed into Discord.
++    discordCode(player: Player): string {
++        const alphabet = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
++        let code = '';
++        for (let i = 0; i < 6; i++) {
++            code += alphabet[Math.floor(Math.random() * alphabet.length)];
++        }
++        this.discordThread?.postMessage({ type: 'code', username: player.username, code });
++        return code;
++    }
++
++    discordUnlink(player: Player): void {
++        this.discordThread?.postMessage({ type: 'unlink', username: player.username });
++    }
++
++    discordNotify(username: string, text: string): void {
++        this.discordThread?.postMessage({ type: 'notify', username, text });
++    }
++
++    private onDiscordMessage(msg: { type: string; username: string; discord?: string; had?: boolean }): void {
++        const player = this.getPlayerByUsername(msg.username);
++        if (!player) {
++            return;
++        }
++        if (msg.type === 'linked') {
++            player.messageGame(`Your account is now linked to Discord (${msg.discord}). Trading post alerts will be sent there too.`);
++        } else if (msg.type === 'unlinked') {
++            player.messageGame(msg.had ? 'Your account is no longer linked to Discord.' : 'Your account was not linked to Discord.');
++        }
+     }
+ 
+     get shutdown() {
+diff --git a/src/engine/script/handlers/TradingPostOps.ts b/src/engine/script/handlers/TradingPostOps.ts
+index bf6e4ce3..82e59129 100644
+--- a/src/engine/script/handlers/TradingPostOps.ts
++++ b/src/engine/script/handlers/TradingPostOps.ts
+@@ -57,6 +57,8 @@ export function tradingPost(): TradingPost {
+                     World.autosavePlayer(player);
+                 }
+             },
++            // every notice, online or not, also goes to the player's Discord if they have linked one
++            notice: (username, text) => World.discordNotify(username, text),
+             now: () => Date.now()
+         });
+         printInfo(`Trading post open: ${file}`);
+diff --git a/src/network/game/client/handler/ClientCheatHandler.ts b/src/network/game/client/handler/ClientCheatHandler.ts
+index 4b785e4a..63bb38f0 100644
+--- a/src/network/game/client/handler/ClientCheatHandler.ts
++++ b/src/network/game/client/handler/ClientCheatHandler.ts
+@@ -68,6 +68,26 @@ export default class ClientCheatHandler extends ClientGameMessageHandler<ClientC
+             return true;
+         }
+ 
++        if (cmd === 'discord') {
++            // custom (2026-09-21) - link this account to Discord for trading post DMs. Available to all
++            // players. See server/discord/DiscordThread.ts.
++            if (!World.discordEnabled) {
++                player.messageGame('Discord alerts are not set up on this server.');
++                return true;
++            }
++
++            if (args[0] === 'unlink') {
++                World.discordUnlink(player);
++                return true;
++            }
++
++            const code = World.discordCode(player);
++            player.messageGame(`Your Discord link code is: @yel@${code}`);
++            player.messageGame(`In the server Discord, type /link ${code} - it works once, for ten minutes.`);
++            player.messageGame('To stop Discord alerts later, type ::discord unlink here or /unlink in Discord.');
++            return true;
++        }
++
+         if (cmd === 'yell') {
+             // custom (Corey, 2026-09-04) - global broadcast chat, available to all players (like
+             // ::home, not staff-gated). Staff yells carry the real rank crown sprite, not the word
+diff --git a/src/server/discord/DiscordThread.ts b/src/server/discord/DiscordThread.ts
+new file mode 100644
+index 00000000..ac4ccead
+--- /dev/null
++++ b/src/server/discord/DiscordThread.ts
+@@ -0,0 +1,145 @@
++import fs from 'fs';
++import { DatabaseSync } from 'node:sqlite';
++import { parentPort } from 'worker_threads';
++
++import { ApplicationCommandOptionType, ChatInputCommandInteraction, Client, Events, GatewayIntentBits, MessageFlags } from 'discord.js';
++
++import Environment from '#/util/Environment.js';
++import { toDisplayName } from '#/util/JString.js';
++
++// THE DISCORD RELAY (custom, 2026-09-21). A bot, in its own worker thread, that sends a player's
++// game notices - the trading post's, to begin with - to them as Discord DMs.
++//
++// LINKING. In game, ::discord asks the world for a one-time code; the world makes one and posts it
++// here. The player types /link <code> in the server's Discord, and the Discord account that typed it
++// is linked to the game account that asked. The code proves both ends: nobody can link a game
++// account they are not logged in to, or a Discord account they are not using. Codes last ten
++// minutes and are good once. /unlink, or ::discord unlink in game, undoes it.
++//
++// WHY A WORKER. discord.js keeps a gateway websocket, heartbeats and reconnects on its own schedule,
++// and a DM is an HTTP round trip that can take seconds or be rate-limited. None of that belongs on
++// the tick. The world posts {type: 'notify'} and forgets it; this thread owns the bot and the link
++// table, and nothing on the game thread ever waits for Discord.
++//
++// Only runs when DISCORD_TOKEN and DISCORD_GUILD_ID are set - see World.ts.
++
++if (!parentPort) throw new Error('This file must be run as a worker thread.');
++const port = parentPort;
++
++const CODE_MINUTES = 10;
++
++fs.mkdirSync('data/discord', { recursive: true });
++const db = new DatabaseSync(`data/discord/${Environment.NODE_PROFILE}.sqlite`);
++db.exec('PRAGMA journal_mode = WAL');
++db.exec(`
++    CREATE TABLE IF NOT EXISTS link (
++        username   TEXT PRIMARY KEY,
++        discord_id TEXT NOT NULL,
++        linked     INTEGER NOT NULL
++    );
++    CREATE INDEX IF NOT EXISTS link_discord ON link (discord_id);
++    CREATE TABLE IF NOT EXISTS code (
++        code     TEXT PRIMARY KEY,
++        username TEXT NOT NULL,
++        expires  INTEGER NOT NULL
++    );
++`);
++
++const client = new Client({ intents: [GatewayIntentBits.Guilds] });
++
++client.once(Events.ClientReady, async ready => {
++    try {
++        const guild = await ready.guilds.fetch(Environment.DISCORD_GUILD_ID);
++        await guild.commands.set([
++            {
++                name: 'link',
++                description: 'Link your game account, with the code ::discord gave you in game',
++                options: [{ name: 'code', description: 'The code from ::discord', type: ApplicationCommandOptionType.String, required: true }]
++            },
++            { name: 'unlink', description: 'Stop game notifications, and unlink every game account linked to you' },
++            { name: 'linked', description: 'Which game accounts are linked to you' }
++        ]);
++        console.log(`Discord relay: logged in as ${ready.user.tag}, commands registered in ${guild.name}`);
++    } catch (err) {
++        // almost always: the bot has not been invited yet. Say how, with this bot's own invite link.
++        console.error(`Discord relay: could not register commands in server ${Environment.DISCORD_GUILD_ID} (${(err as Error).message}).`);
++        console.error(`  If the bot is not in that server yet, invite it: https://discord.com/oauth2/authorize?client_id=${ready.application.id}&scope=bot+applications.commands&permissions=0`);
++        console.error('  then restart the server.');
++    }
++});
++
++client.on(Events.InteractionCreate, async interaction => {
++    if (!interaction.isChatInputCommand()) {
++        return;
++    }
++    try {
++        await command(interaction);
++    } catch (err) {
++        console.error('Discord relay:', err);
++    }
++});
++
++async function command(i: ChatInputCommandInteraction) {
++    const reply = (content: string) => i.reply({ content, flags: MessageFlags.Ephemeral });
++
++    if (i.commandName === 'link') {
++        const code = i.options.getString('code', true).trim().toUpperCase();
++        db.prepare('DELETE FROM code WHERE expires < ?').run(Date.now());
++        const row = db.prepare('SELECT username FROM code WHERE code = ?').get(code) as { username: string } | undefined;
++        if (!row) {
++            await reply("That code isn't valid - it may have expired. Type ::discord in game for a new one.");
++            return;
++        }
++        db.prepare('DELETE FROM code WHERE code = ?').run(code);
++        db.prepare('INSERT INTO link (username, discord_id, linked) VALUES (?, ?, ?) ON CONFLICT (username) DO UPDATE SET discord_id = excluded.discord_id, linked = excluded.linked').run(row.username, i.user.id, Date.now());
++        port.postMessage({ type: 'linked', username: row.username, discord: i.user.username });
++        await reply(`Linked to **${toDisplayName(row.username)}**. You'll get trading post alerts here as DMs - make sure DMs from server members are allowed.`);
++    } else if (i.commandName === 'unlink') {
++        const rows = db.prepare('SELECT username FROM link WHERE discord_id = ?').all(i.user.id) as { username: string }[];
++        db.prepare('DELETE FROM link WHERE discord_id = ?').run(i.user.id);
++        await reply(rows.length ? `Unlinked ${rows.map(r => `**${toDisplayName(r.username)}**`).join(', ')}.` : 'No game account is linked to you.');
++    } else if (i.commandName === 'linked') {
++        const rows = db.prepare('SELECT username FROM link WHERE discord_id = ?').all(i.user.id) as { username: string }[];
++        await reply(rows.length ? `Linked: ${rows.map(r => `**${toDisplayName(r.username)}**`).join(', ')}` : 'No game account is linked to you. Type ::discord in game to link one.');
++    }
++}
++
++async function notify(username: string, text: string) {
++    const row = db.prepare('SELECT discord_id FROM link WHERE username = ?').get(username) as { discord_id: string } | undefined;
++    if (!row || !client.isReady()) {
++        return;
++    }
++    try {
++        const user = await client.users.fetch(row.discord_id);
++        await user.send(`**${toDisplayName(username)}** - ${text}`);
++    } catch (err) {
++        // DMs closed, or the user left the server. Not worth more than a line.
++        console.log(`Discord relay: could not DM ${username}: ${(err as Error).message}`);
++    }
++}
++
++port.on('message', msg => {
++    switch (msg.type) {
++        case 'code':
++            db.prepare('DELETE FROM code WHERE username = ? OR expires < ?').run(msg.username, Date.now());
++            db.prepare('INSERT OR REPLACE INTO code (code, username, expires) VALUES (?, ?, ?)').run(msg.code, msg.username, Date.now() + CODE_MINUTES * 60_000);
++            break;
++        case 'unlink': {
++            const had = db.prepare('DELETE FROM link WHERE username = ?').run(msg.username).changes > 0;
++            port.postMessage({ type: 'unlinked', username: msg.username, had });
++            break;
++        }
++        case 'status': {
++            const row = db.prepare('SELECT discord_id FROM link WHERE username = ?').get(msg.username);
++            port.postMessage({ type: 'status', username: msg.username, linked: row !== undefined });
++            break;
++        }
++        case 'notify':
++            void notify(msg.username, msg.text);
++            break;
++    }
++});
++
++client.login(Environment.DISCORD_TOKEN).catch(err => {
++    console.error('Discord relay: login failed - check DISCORD_TOKEN.', err.message);
++});
+diff --git a/src/util/Environment.ts b/src/util/Environment.ts
+index dbf11494..6c57ac93 100644
+--- a/src/util/Environment.ts
++++ b/src/util/Environment.ts
+@@ -106,5 +106,10 @@ export default {
+     // used for unpacking/custom development
+     BUILD_VERIFY_PACK: tryParseBoolean(process.env.BUILD_VERIFY_PACK, true),
+     // used for unpacking/custom development
+-    BUILD_SRC_DIR: tryParseString(process.env.BUILD_SRC_DIR, '../content')
++    BUILD_SRC_DIR: tryParseString(process.env.BUILD_SRC_DIR, '../content'),
++
++    // custom (2026-09-21) - the Discord relay (server/discord/DiscordThread.ts): a bot that DMs players
++    // their trading post notices. Both must be set or it does not start. Keep the token in .env only.
++    DISCORD_TOKEN: tryParseString(process.env.DISCORD_TOKEN, ''),
++    DISCORD_GUILD_ID: tryParseString(process.env.DISCORD_GUILD_ID, '')
+ };
+-- 
+2.45.1.windows.1
+

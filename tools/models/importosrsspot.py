@@ -16,7 +16,8 @@ import argparse, os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from flatcache import Store
 from osrsspot import decode_osrs_spot, load_osrs_spots
-from osrs2ob2 import convert_checked
+from osrs2ob2 import convert_checked, decode as decode_osrs_model, encode as encode_ob2, roundtrip, SHARED_TEXTURES
+from osrslocimport import bake
 from animconv474 import pack_append
 from animconvosrs import convert_seqs
 
@@ -39,15 +40,22 @@ def main():
     for spec in a.spot:
         i, _, name = spec.partition(':'); i = int(i)
         d = decode_osrs_spot(spots[i])
-        ob2, m, why = convert_checked(st.read(7, d['model']))
-        if ob2 is None: raise SystemExit(f'spot {i} model {d["model"]}: {why}')
+        # A spot's recolours are BAKED into its model, as importosrsnpc.py bakes an npc's. They used
+        # to be dropped with a warning, and that is not cosmetic: the trident's three graphics are
+        # modelled near-black (HSL lightness 6) and only their spotanim recolour makes them blue,
+        # so without it they drew black in game.
+        m = decode_osrs_model(st.read(7, d['model']))
+        if m is None: raise SystemExit(f'spot {i} model {d["model"]}: layout does not reconcile')
+        bake(m, d.get('recol'), d.get('retex'), SHARED_TEXTURES)
+        ob2 = encode_ob2(m); ok, why = roundtrip(ob2, m)
+        if not ok: raise SystemExit(f'spot {i} model {d["model"]}: {why}')
         models[f'spot_{name}'] = ob2
         if 'anim' in d:
             # several spots can share one seq (the four catapult missiles all spin on 4165):
             # the first spot's name is the seq's name and the others point at it
             seq_names.setdefault(d['anim'], name)
         if d.get('recol') or d.get('retex'):
-            print(f'# spot {i}: recolours/retextures not carried over: {d.get("recol")} {d.get("retex")}')
+            print(f'# spot {i}: recolours/retextures baked in: {d.get("recol")} {d.get("retex")}')
         entries.append((i, name, d))
         print(f'# spot {i} -> {name}: model {d["model"]} ({m["vcount"]} verts, '
               f'{len(m.get("tris") or [])} tex triangles, {m["textured"]} flat stand-ins), '

@@ -1,0 +1,662 @@
+From a29f0fdd67dbed65140faa4b271f117ba9b97009 Mon Sep 17 00:00:00 2001
+From: Claude Opus 5 <noreply@anthropic.com>
+Date: Mon, 21 Sep 2026 17:00:55 +0000
+Subject: [PATCH] Three things from a play session: ice that would not cast, a
+ pouch that lied, two shops the wrong way round
+
+ONE EFFECTIVE ICE SPELL LOCKED YOU OUT OF ICE SPELLS. ~pvm_freeze_allowed refused the
+WHOLE cast at a target that was already frozen - no damage, no runes spent, just "Your
+target is already held by a magical force" for the length of the freeze the previous
+cast had applied. Keeping a barrage on a frozen target is the entire point of the spell.
+
+The same file already knew the right answer and was applying it to the wrong half. Its
+secondary-target path carries the comment "an already-frozen secondary target is left
+alone rather than having its freeze refreshed" and guards only the FREEZE, letting the
+damage land. The primary target's path refused the spell outright.
+
+AND THE TABLE ALREADY SAID WHICH SPELLS MAY BE REFUSED, so nothing here had to be
+decided: Bind, Snare and Entangle carry `data=maxhit,-1` because the freeze IS the
+spell, and every ancient ice spell carries a real one. ~magic_spell_is_pure_freeze reads
+that, and only a pure freeze is now turned away at a held target - which keeps the
+message the OSRS wiki's Snare page quotes, for the three spells it belongs to.
+
+~pvm_freeze_lands / ~pvp_freeze_lands is now the one rule for whether a freeze takes,
+used by the primary and the secondary path alike, and it honours the five-tick immunity
+that follows a freeze - which the secondary path's own version did not.
+
+THE RUNE POUCH MIRROR OUTLIVED THE POUCH. rune_pouch_mirror:runes was transmitted once
+from login and never touched again, so the client kept counting the pouch's runes after
+the pouch had been banked, dropped or died with: every spell lit up and every cast was
+then refused by the server, which checks properly. "It says I have the runes and I can't
+cast anything" is exactly that.
+
+There is no [inv_changed] trigger in this engine, so a softtimer asks every other tick
+and re-transmits only when the answer CHANGES - the store when the pouch is carried, an
+inv that is empty by config when it is not. NOT inv_stoptransmit, which would leave the
+client holding its last copy, which is the bug.
+
+THE EQUIPMENT STORE IS EAST OF THE ORE AND GEM STORE, and ours were the other way round.
+That is the one thing about their placement the OSRS wiki actually states, and the two
+Hur spawns in m38_80 are swapped to honour it. Their absolute tiles are still this
+fork's own - picked by flooding the city from Mej-Jal - and claude/tzhaar-shops-and-
+tzrek-jad.md has always said so. Three ::tele coords would fix that properly.
+
+playfixes_battery.py is 4 groups, ALL PASS; playfixes_mutate.py breaks 17 things and
+every one is caught by its own check. Both are in CI.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_015mjzJ5S7cQ1h1aE5KeBabD
+---
+ .github/workflows/content.yml                 |   2 +
+ maps/m38_80.jm2                               |   4 +-
+ pack/inv.pack                                 |   1 +
+ pack/varp.pack                                |   1 +
+ .../scripts/player/player_magic.rs2           |  42 +++--
+ .../skill_combat/scripts/pvp/pvp_magic.rs2    |  39 ++--
+ scripts/skill_magic/scripts/magic.rs2         |  20 +++
+ scripts/storage_items/configs/rune_pouch.inv  |   6 +
+ scripts/storage_items/configs/rune_pouch.varp |   8 +
+ .../storage_items/scripts/rune_pouch_ui.rs2   |  34 +++-
+ tools/playfixes_battery.py                    | 168 ++++++++++++++++++
+ tools/playfixes_mutate.py                     | 113 ++++++++++++
+ 12 files changed, 411 insertions(+), 27 deletions(-)
+ create mode 100644 scripts/storage_items/configs/rune_pouch.inv
+ create mode 100644 scripts/storage_items/configs/rune_pouch.varp
+ create mode 100644 tools/playfixes_battery.py
+ create mode 100644 tools/playfixes_mutate.py
+
+diff --git a/.github/workflows/content.yml b/.github/workflows/content.yml
+index aea45c59..0de3afe2 100644
+--- a/.github/workflows/content.yml
++++ b/.github/workflows/content.yml
+@@ -159,6 +159,7 @@ jobs:
+         - barrows_battery.py
+         - follower_battery.py
+         - windows_battery.py
++        - playfixes_battery.py
+         - teleother_battery.py
+         # banktab_sim is a simulator, not a battery, but it also holds the CONTENT half of a
+         # contract with Client.java - the bank grid's option wording, which is what the client
+@@ -273,6 +274,7 @@ jobs:
+         - gamemode_mutate.py
+         - leprechaun_mutate.py
+         - windows_mutate.py
++        - playfixes_mutate.py
+ 
+     # THE SAME SETUP AS THE pack JOB, copied rather than trimmed per harness. Every harness spawns
+     # a checker, and poh_battery among them reads the engine source AND the packed cache - so a
+diff --git a/maps/m38_80.jm2 b/maps/m38_80.jm2
+index 512daeff..9d42d635 100644
+--- a/maps/m38_80.jm2
++++ b/maps/m38_80.jm2
+@@ -10537,6 +10537,6 @@
+ 0 61 35: 2603
+ 0 61 36: 2625
+ 0 61 39: 2625
+-0 3 50: 3942
+-0 6 53: 3943
++0 3 50: 3943
++0 6 53: 3942
+ 0 9 48: 3944
+diff --git a/pack/inv.pack b/pack/inv.pack
+index 5bd26392..3f8712fc 100644
+--- a/pack/inv.pack
++++ b/pack/inv.pack
+@@ -414,3 +414,4 @@
+ 413=lostpet_store
+ 414=barrows_reward_store
+ 415=leprechaun_store
++416=rune_pouch_empty
+diff --git a/pack/varp.pack b/pack/varp.pack
+index e8beb325..13ba5bed 100644
+--- a/pack/varp.pack
++++ b/pack/varp.pack
+@@ -1191,3 +1191,4 @@
+ 1191=teleother_spell
+ 1192=teleother_expires
+ 1193=tan_window_canifis
++1194=rune_pouch_mirrored
+diff --git a/scripts/skill_combat/scripts/player/player_magic.rs2 b/scripts/skill_combat/scripts/player/player_magic.rs2
+index ad45de47..5ea36198 100644
+--- a/scripts/skill_combat/scripts/player/player_magic.rs2
++++ b/scripts/skill_combat/scripts/player/player_magic.rs2
+@@ -100,7 +100,11 @@ if (~player_npc_hit_roll_boosted(^magic_style, $mask_num, $mask_div) = true) {
+     }    
+     ~pvm_spell_success($spell_data, $maxhit, $duration);
+     ~pvm_stat_change_effect($spell_data);
+-    ~pvm_freeze_effect($spell_data);
++    // The primary target gets the same rule the secondary ones always had: the damage lands
++    // either way, and the freeze only takes if the target is free of one.
++    if (~pvm_freeze_lands = true) {
++        ~pvm_freeze_effect($spell_data);
++    }
+ } else {
+     ~pvm_spell_fail($spell_data, $duration);
+ }
+@@ -189,7 +193,7 @@ if (~player_npc_hit_roll_boosted(^magic_style, $mask_num, $mask_div) = true) {
+     ~pvm_spell_success($spell_data, $maxhit, $duration);
+     ~pvm_stat_change_effect($spell_data);
+     // an already-frozen secondary target is left alone rather than having its freeze refreshed
+-    if (%npc_stunned < map_clock) {
++    if (~pvm_freeze_lands = true) {
+         ~pvm_freeze_effect($spell_data);
+     }
+ } else {
+@@ -231,16 +235,21 @@ if (db_getfield($spell_data, magic_spell_table:freeze_time, 0) > 0) {
+         return(false);
+     }
+     
+-    if (%npc_stunned > map_clock) {
+-        mes("Your target is already held by a magical force.");
+-        return(false);
+-    }
+-    // immune message existed in 2005 https://oldschool.runescape.wiki/w/Update:Magic_and_Wilderness_Updates
+-    if (calc(%npc_stunned + 5) > map_clock) {
+-        // osrs wiki trivia says that snare didnt have this? No proof though
+-        // ive found proof of bind and entangle having this in 2006: https://imgur.com/a/jBb1awE
+-        mes("Your target is currently immune to that spell.");
+-        return(false);
++    // ONLY A SPELL THAT IS NOTHING BUT ITS FREEZE IS REFUSED HERE. A damaging one is cast, and
++    // ~pvm_freeze_lands is what decides whether the freeze itself takes. See
++    // ~magic_spell_is_pure_freeze.
++    if (~magic_spell_is_pure_freeze($spell_data) = true) {
++        if (%npc_stunned > map_clock) {
++            mes("Your target is already held by a magical force.");
++            return(false);
++        }
++        // immune message existed in 2005 https://oldschool.runescape.wiki/w/Update:Magic_and_Wilderness_Updates
++        if (calc(%npc_stunned + 5) > map_clock) {
++            // osrs wiki trivia says that snare didnt have this? No proof though
++            // ive found proof of bind and entangle having this in 2006: https://imgur.com/a/jBb1awE
++            mes("Your target is currently immune to that spell.");
++            return(false);
++        }
+     }
+ }
+ return(true);
+@@ -422,6 +431,15 @@ while ($i < db_getfieldcount($spell_data, magic_spell_table:stat_change)) {
+ }
+ 
+ 
++// Whether a freeze would take on this npc: not currently held, and past the five-tick immunity
++// that follows one. ONE rule, for the primary target and the secondary ones - the two used to
++// disagree, and the primary's version was to refuse the whole spell.
++[proc,pvm_freeze_lands]()(boolean)
++if (calc(%npc_stunned + 5) <= map_clock) {
++    return(true);
++}
++return(false);
++
+ [proc,pvm_freeze_effect](dbrow $spell_data)
+ // freeze npc if spell has freeze effect
+ if (db_getfield($spell_data, magic_spell_table:freeze_time, 0) > 0) {
+diff --git a/scripts/skill_combat/scripts/pvp/pvp_magic.rs2 b/scripts/skill_combat/scripts/pvp/pvp_magic.rs2
+index 59bac9a1..a50c98af 100644
+--- a/scripts/skill_combat/scripts/pvp/pvp_magic.rs2
++++ b/scripts/skill_combat/scripts/pvp/pvp_magic.rs2
+@@ -53,7 +53,10 @@ def_int $duration = ~pvp_spell_cast($spell_data);
+ if (~pvp_hit_roll(^magic_style) = true) {
+     ~pvp_spell_success($spell_data, ~magic_spell_maxhit($spell_data), $duration);
+     ~pvp_stat_change_effect($spell_data);
+-    ~pvp_freeze_effect($spell_data);
++    // as in PvM: the damage lands either way, the freeze only if the target is free of one
++    if (~pvp_freeze_lands = true) {
++        ~pvp_freeze_effect($spell_data);
++    }
+ } else {
+     ~pvp_spell_fail($spell_data, $duration);
+ }
+@@ -133,7 +136,7 @@ if (~pvp_hit_roll(^magic_style) = true) {
+     ~pvp_spell_success($spell_data, ~magic_spell_maxhit($spell_data), $duration);
+     ~pvp_stat_change_effect($spell_data);
+     // an already-frozen secondary target keeps its existing freeze rather than having it refreshed
+-    if (.%frozen < map_clock) {
++    if (~pvp_freeze_lands = true) {
+         ~pvp_freeze_effect($spell_data);
+     }
+ } else {
+@@ -167,16 +170,20 @@ return(true);
+ [proc,pvp_freeze_allowed](dbrow $spell_data)(boolean)
+ // check if player is already frozen
+ if (db_getfield($spell_data, magic_spell_table:freeze_time, 0) > 0) {
+-    if (.%frozen > map_clock) {
+-        mes("Your target is already held by a magical force.");
+-        return(false);
+-    }
+-    // immune message existed in 2005 https://oldschool.runescape.wiki/w/Update:Magic_and_Wilderness_Updates
+-    if (calc(.%frozen + 5) > map_clock) {
+-        // osrs wiki trivia says that snare didnt have this? No proof though
+-        // ive found proof of bind and entangle having this in 2006: https://imgur.com/a/jBb1awE
+-        mes("Your target is currently immune to that spell.");
+-        return(false);
++    // Same rule as PvM: only a spell that is nothing but its freeze is refused at a held target.
++    // Ice Barrage keeps landing on a frozen player, which is what the spell is for.
++    if (~magic_spell_is_pure_freeze($spell_data) = true) {
++        if (.%frozen > map_clock) {
++            mes("Your target is already held by a magical force.");
++            return(false);
++        }
++        // immune message existed in 2005 https://oldschool.runescape.wiki/w/Update:Magic_and_Wilderness_Updates
++        if (calc(.%frozen + 5) > map_clock) {
++            // osrs wiki trivia says that snare didnt have this? No proof though
++            // ive found proof of bind and entangle having this in 2006: https://imgur.com/a/jBb1awE
++            mes("Your target is currently immune to that spell.");
++            return(false);
++        }
+     }
+     if (getwalktrigger() = duel_arena_no_move) {
+         mes("You can not use a hold spell in a no movement duel."); // https://www.youtube.com/watch?v=u2KZbLyCpgI&t=345s
+@@ -232,6 +239,14 @@ while ($i < db_getfieldcount($spell_data, magic_spell_table:stat_change)) {
+     $i = add($i, 1);
+ }
+ 
++// Whether a freeze would take on this player. One rule for the primary target and the secondary
++// ones, the same shape as ~pvm_freeze_lands.
++[proc,pvp_freeze_lands]()(boolean)
++if (calc(.%frozen + 5) <= map_clock) {
++    return(true);
++}
++return(false);
++
+ [proc,pvp_freeze_effect](dbrow $spell_data)
+ def_int $freeze_time = db_getfield($spell_data, magic_spell_table:freeze_time, 0);
+ if ($freeze_time > 0) {
+diff --git a/scripts/skill_magic/scripts/magic.rs2 b/scripts/skill_magic/scripts/magic.rs2
+index d47b8c3d..e60d247d 100644
+--- a/scripts/skill_magic/scripts/magic.rs2
++++ b/scripts/skill_magic/scripts/magic.rs2
+@@ -196,6 +196,26 @@ while ($i <= db_getfieldcount($data, magic_spell_table:specificobj_reqmessage))
+ }
+ return;
+ 
++// IS THIS SPELL NOTHING BUT ITS FREEZE?
++//
++// Bind, Snare and Entangle do no damage: the freeze IS the spell, so casting one at a target that
++// is already held has nothing to do and is refused - "Your target is already held by a magical
++// force", which the OSRS wiki's Snare page quotes as the real message.
++//
++// The ancient ice spells are not that. Ice Barrage does 30 and keeping it on a frozen target is
++// the entire point of the spell. Refusing the cast because the target is frozen meant one
++// effective ice spell locked the caster out of ice spells for the length of its own freeze, with
++// no damage dealt and the runes not even spent.
++//
++// The table already says which is which and nobody had to decide it here: the three pure freezes
++// carry `data=maxhit,-1` and every damaging spell carries a real one.
++[proc,magic_spell_is_pure_freeze](dbrow $spell_data)(boolean)
++if (db_getfield($spell_data, magic_spell_table:freeze_time, 0) > 0
++        & db_getfield($spell_data, magic_spell_table:maxhit, 0) < 0) {
++    return(true);
++}
++return(false);
++
+ [proc,magic_spell_maxhit](dbrow $spell_data)(int)
+ def_int $maxhit = db_getfield($spell_data, magic_spell_table:maxhit, 0);
+ def_int $spell = db_getfield($spell_data, magic_spell_table:spell, 0);
+diff --git a/scripts/storage_items/configs/rune_pouch.inv b/scripts/storage_items/configs/rune_pouch.inv
+new file mode 100644
+index 00000000..6d1dfe9c
+--- /dev/null
++++ b/scripts/storage_items/configs/rune_pouch.inv
+@@ -0,0 +1,6 @@
++
++// Empty by config, and transmitted to the rune pouch mirror whenever the pouch is not being
++// carried. See rune_pouch_ui.rs2: stopping the transmit would leave the client holding its last
++// copy, which is the bug this fixes.
++[rune_pouch_empty]
++size=1
+diff --git a/scripts/storage_items/configs/rune_pouch.varp b/scripts/storage_items/configs/rune_pouch.varp
+new file mode 100644
+index 00000000..12f1d951
+--- /dev/null
++++ b/scripts/storage_items/configs/rune_pouch.varp
+@@ -0,0 +1,8 @@
++
++// Whether the mirror currently reflects a carried pouch. Only here so the soft timer can
++// re-transmit on a CHANGE rather than every other tick. type=boolean because the script reads it
++// as one - rs2check rule 24 is what makes that a compile-time question instead of a build failure.
++[rune_pouch_mirrored]
++type=boolean
++scope=temp
++protect=no
+diff --git a/scripts/storage_items/scripts/rune_pouch_ui.rs2 b/scripts/storage_items/scripts/rune_pouch_ui.rs2
+index 80eb8f13..3dca31cc 100644
+--- a/scripts/storage_items/scripts/rune_pouch_ui.rs2
++++ b/scripts/storage_items/scripts/rune_pouch_ui.rs2
+@@ -13,8 +13,40 @@
+ // main overlay. A window component would stop being transmitted the first time you closed the
+ // window. An interface that is never opened is never any of those.
+ 
++// AND THE MIRROR HAS TO FOLLOW THE POUCH. It used to be transmitted once, from login, and never
++// touched again - so the client went on counting the pouch's runes after the pouch had been
++// banked, dropped, traded away or lost on death. Every spell lit up, and every cast was then
++// refused by the server, which checks ~rune_pouch_carried properly. "It says I have the runes and
++// I can't cast anything" is that.
++//
++// This engine has no inventory-change trigger - there is no [inv_changed] to hang it on - so a
++// soft timer asks the question instead, every other tick, and only re-transmits when the answer
++// CHANGES. The cost of a tick that changes nothing is one ~rune_pouch_carried call.
+ [proc,rune_pouch_mirror_start]
+-inv_transmit(rune_pouch_store, rune_pouch_mirror:runes);
++%rune_pouch_mirrored = false;
++~rune_pouch_mirror_sync;
++softtimer(rune_pouch_mirror_timer, 2);
++
++[softtimer,rune_pouch_mirror_timer]
++~rune_pouch_mirror_sync;
++
++[proc,rune_pouch_mirror_sync]
++def_boolean $carried = false;
++if (~rune_pouch_carried ! null) {
++    $carried = true;
++}
++if ($carried = %rune_pouch_mirrored) {
++    return;
++}
++%rune_pouch_mirrored = $carried;
++if ($carried = true) {
++    inv_transmit(rune_pouch_store, rune_pouch_mirror:runes);
++} else {
++    // An empty inv rather than inv_stoptransmit: stopping leaves the client holding whatever it
++    // last saw, which is the bug. Transmitting an inv that is empty by config makes every count
++    // on the mirror read zero.
++    inv_transmit(rune_pouch_empty, rune_pouch_mirror:runes);
++}
+ 
+ // ---------------------------------------------------------------- the window
+ [opheld3,rune_pouch] ~rune_pouch_open;
+diff --git a/tools/playfixes_battery.py b/tools/playfixes_battery.py
+new file mode 100644
+index 00000000..42d1397f
+--- /dev/null
++++ b/tools/playfixes_battery.py
+@@ -0,0 +1,168 @@
++#!/usr/bin/env python3
++"""Checks for the three fixes that came out of a play session on 2026-09-21.
++
++Ancient ice refusing to cast at a frozen target, the rune pouch mirror outliving the pouch, and
++two TzHaar shopkeepers standing the wrong way round.
++
++WHAT EACH GROUP ANCHORS ON, none of it written by this round:
++
++  - magic_combat_spells.dbrow, whose `data=maxhit,-1` on the three pure freezes and real maxhit on
++    every ancient ice spell is the thing that decides which spells may be refused at a frozen target
++  - the OSRS wiki's own sentence about the equipment store being EAST of the ore and gem store
++  - rune_pouch.enum and the engine's command list
++
++    python3 tools/playfixes_battery.py
++"""
++import os, re, sys
++
++ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
++os.chdir(ROOT)
++FAILED, GROUP = [], ['']
++
++
++def group(t):
++    GROUP[0] = t
++    print(t)
++
++
++def check(cond, msg, extra=''):
++    print('  %s %s%s' % ('ok  ' if cond else 'FAIL', msg, (': ' + str(extra)) if extra != '' else ''))
++    if not cond:
++        FAILED.append('%s / %s' % (GROUP[0], msg))
++
++
++def read(p):
++    return open(p, encoding='utf-8', errors='ignore').read()
++
++
++def nocomment(t):
++    return re.sub(r'//[^\n]*', '', t)
++
++
++PVM = read('scripts/skill_combat/scripts/player/player_magic.rs2')
++PVP = read('scripts/skill_combat/scripts/pvp/pvp_magic.rs2')
++MAGIC = read('scripts/skill_magic/scripts/magic.rs2')
++SPELLS = read('scripts/skill_combat/configs/magic/magic_combat_spells.dbrow')
++
++
++def rows(text):
++    out = {}
++    for b in re.split(r'\n(?=\[)', text):
++        m = re.match(r'\[(\w+)\]', b)
++        if m:
++            out[m.group(1)] = dict(re.findall(r'^data=(\w+),(.*)$', b, re.M))
++    return out
++
++
++R = rows(SPELLS)
++
++# ---------------------------------------------------------------- 1
++group('1. which spells are nothing but their freeze, according to the table')
++frozen = {k: v for k, v in R.items() if int(v.get('freeze_time', 0) or 0) > 0}
++check(len(frozen) >= 7, 'rows with a freeze_time', len(frozen))
++pure = {k for k, v in frozen.items() if int(v.get('maxhit', 0)) < 0}
++dmg = {k for k, v in frozen.items() if int(v.get('maxhit', 0)) >= 0}
++check(pure == {'magic_combat_bind', 'magic_combat_snare', 'magic_combat_entangle'},
++      'exactly three carry maxhit,-1 - bind, snare and entangle', sorted(pure))
++check(all('ice' in k for k in dmg),
++      'and every other freezing spell is an ice spell with a real maxhit', sorted(dmg))
++# ONE CONSTANT WORDING, offenders appended. A message built from the data cannot be a mutation
++# label, because tools/mutate_labels.py reads a CLEAN run and a per-row message that only exists
++# once something is broken matches nothing. Third round in a row this rule has been needed.
++weak = sorted(k for k in dmg if int(R[k]['maxhit']) <= 0)
++check(not weak, 'every ice spell that freezes also does real damage',
++      weak or '%d of them' % len(dmg))
++check('[proc,magic_spell_is_pure_freeze]' in MAGIC,
++      'and one proc answers the question for both PvM and PvP', 'yes')
++pf = nocomment(MAGIC).split('[proc,magic_spell_is_pure_freeze]', 1)[1].split('\n[', 1)[0]
++check('magic_spell_table:maxhit' in pf,
++      '...by reading that maxhit rather than a list of spell names', 'yes')
++
++# ---------------------------------------------------------------- 2
++group('2. a damaging ice spell is no longer refused at a frozen target')
++for name, src in (('PvM', PVM), ('PvP', PVP)):
++    body = nocomment(src).split('_freeze_allowed]', 1)[1].split('\n[', 1)[0]
++    check('~magic_spell_is_pure_freeze' in body,
++          '%s: the already-held refusal is gated on the spell being a pure freeze' % name, 'yes')
++    check('already held by a magical force' in body,
++          '%s: and the message itself is still there for bind, snare and entangle' % name, 'yes')
++# Two CALL sites - the primary target and the secondary ones. The definition is [proc,...] and
++# carries no ~, so two is the whole of it.
++check(nocomment(PVM).count('~pvm_freeze_lands') == 2,
++      'PvM asks one proc whether the freeze lands, from both the primary and the secondary path',
++      nocomment(PVM).count('~pvm_freeze_lands'))
++check(nocomment(PVP).count('~pvp_freeze_lands') == 2,
++      'PvP does the same', nocomment(PVP).count('~pvp_freeze_lands'))
++for name, src, var in (('PvM', PVM, '%npc_stunned'), ('PvP', PVP, '.%frozen')):
++    body = nocomment(src).split('_freeze_lands]', 1)[1].split('\n[', 1)[0]
++    check('+ 5' in body, '%s: and that proc honours the five-tick immunity, not just the freeze'
++          % name, 'yes')
++    check(var in body, '%s: reading %s' % (name, var), 'yes')
++for name, src in (('PvM', PVM), ('PvP', PVP)):
++    calls = re.findall(r'~(pv[mp])_freeze_effect\(', nocomment(src))
++    guarded = len(re.findall(r'if \(~pv[mp]_freeze_lands = true\) \{\n\s*~pv[mp]_freeze_effect',
++                             nocomment(src)))
++    check(guarded == 2, '%s: both freeze_effect call sites are guarded' % name, guarded)
++
++# ---------------------------------------------------------------- 3
++group('3. the rune pouch mirror follows the pouch')
++UI = read('scripts/storage_items/scripts/rune_pouch_ui.rs2')
++check('[softtimer,rune_pouch_mirror_timer]' in UI, 'a soft timer keeps it honest', 'yes')
++check('softtimer(rune_pouch_mirror_timer, 2)' in nocomment(UI), 'every two ticks', 'yes')
++check('~rune_pouch_carried' in nocomment(UI),
++      'and it asks the same question the server-side rune count asks', 'yes')
++sync = nocomment(UI).split('[proc,rune_pouch_mirror_sync]', 1)[1].split('\n[', 1)[0]
++check('inv_transmit(rune_pouch_store, rune_pouch_mirror:runes);' in sync,
++      'carried: the store is mirrored', 'yes')
++check('inv_transmit(rune_pouch_empty, rune_pouch_mirror:runes);' in sync,
++      'not carried: an inv that is empty by config is mirrored instead', 'yes')
++check('inv_stoptransmit' not in sync,
++      'and NOT inv_stoptransmit, which would leave the client holding its last copy', 'yes')
++check('%rune_pouch_mirrored' in sync and 'return;' in sync,
++      'it re-transmits only when the answer changes', 'yes')
++varp = nocomment(read('scripts/storage_items/configs/rune_pouch.varp'))
++mir = varp.split('[rune_pouch_mirrored]', 1)[1] if '[rune_pouch_mirrored]' in varp else ''
++check('type=boolean' in mir, 'the varp is type=boolean, because the script reads it as one', 'yes')
++check('scope=temp' in mir and 'protect=no' in mir, 'scope=temp protect=no', 'yes')
++inv = read('scripts/storage_items/configs/rune_pouch.inv')
++empty = inv.split('[rune_pouch_empty]', 1)[1] if '[rune_pouch_empty]' in inv else ''
++check('stock' not in empty, 'rune_pouch_empty really is empty - no stock lines', 'yes')
++packs = {k: set(l.strip().split('=', 1)[1] for l in open('pack/%s.pack' % k)) for k in ('inv', 'varp')}
++check('rune_pouch_empty' in packs['inv'], 'and it is packed', 'yes')
++check('rune_pouch_mirrored' in packs['varp'], 'as is the varp', 'yes')
++
++# ---------------------------------------------------------------- 4
++group('4. the two Hur shopkeepers, the way the wiki orders them')
++npcpack = {}
++for l in open('pack/npc.pack'):
++    i, n = l.strip().split('=', 1)
++    npcpack[n] = i
++spawns = {}
++for line in read('maps/m38_80.jm2').split('\n'):
++    m = re.match(r'^0 (\d+) (\d+): (\d+)$', line.strip())
++    if m:
++        spawns.setdefault(m.group(3), []).append((int(m.group(1)), int(m.group(2))))
++who = {}
++for key, label in (('tzhaar_shopkeeper_equipment', 'equipment'),
++                   ('tzhaar_shopkeeper_oreandgem', 'oreandgem'),
++                   ('tzhaar_shopkeeper_rune', 'rune')):
++    i = npcpack.get(key)
++    check(i is not None, '%s has an npc id' % key, i)
++    check(len(spawns.get(i, [])) == 1, 'and is spawned exactly once in m38_80',
++          len(spawns.get(i, [])))
++    if spawns.get(i):
++        who[label] = spawns[i][0]
++# https://oldschool.runescape.wiki/w/TzHaar-Hur-Tel's_Equipment_Store - "It is located east of
++# TzHaar-Hur-Lek's Ore and Gem Store." x increases east, so Tel's x must be the greater.
++check(who.get('equipment', (0, 0))[0] > who.get('oreandgem', (0, 0))[0],
++      "the equipment store is EAST of the ore and gem store, which is the one thing the wiki states",
++      '%s vs %s' % (who.get('equipment'), who.get('oreandgem')))
++check(len(set(who.values())) == 3, 'and no two of the three stand on the same tile', sorted(who.values()))
++
++print()
++if FAILED:
++    print('%d FAILED' % len(FAILED))
++    for f in FAILED:
++        print('  ' + f)
++    sys.exit(1)
++print('ALL PASS')
+diff --git a/tools/playfixes_mutate.py b/tools/playfixes_mutate.py
+new file mode 100644
+index 00000000..f7ae8ca0
+--- /dev/null
++++ b/tools/playfixes_mutate.py
+@@ -0,0 +1,113 @@
++#!/usr/bin/env python3
++"""Break the three play-session fixes on purpose and check the right check goes red.
++
++Anchors are asserted unique before they are applied, labels are the CHECK's wording, and the run
++reports which check actually fired - the three rules every harness in this repo follows.
++
++    python3 tools/playfixes_mutate.py
++"""
++import os, shutil, subprocess, sys, tempfile
++
++ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
++W = os.path.join(tempfile.gettempdir(), 'playfixes_mutate_work')
++
++PVM = 'scripts/skill_combat/scripts/player/player_magic.rs2'
++PVP = 'scripts/skill_combat/scripts/pvp/pvp_magic.rs2'
++MAG = 'scripts/skill_magic/scripts/magic.rs2'
++UI = 'scripts/storage_items/scripts/rune_pouch_ui.rs2'
++VARP = 'scripts/storage_items/configs/rune_pouch.varp'
++INV = 'scripts/storage_items/configs/rune_pouch.inv'
++MAP = 'maps/m38_80.jm2'
++DBR = 'scripts/skill_combat/configs/magic/magic_combat_spells.dbrow'
++
++MUTS = [
++    # Replacing the row's OWN maxhit line, not inserting one: the battery reads the block into a
++    # dict, so a second data=maxhit earlier in the block is simply overwritten by the real one and
++    # the mutation does nothing. Anchored with the line above it, which is unique per row.
++    (DBR, 'data=experience,3000\ndata=maxhit,-1', 'data=experience,3000\ndata=maxhit,1',
++     'exactly three carry maxhit,-1 - bind, snare and entangle'),
++    (DBR, 'data=experience,5200\ndata=maxhit,30', 'data=experience,5200\ndata=maxhit,0',
++     'every ice spell that freezes also does real damage'),
++    (MAG, 'db_getfield($spell_data, magic_spell_table:maxhit, 0) < 0',
++     'db_getfield($spell_data, magic_spell_table:spell, 0) < 0',
++     '...by reading that maxhit rather than a list of spell names'),
++    (PVM, '    if (~magic_spell_is_pure_freeze($spell_data) = true) {\n        if (%npc_stunned > map_clock) {',
++     '    if (true = true) {\n        if (%npc_stunned > map_clock) {',
++     'PvM: the already-held refusal is gated on the spell being a pure freeze'),
++    (PVP, '    if (~magic_spell_is_pure_freeze($spell_data) = true) {\n        if (.%frozen > map_clock) {',
++     '    if (true = true) {\n        if (.%frozen > map_clock) {',
++     'PvP: the already-held refusal is gated on the spell being a pure freeze'),
++    # Anchored on the comment above each call, because the two call sites are otherwise identical
++    # text and str.replace would take the first one - the uniqueness rule, met again.
++    (PVM, '    // The primary target gets the same rule the secondary ones always had: the damage lands\n'
++          '    // either way, and the freeze only takes if the target is free of one.\n'
++          '    if (~pvm_freeze_lands = true) {\n        ~pvm_freeze_effect($spell_data);\n    }',
++     '    ~pvm_freeze_effect($spell_data);',
++     'PvM: both freeze_effect call sites are guarded'),
++    (PVP, '    // as in PvM: the damage lands either way, the freeze only if the target is free of one\n'
++          '    if (~pvp_freeze_lands = true) {\n        ~pvp_freeze_effect($spell_data);\n    }',
++     '    ~pvp_freeze_effect($spell_data);',
++     'PvP: both freeze_effect call sites are guarded'),
++    (PVM, 'if (calc(%npc_stunned + 5) <= map_clock) {', 'if (%npc_stunned <= map_clock) {',
++     'PvM: and that proc honours the five-tick immunity, not just the freeze'),
++    (PVP, 'if (calc(.%frozen + 5) <= map_clock) {', 'if (.%frozen <= map_clock) {',
++     'PvP: and that proc honours the five-tick immunity, not just the freeze'),
++    (UI, 'softtimer(rune_pouch_mirror_timer, 2);', 'softtimer(rune_pouch_mirror_timer, 3);',
++     'every two ticks'),
++    (UI, 'inv_transmit(rune_pouch_empty, rune_pouch_mirror:runes);',
++     'inv_stoptransmit(rune_pouch_mirror:runes);',
++     'not carried: an inv that is empty by config is mirrored instead'),
++    (UI, 'if (~rune_pouch_carried ! null) {', 'if (~rune_pouch_slots > 0) {',
++     'and it asks the same question the server-side rune count asks'),
++    (UI, 'if ($carried = %rune_pouch_mirrored) {\n    return;\n}', '',
++     'it re-transmits only when the answer changes'),
++    (VARP, '[rune_pouch_mirrored]\ntype=boolean', '[rune_pouch_mirrored]',
++     'the varp is type=boolean, because the script reads it as one'),
++    (INV, '[rune_pouch_empty]\nsize=1', '[rune_pouch_empty]\nsize=1\nstock0=airrune,1,0',
++     'rune_pouch_empty really is empty - no stock lines'),
++    (MAP, '0 6 53: 3942', '0 1 53: 3942',
++     'the equipment store is EAST of the ore and gem store, which is the one thing the wiki states'),
++    (MAP, '0 9 48: 3944', '0 3 50: 3944',
++     'and no two of the three stand on the same tile'),
++]
++
++
++def run(entry):
++    path, find, repl, label = entry
++    if os.path.exists(W):
++        shutil.rmtree(W)
++    shutil.copytree(ROOT, W, ignore=shutil.ignore_patterns('.git', '__pycache__', 'data'))
++    p = os.path.join(W, path)
++    t = open(p, encoding='utf-8').read()
++    n = t.count(find)
++    if n != 1:
++        return 'SKIP', 'anchor appears %d times, not once' % n
++    open(p, 'w', encoding='utf-8').write(t.replace(find, repl, 1))
++    r = subprocess.run([sys.executable, os.path.join(W, 'tools', 'playfixes_battery.py')],
++                       cwd=W, capture_output=True, text=True)
++    if r.returncode == 0:
++        return 'GREEN', 'the battery still passed'
++    fired = [l.strip()[5:].strip() for l in r.stdout.split('\n') if l.strip().startswith('FAIL')]
++    if any(f == label or f.startswith(label + ':') for f in fired):
++        return 'red', 'caught by its own check'
++    if fired:
++        return 'OTHER', 'caught by %r instead' % fired[0]
++    return 'CRASH', (r.stderr.strip().split('\n') or [''])[-1][:90]
++
++
++def main():
++    bad = 0
++    for e in MUTS:
++        state, why = run(e)
++        if state != 'red':
++            bad += 1
++        print('  %-6s %-62s %s' % (state, e[3][:62], why))
++    print()
++    if bad:
++        print('%d of %d mutations were not caught by the check they name' % (bad, len(MUTS)))
++        sys.exit(1)
++    print('every mutation was caught, each by its own check')
++
++
++if __name__ == '__main__':
++    main()
+-- 
+2.43.0
+

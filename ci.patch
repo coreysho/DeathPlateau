@@ -1,0 +1,203 @@
+From 5d8e14d1cd5242f61d926da31fb50748fe6a2c7f Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Mon, 21 Sep 2026 14:47:46 +0000
+Subject: [PATCH] Put the last four batteries in CI, and the mutation run finds
+ a hole
+
+gamemode, barrows, leprechaun and follower each had a battery and a
+mutation harness and none of the four was in either CI list, so the XP
+rate modes, the XP lock, the drop-rate boost, the whole Barrows and the
+leprechaun were checked only when somebody remembered to run them by
+hand.
+
+barrows_battery and follower_battery need nothing but content, so they
+are plain matrix rows. gamemode_battery reads the engine and
+leprechaun_battery reads the engine and the client, so they get a job of
+their own with three checkouts - content, engine, client, as siblings.
+No arguments are passed: both default to dirname(content)/engine and
+/client, which is exactly that layout, so the paths cannot be passed
+wrong and the CI command is the same command as on a laptop with the
+three repos side by side.
+
+All four harnesses join the mutations matrix. barrows_mutate was left
+out over a sharding decision that turned out not to be needed - measured
+end to end at about fifteen minutes for 243 entries, against a 330
+minute timeout. The backlog's "237 entries at about five minutes" read
+as five minutes an entry and meant five minutes for 105.
+
+Running it whole for the first time is what paid for the round. One
+mutation survived: deleting the reward window's inv_transmit. The check
+was written `in CHEST`, over the whole file, and the reopen proc has a
+second transmit that kept it true - while the reopen check, which is
+scoped to its proc, stayed true on the strength of itself. So either
+transmit could be deleted and both checks would still pass. The window
+check is scoped now, the same way the reopen one is, and a second
+mutation targets the reopen transmit (it needs the proc header in its
+pattern, because the harness replaces the first match).
+
+That is the same fault barrows_battery names two checks further down -
+a blanket check sitting on top of a precise one - found in the file that
+already knew about it, by the harness that had never been run whole.
+
+243 mutations, none survive. All four batteries ALL PASS.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01J1qUhTcu63bJ3hCBBxy7nU
+---
+ .github/workflows/content.yml | 79 +++++++++++++++++++++++++++++++----
+ tools/barrows_battery.py      | 10 ++++-
+ tools/barrows_mutate.py       |  6 +++
+ 3 files changed, 87 insertions(+), 8 deletions(-)
+
+diff --git a/.github/workflows/content.yml b/.github/workflows/content.yml
+index 57d656ed..49434792 100644
+--- a/.github/workflows/content.yml
++++ b/.github/workflows/content.yml
+@@ -154,6 +154,10 @@ jobs:
+         - boss_battery.py
+         - enchant_battery.py
+         - ancientbook_battery.py
++        # barrows and follower need nothing but content, so they are plain matrix rows. gamemode
++        # and leprechaun want sibling checkouts and run in the job below.
++        - barrows_battery.py
++        - follower_battery.py
+         # banktab_sim is a simulator, not a battery, but it also holds the CONTENT half of a
+         # contract with Client.java - the bank grid's option wording, which is what the client
+         # gates the placeholder Release option on. It was never in this matrix.
+@@ -173,6 +177,54 @@ jobs:
+ 
+     - run: python tools/${{ matrix.script }}
+ 
++  batteries-with-repos:
++    name: ${{ matrix.script }}
++    runs-on: ubuntu-latest
++    timeout-minutes: 30
++    strategy:
++      fail-fast: false
++      matrix:
++        # THE FOUR THAT WERE IN NEITHER LIST are in both now. These two are here rather than in the
++        # matrix above because they read a SIBLING repo: gamemode_battery reads Player.ts for the
++        # xp multiplier and the xp lock's bit test, and leprechaun_battery reads the client too.
++        # A battery that only checks the content half of a contract checks the half least likely to
++        # be wrong - the engine is a separate checkout and is what gets left behind.
++        script:
++        - gamemode_battery.py
++        - leprechaun_battery.py
++
++    # NO ARGUMENTS BELOW, on purpose. Both batteries default to dirname(content)/engine and
++    # dirname(content)/client, which is exactly this layout - so the paths cannot be passed wrong,
++    # and running them here is the same command as running them on a laptop with the three repos
++    # side by side.
++    steps:
++    - uses: actions/checkout@v4
++      with:
++        path: content
++
++    - uses: actions/checkout@v4
++      with:
++        repository: coreysho/Engine-TS
++        ref: 377-wip
++        path: engine
++
++    - uses: actions/checkout@v4
++      with:
++        repository: coreysho/Client-Java
++        ref: dev-logging
++        path: client
++
++    - uses: actions/setup-python@v5
++      with:
++        python-version: '3.12'
++
++    - name: Install the renderers the batteries import
++      run: pip install pillow numpy
++
++    - name: ${{ matrix.script }}
++      working-directory: content
++      run: python tools/${{ matrix.script }}
++
+   mutations:
+     name: ${{ matrix.script }}
+     if: github.event_name == 'workflow_dispatch' && inputs.mutations
+@@ -204,13 +256,19 @@ jobs:
+         - boss_mutate.py
+         - enchant_mutate.py
+         - ancientbook_mutate.py
+-
+-    # NOT IN EITHER LIST, and it is not deliberate: gamemode, barrows, leprechaun and follower all
+-    # have a battery and a mutation harness and none of the four is here, so the XP rate modes, the
+-    # XP lock, the Barrows and the leprechaun are checked only when somebody remembers to run them
+-    # by hand. Noted in claude/requests-backlog.md rather than fixed in a round about clue scrolls:
+-    # barrows_mutate alone is 237 entries at about five minutes, which needs a sharding decision
+-    # rather than a line.
++        # THE OTHER HALF OF THE FOUR. barrows_mutate is 243 entries and was left out over a
++        # sharding decision that turned out not to be needed: MEASURED end to end at about fifteen
++        # minutes whole, well inside this job's timeout. The backlog's note read as "five minutes
++        # an entry" and meant "five minutes for 105".
++        #
++        # Running it whole for the first time is also what paid for this round: one mutation
++        # survived - deleting the chest window's inv_transmit - because the check was written
++        # `in CHEST` and the reopen proc has a second transmit that kept it true. Scoped, and a
++        # mutation added for the second one. A harness nobody runs is a harness nobody trusts.
++        - barrows_mutate.py
++        - follower_mutate.py
++        - gamemode_mutate.py
++        - leprechaun_mutate.py
+ 
+     # THE SAME SETUP AS THE pack JOB, copied rather than trimmed per harness. Every harness spawns
+     # a checker, and poh_battery among them reads the engine source AND the packed cache - so a
+@@ -228,6 +286,13 @@ jobs:
+         ref: 377-wip
+         path: engine
+ 
++    # leprechaun_mutate spawns leprechaun_battery, which reads the client as well as the engine.
++    - uses: actions/checkout@v4
++      with:
++        repository: coreysho/Client-Java
++        ref: dev-logging
++        path: client
++
+     - uses: actions/setup-python@v5
+       with:
+         python-version: '3.12'
+diff --git a/tools/barrows_battery.py b/tools/barrows_battery.py
+index 74e2fe81..ad347a8b 100644
+--- a/tools/barrows_battery.py
++++ b/tools/barrows_battery.py
+@@ -1331,7 +1331,15 @@ check(IFB.get('loot', {}).get('type', [None])[0] == 'inv',
+ check(int(IFB['loot']['width'][0]) * int(IFB['loot']['height'][0]) == size,
+       'and it is exactly as big as the store: %s x %s for %d slots'
+       % (IFB['loot']['width'][0], IFB['loot']['height'][0], size))
+-check('inv_transmit(barrows_reward_store, barrows_chest:loot);' in CHEST,
++# SCOPED TO THE WINDOW PROC, not to the whole file. It used to read `in CHEST`, and the mutation
++# harness walked straight through deleting this transmit: there are TWO of them, one here and one
++# in the reopen proc, so a blanket `in CHEST` stayed true on the strength of the other one - and
++# the reopen check, which IS scoped, stayed true on the strength of itself. Same fault as the
++# flush check below and the TzHaar shop round before it: a blanket check sitting on top of a
++# precise one catches nothing the precise one does not already catch.
++window = nocomment(CHEST.split('[proc,barrows_chest_window]', 1)[1].split('\n[', 1)[0])
++check('inv_transmit(barrows_reward_store, barrows_chest:loot);' in window
++      and 'if_openmain(barrows_chest);' in window,
+       'and the script transmits one into the other')
+ # NO DEAD CLICKS IN THE WINDOW, which is the same rule the POH round put on a house.
+ opts = sorted(k for k in IFB['loot'] if re.fullmatch(r'option\d', k))
+diff --git a/tools/barrows_mutate.py b/tools/barrows_mutate.py
+index 867d3413..736f69ec 100644
+--- a/tools/barrows_mutate.py
++++ b/tools/barrows_mutate.py
+@@ -539,6 +539,12 @@ MUTS = [
+   '27 nothing goes straight to the pack or the bank any more'),
+  (CHEST, 'inv_transmit(barrows_reward_store, barrows_chest:loot);\n', '',
+   '27 and the script transmits one into the other'),
++ # THE SECOND TRANSMIT, and it needs the proc header in the pattern to reach it: the replace above
++ # takes the FIRST occurrence, and for a while that was the only one either side tested. Deleting
++ # one while the other stood is exactly what walked through the old blanket check.
++ (CHEST, '[proc,barrows_chest_reopen]\ninv_transmit(barrows_reward_store, barrows_chest:loot);\n',
++         '[proc,barrows_chest_reopen]\n',
++  '27 reopening transmits and opens and does NOT roll again'),
+ 
+  # --- the door before the chest
+  (CONST, '^barrows_puzzles = 8', '^barrows_puzzles = 6',
+-- 
+2.43.0
+
