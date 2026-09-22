@@ -1,0 +1,5 @@
+# Wizard and gnome hats re-encoded from OSRS over the 377 models, in place (reconvert_osrs.py).
+# Every wizard hat and all five gnome hats share these two model sets and differ only by
+# recolour; OSRS keeps the same model ids and the same colours, so no .obj needs to change.
+Blue wizard hat=bluewizhat
+Blue wizard hat (g)=bluewizhat_trim_gold
