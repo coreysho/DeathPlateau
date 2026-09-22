@@ -54,11 +54,21 @@ echo.
 echo  Saved to edit-account.cfg - delete that file to be asked again.
 echo.
 echo  TIP: every command below opens its own ssh session, so without a key
-echo  you will be asked for the password each time. To set one up, run these
-echo  two lines once in PowerShell and you will never be asked again:
+echo  you will be asked for the password each time - and Debian refuses root
+echo  password logins outright, so it may not let you in at all. Set up a key:
 echo.
-echo    ssh-keygen -t ed25519
-echo    type $env:USERPROFILE\.ssh\id_ed25519.pub ^| ssh !SSH_USER!@!SSH_HOST! "cat ^>^> .ssh/authorized_keys"
+echo    1. In PowerShell on this PC:
+echo         ssh-keygen -t ed25519            (Enter through every question)
+echo         Get-Content $env:USERPROFILE\.ssh\id_ed25519.pub ^| Set-Clipboard
+echo.
+echo    2. In the server's own console (Proxmox: the container, then Console):
+echo         mkdir -p ~/.ssh
+echo         echo "PASTE" ^> ~/.ssh/authorized_keys
+echo         chmod 700 ~/.ssh
+echo         chmod 600 ~/.ssh/authorized_keys
+echo.
+echo  It goes in through the console because ssh cannot be used to install
+echo  the key that ssh needs before it will let you in.
 echo.
 pause
 
