@@ -3,20 +3,24 @@
 
     python tools/models/genstatsosrs.py "caches/newest cache"
 
-OSRS's skill tab until Sailing (2013-2025) was 474's: the same 3x8 grid of stone cells on a 63x31
-pitch, the icon at the left of each, level over level with a slash between, and the total in the
-last cell. What OSRS changed was the art, and a current cache still carries it: sprite 174 is a
-cell's left half, 175 its right half with the slash, 176 the right half without one - the total's
-cell - and the skill icons are enum 255's. (The cells today's tab draws, 187/188, and its total bar,
-189-191, came with Sailing and are not used here.)
+OSRS's skill tab until Sailing (2013-2025) was 474's: the same 3x8 grid of stone cells, with the
+knobbed frame between them, the icon at the left of each, level over level with a slash between. It
+differed in the details below, measured off a pre-Sailing screenshot at 2x by matching each thing's
+own pixels (the result differs from that screenshot in 16 pixels of 49,536). This makes those
+changes to the 474 file and nothing else, so every name the scripts and genxplock.py use is kept:
 
-So this re-skins the 474 file rather than moving anything, and every name and place the scripts and
-genxplock.py rely on stays as it is:
+  - the rows are 32 pixels apart, not 31, and each row's cell art sits a pixel above its row
+  - the levels sit by one rule, 33,5 and 45,17 in each 63x32 cell, which 474 kept only roughly; the
+    icons sit where OSRS put them one by one (a table, ICON_AT)
+  - the icons are OSRS's (enum 255) where they differ: Runecraft, Slayer, Farming, Hunter, Construction
+  - the total's box is OSRS's black cell with the stone rim (sprites 183 / 184, halves like every
+    other cell's) where 474 drew nested rects, and says "Total level:" over the number in small yellow
+  - hovering it shows your total experience, "Total XP: 4,600,000,000", where 474's panel showed
+    combat level and quest points. That is client code 329 (Client-Java), which sums every skill as
+    a long: 23 skills at 200M do not fit the int a component script adds in.
 
-  - 474's left and right halves (miscgraphics,4 and i474_175) become OSRS's 174 and 175
-  - an icon becomes OSRS's where OSRS's differs (Runecraft, Slayer, Farming, Hunter, Construction)
-  - the total's cell, which 474 drew as nested rects, becomes 174 + 176 like the others, and says
-    "Total level:" over the number in the small yellow font, as OSRS's did
+(A current cache's other cell art - 174/175/176, and Sailing's 187-191 - is not 474's knobbed frame
+and is not used.)
 
 It runs on the 474 layout; a second run finds no 474 art to replace and stops.
 """
@@ -28,7 +32,7 @@ sys.path.insert(0, HERE)
 CONTENT = os.path.join(ROOT, 'content')
 PATH = os.path.join(CONTENT, 'scripts', 'interfaces', 'stats.if')
 SPRITES = os.path.join(CONTENT, 'sprites')
-MARK = "// PRE-SAILING OSRS's art"
+MARK = "// PRE-SAILING OSRS's changes to 474's tab"
 
 
 def parse(text):
@@ -68,13 +72,10 @@ def main():
     from PIL import Image
     cache = Cache(sys.argv[1])
     raw = open(PATH, encoding='utf-8').read()
-    if MARK in raw or 'miscgraphics,4' not in raw:
-        raise SystemExit('stats.if has no 474 cell art to replace - is it already done?')
+    if MARK in raw:
+        raise SystemExit("stats.if has already been given OSRS's changes")
     head, blocks = parse(raw)
 
-    left = write_sprite('osrsstat_cell_l', cache.sprite(174))
-    right = write_sprite('osrsstat_cell_r', cache.sprite(175))
-    plain = write_sprite('osrsstat_cell_rplain', cache.sprite(176))
     wanted = set(cache.enum(255).values())
     icons = {}
 
@@ -92,29 +93,80 @@ def main():
     out = []
     for n, kv, comments in blocks:
         g = get(kv, 'graphic') or ''
-        if g == 'miscgraphics,4':
-            put(kv, 'graphic', left)
-        elif g == 'i474_175,0':
-            put(kv, 'graphic', right)
-        elif get(kv, 'type') == 'graphic' and get(kv, 'width') == '25':
+        # OSRS's rows are 32 apart where 474's are 31 (measured off a pre-Sailing screenshot: the same
+        # digits, 64 pixels apart at 2x). Every visible top-level component - the row layers, the
+        # total's cell, the click boxes - moves down by its row number; the hover panels stay put.
+        if get(kv, 'layer') is None and get(kv, 'hide') is None and get(kv, 'y') is not None:
+            y, h = int(get(kv, 'y')), int(get(kv, 'height') or 0)
+            row = max(0, min(7, int((y + min(h, 31) / 2) // 31)))
+            put(kv, 'y', y + row)
+            if get(kv, 'buttontype') or n == 'total_hover_target':
+                put(kv, 'height', 32)
+        # and a row's cell art sits a pixel above the row: both halves of every cell
+        if g in ('i474_175,0', 'miscgraphics,4'):
+            put(kv, 'y', int(get(kv, 'y')) - 1)
+        if get(kv, 'type') == 'graphic' and get(kv, 'width') == '25':
             put(kv, 'graphic', icon(g))
         if get(kv, 'layer') == 'com_42' and get(kv, 'type') == 'rect':
-            continue  # 474's box for the total; OSRS's cell replaces it below
+            continue  # 474's square box; OSRS's chamfered black cell replaces it below
         if n == 'total_label':
-            put(kv, 'y', 3); put(kv, 'font', 'p11_full'); put(kv, 'text', 'Total level:')
+            put(kv, 'x', 6); put(kv, 'y', 7); put(kv, 'font', 'p11_full'); put(kv, 'text', 'Total level:')
         if get(kv, 'script1op1') == 'op9':
-            put(kv, 'y', 16); put(kv, 'font', 'p11_full')
+            put(kv, 'x', 6); put(kv, 'y', 17); put(kv, 'font', 'p11_full')
+        # the hover: one line, the total experience, at the foot of the panel where the others' boxes end
+        if n in ('com_65', 'total_hover_qp_label', 'com_67'):
+            continue
+        if n == 'total_hover_box':
+            put(kv, 'y', 21); put(kv, 'height', 18)
+        if n == 'total_hover_label':
+            put(kv, 'y', 23); put(kv, 'width', 170); put(kv, 'text', 'Total XP:')
+            kv.insert(4, ['clientcode', '329'])
         out.append((n, kv, comments))
         if n == 'com_42':
-            # the total's cell, drawn first inside its layer: the left half and the plain right half,
-            # where the row layers put theirs
-            out.append(('total_cell_l', [['layer', 'com_42'], ['type', 'graphic'], ['x', 0], ['y', 0], ['width', 36],
-                                         ['height', 36], ['graphic', left]], []))
-            out.append(('total_cell_r', [['layer', 'com_42'], ['type', 'graphic'], ['x', 30], ['y', 0], ['width', 36],
-                                         ['height', 36], ['graphic', plain]], []))
+            # the total's cell: OSRS's black cell with the stone rim, in two halves like every cell
+            # (183 left, 184 right), where 474 had nested rects
+            for part, x, sid in (('l', 0, 183), ('r', 30, 184)):
+                out.append(('total_cell_%s' % part, [['layer', 'com_42'], ['type', 'graphic'], ['x', x], ['y', -1],
+                                                    ['width', 36], ['height', 36],
+                                                    ['graphic', write_sprite('osrsstat_total_%s' % part, cache.sprite(sid))]],
+                            []))
 
-    lines = [MARK + ' (174 / 175 / 176 and enum 255\'s icons), by LostCityServer tools/models/genstatsosrs.py;',
-             '// the layout is 474\'s, which OSRS\'s was. Rerun genxplock.py after editing.']
+    # EXACT PLACES, measured off a pre-Sailing screenshot at 2x (every figure below is where the thing
+    # is there, found by matching its own pixels). The levels follow one rule, which 474 kept only
+    # roughly: the level at 33,5 in each 63x32 cell and the base level at 45,17. The icons OSRS placed
+    # one by one (its script took an offset per skill), so they are a table: where 474's differs.
+    ICON_AT = {'com_49': (132, 5), 'com_52': (132, 37), 'com_55': (131, 69), 'com_58': (133, 101),
+               'com_61': (132, 133), 'com_64': (132, 165), 'com_54': (68, 69),
+               'construction_icon': (4, 229), 'hunter_icon': (67, 229)}
+    blocks_by = {n: kv for n, kv, _ in out}
+
+    def origin(n):
+        kv = blocks_by[n]
+        x, y = int(get(kv, 'x') or 0), int(get(kv, 'y') or 0)
+        if get(kv, 'layer'):
+            px, py = origin(get(kv, 'layer'))
+            x, y = x + px, y + py
+        return x, y
+
+    for n, kv, _ in out:
+        parent = get(kv, 'layer')
+        if parent and get(blocks_by[parent], 'hide') == 'yes':
+            continue
+        ax, ay = origin(n)
+        px, py = (ax - int(get(kv, 'x') or 0), ay - int(get(kv, 'y') or 0))
+        op = get(kv, 'script1op1') or ''
+        target = None
+        if n in ICON_AT:
+            target = ICON_AT[n]
+        elif op.startswith('stat_level,') or op.startswith('stat_base_level,'):
+            col, row = max(0, min(2, round((ax - 33) / 63))), max(0, min(7, round((ay - 5) / 32)))
+            base = op.startswith('stat_base_level,')
+            target = (33 + 63 * col + (12 if base else 0), 5 + 32 * row + (12 if base else 0))
+        if target:
+            put(kv, 'x', target[0] - px); put(kv, 'y', target[1] - py)
+
+    lines = [MARK + ' (its icons, the total\'s text and hover), by LostCityServer',
+             '// tools/models/genstatsosrs.py; the rest is 474\'s, which OSRS\'s was. Rerun genxplock.py after editing.']
     lines += [l for l in head if not l.startswith('//')]
     for n, kv, comments in out:
         lines.append('')
