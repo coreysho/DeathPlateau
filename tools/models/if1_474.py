@@ -6,7 +6,7 @@ because 474 stores 455 of its 620 interfaces in exactly that layout. The only di
 container: 377 concatenates every component into one `data` file inside a jagfile, while 474 puts
 one component per file in an idx3 group per interface. The bytes of a component are the same.
 
-Four things did change, all found by decoding real bytes and checking that each component is
+Five things did change, all found by decoding real bytes and checking that each component is
 consumed EXACTLY - a reader that stops early looks like it works:
 
   * every component carries its own x/y. 377 keeps a child's position in its parent's list, so a
@@ -17,13 +17,16 @@ consumed EXACTLY - a reader that stops early looks like it works:
   * a jstr terminates on NUL rather than 0x0a.
   * type 6's model/activemodel/anim/activeanim are u16 each, not 377's (hi-1<<8)+lo byte pairs.
 
-COVERAGE, measured over all 21,407 old-format components in the 474 cache:
-  20,048 consumed exactly
-   1,115 consumed with trailing zero bytes left over (harmless slack)
-     244 fail - ALL type 4, and all of them a variant that has one more byte between the text
-         and the colours than this reader expects. The condition for that byte is not worked out;
-         putting it in unconditionally breaks 2,759 others, so it is left alone. No tab ported so
-         far contains one. SOLVE THIS BEFORE PORTING A TEXT-HEAVY TAB.
+  * text (types 1 and 4) is x alignment, y alignment, line height, a u16 FONT ID (the sprite group
+    of the font: 494 p11, 495 p12, 496 b12, 497 q8) and the shadow flag - six bytes where 377 has
+    three (centre, font index, shadow).
+
+That last one was the "244 failures" this reader used to report. Reading 377's three bytes left the
+line height and the font id at the front of the text, which decoded as garbage characters, and a font
+id under 256 has a zero high byte, which ended the string early - those were the 244. Every one of
+the 4,479 type-1 and type-4 components in the cache now consumes exactly.
+
+    xalign 0 left, 1 centre, 2 right; yalign 0 top, 1 centre, 2 bottom
 """
 import struct
 
@@ -100,9 +103,12 @@ def decode(d):
     if t == 3:
         c['fill'] = b.g1() == 1
     if t in (1, 4):
-        c['center'] = b.g1() == 1
-        c['font'] = b.g1()
+        c['xalign'] = b.g1()
+        c['yalign'] = b.g1()
+        c['lineheight'] = b.g1()
+        c['font'] = b.g2()
         c['shadowed'] = b.g1() == 1
+        c['center'] = c['xalign'] == 1
     if t == 4:
         c['text'] = b.gjstr()
         c['activetext'] = b.gjstr()
