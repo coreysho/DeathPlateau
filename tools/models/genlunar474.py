@@ -149,6 +149,7 @@ def main():
     sys.path.insert(0, os.path.join(CONTENT, 'tools'))
     from if3_474 import Cache
     from port474if import Converter
+    from iffit import title_font
     cache = Cache(args[0])
     conv = Converter(cache, GID, IFNAME, {}, {}, 'overlay')
     ops = rune_ops()
@@ -198,8 +199,8 @@ def main():
             f += [('colour', col)] if col else []
             p.append(('%s_frame%d' % (tip, i), f))
         p.append(('%s_title' % tip, [('layer', tip), ('type', 'text'), ('x', 3), ('y', 4), ('width', 174), ('height', 14),
-                                     ('center', 'yes'), ('font', 'p12_full'), ('shadowed', 'yes'),
-                                     ('text', 'Level %d : %s' % (s['level'], s['title'])), ('colour', '0xFFF000')]))
+                                     ('center', 'yes'), ('font', title_font('Level %d : %s' % (s['level'], s['title']), 174)),
+                                     ('shadowed', 'yes'), ('text', 'Level %d : %s' % (s['level'], s['title'])), ('colour', '0xFFF000')]))
         desc = HOME_DESC if name == 'lunar_home_teleport' else wrap(s['desc'])
         p.append(('%s_desc' % tip, [('layer', tip), ('type', 'text'), ('x', 3), ('y', 17), ('width', 174), ('height', 30),
                                     ('center', 'yes'), ('font', 'p11_full'), ('shadowed', 'yes'),

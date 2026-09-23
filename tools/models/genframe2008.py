@@ -83,7 +83,11 @@ FRAME = {
 # name -> (tile w, tile h, [group per tile])
 SHEETS = {
     'tabstones':   (38, 36, [1026, 1027, 1028, 1029, 1030]),
-    'sideicons':   (33, 36, [168, 898, 899, 900, 901, 902, 903, 904, 905, 906, 907, 908, 909, 910, 904]),
+    # 15 and 16 are the magic tab's icon for Ancient Magicks and the Lunar spellbook: OSRS sprites 1580
+    # (the purple book) and 1581 (the pale book with the moon); 1579, the round sigil, is Arceuus's.
+    # 474 had one icon for every book. The client picks them by the %spellbook varp,
+    # clientcode 11 - see Client.java's spellbookIcon.
+    'sideicons':   (33, 36, [168, 898, 899, 900, 901, 902, 903, 904, 905, 906, 907, 908, 909, 910, 904, 1580, 1581]),
     'chatbuttons': (56, 22, [3051, 3052, 3053, 3054]),
     'reportbutton': (113, 22, [3057, 3058]),
 }

@@ -49,7 +49,7 @@ ANCIENT = ['home_teleport', 'smoke_rush', 'shadow_rush', 'paddewwa_teleport', 'b
 NEW = {
     'home_teleport': ('Cast @gre@Home Teleport', 0, 'Teleports you to Edgeville without\\nrunes, once every 30 minutes', []),
     'teleport_house': ('Cast @gre@Teleport to House', 40, 'Teleports you to your house', [('lawrune', 1), ('earthrune', 1), ('airrune', 1)]),
-    'enchant_bolt': ('Cast @gre@Enchant Crossbow Bolt', 4, 'Enchants gem-tipped crossbow bolts', []),
+    'enchant_bolt': ('Cast @gre@Enchant Crossbow Bolt', 4, 'Enchants gem-tipped\\ncrossbow bolts', []),
 }
 NEW_ANCIENT = {
     'home_teleport': ('Cast @gre@Edgeville Home Teleport', 0, 'Teleports you to Edgeville without\\nrunes, once every 30 minutes', []),
@@ -219,6 +219,10 @@ def port(cache, ifname, gid, slots, new, grid_layer, footer):
             framed += frame(p)
     blocks = framed
 
+    # titles too long for the panel in p12 drop to p11 (iffit.py)
+    from iffit import fit_titles
+    fit_titles(blocks, get, put)
+
     # each panel next to its spell's row, as 474's tooltip was
     for panel, y in panel_of.items():
         kv = by[panel]
@@ -278,8 +282,14 @@ def port_picker(cache):
 
 
 def main():
+    global CONTENT
+    args = [a for a in sys.argv[1:] if not a.startswith('--content=')]
+    for a in sys.argv[1:]:
+        if a.startswith('--content='):
+            CONTENT = os.path.abspath(a.split('=', 1)[1])
+    sys.path.insert(0, os.path.join(CONTENT, 'tools'))
     from if3_474 import Cache
-    cache = Cache(sys.argv[1])
+    cache = Cache(args[0])
     path, sprites = port_picker(cache)
     print('staff_spells: %s (%d new sprites)' % (os.path.relpath(path, CONTENT), len(sprites)))
     for ifname, gid, slots, new, layer, footer in (('magic', 192, MODERN, NEW, 'com_510', 'com_42'),
