@@ -1,2 +1,8 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# .bat files only ever run on Windows, and cmd.exe mishandles a LF-only batch file -
+# goto and parenthesised blocks are the first things to break. Keep them CRLF on
+# checkout whatever core.autocrlf says, so a clone made on Linux still produces
+# working scripts for a Windows machine to pick up.
+*.bat text eol=crlf

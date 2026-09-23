@@ -2,6 +2,9 @@ node_modules/
 .DS_Store
 
 server.json
+
+# Your own server address for edit-account.bat. Written on its first run; yours, not the repo's.
+edit-account.cfg
 content/
 engine/
 javaclient/
