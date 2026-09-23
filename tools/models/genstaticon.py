@@ -95,8 +95,35 @@ def paste(content, sprite_path, cell_index, sheet='staticons2'):
           % (sheet, cell_index, cols, rows, '' if before != after else ' - unchanged, same pixels'))
 
 
+def sprite_to_image(group, index):
+    """One decoded sprite as an RGBA image.
+
+    osrssprite.decode does NOT hand back images - it hands back palette indices, which is the only
+    form the cache stores. A sprite is a w*h array of indices into the group's shared palette, and
+    index 0 is the transparent one (the decoder skips the optional alpha plane, so 0 is the whole
+    of the transparency). Turning that into pixels is this function's entire job, and getting it
+    wrong is invisible until something renders black.
+    """
+    from PIL import Image
+    s = group['sprites'][index]
+    pal = group['palette']
+    im = Image.new('RGBA', (s['w'], s['h']), (0, 0, 0, 0))
+    if s['w'] == 0 or s['h'] == 0:
+        return im
+    px = im.load()
+    for y in range(s['h']):
+        row = y * s['w']
+        for x in range(s['w']):
+            i = s['px'][row + x]
+            if i == 0:
+                continue
+            rgb = pal[i] if i < len(pal) else 0
+            px[x, y] = ((rgb >> 16) & 0xFF, (rgb >> 8) & 0xFF, rgb & 0xFF, 255)
+    return im
+
+
 def cache_groups(cache):
-    """Every index-8 sprite group that decodes, with its sprite sizes."""
+    """Every index-8 sprite group that decodes."""
     from dat2 import Store
     import osrssprite
     st = Store(cache)
@@ -145,27 +172,28 @@ def main():
         os.makedirs(a.dump, exist_ok=True)
 
     found = []
-    for gid, sprites in cache_groups(a.cache):
-        small = [(i, s) for i, s in enumerate(sprites)
-                 if s.size[0] <= a.max_size and s.size[1] <= a.max_size]
+    for gid, group in cache_groups(a.cache):
+        sprites = group['sprites']
+        small = [i for i, s in enumerate(sprites)
+                 if 0 < s['w'] <= a.max_size and 0 < s['h'] <= a.max_size]
         if not small:
             continue
-        sizes = {s.size for _, s in small}
+        sizes = {(sprites[i]['w'], sprites[i]['h']) for i in small}
         uniform = len(sizes) == 1
         if a.skills and not (uniform and SKILLSET_MIN <= len(small) == len(sprites) <= SKILLSET_MAX):
             continue
         # Likeliest first: a full set of same-sized icons beats a near-miss, and among those the
         # one whose count is closest to the number of skills a cache of that era ships.
         rank = (0 if uniform else 1, abs(len(small) - SKILLS_EXPECTED))
-        found.append((rank, gid, sprites, small, uniform))
+        found.append((rank, gid, group, small, uniform, sizes))
 
     found.sort(key=lambda r: r[0])
-    for _, gid, sprites, small, uniform in found:
-        shape = '%dx%d' % small[0][1].size if uniform else '%d sizes' % len({s.size for _, s in small})
-        print('group %-6d %2d sprite(s)  %s' % (gid, len(sprites), shape))
+    for _, gid, group, small, uniform, sizes in found:
+        shape = '%dx%d' % next(iter(sizes)) if uniform else '%d sizes' % len(sizes)
+        print('group %-6d %2d sprite(s)  %s' % (gid, len(group['sprites']), shape))
         if a.dump:
-            for i, s in small:
-                s.save(os.path.join(a.dump, 'g%d_s%d.png' % (gid, i)))
+            for i in small:
+                sprite_to_image(group, i).save(os.path.join(a.dump, 'g%d_s%d.png' % (gid, i)))
     print('%d group(s)%s' % (len(found), ' shaped like a skill-icon set' if a.skills else
                              ' with sprites <= %dpx' % a.max_size))
     if not found and a.skills:
