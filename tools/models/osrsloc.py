@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 """OSRS loc (object) config decoder - idx2 group 6, RuneLite ObjectLoader (rev 220+ sound data).
-Every record must end exactly on its 0 terminator or it is rejected."""
+Every record must end exactly on its 0 terminator or it is rejected.
+
+rev474=True reads the rev 474 (2007) layout instead, which differs in four opcodes: 3 is the old
+examine string, 60 the old map function (a u2), and 78/79 - the ambient sounds - lack the byte
+OSRS added to each at rev 220. Read the OSRS way, 474's 78 swallowed the next opcode, so every
+loc with a sound (the Astral altar, 17010, among them) came out "index out of range" and
+import474map.py dropped it from the map without a word beyond the count."""
 import struct
 
 class _R:
@@ -20,7 +26,7 @@ class _R:
             out[k] = s.string() if is_str else s.i4()
         return out
 
-def decode_osrs_loc(b):
+def decode_osrs_loc(b, rev474=False):
     r = _R(b); d = dict(ops={})
     while True:
         op = r.u1()
@@ -79,10 +85,15 @@ def decode_osrs_loc(b):
             d['multi'] = dict(varbit=None if vb == 0xFFFF else vb, varp=None if vp == 0xFFFF else vp,
                               children=[None if c == 0xFFFF else c for c in ch],
                               default=None if dflt in (None, 0xFFFF) else dflt)
-        elif op == 78: r.u2(); r.u1(); r.u1()
+        elif op == 78:
+            r.u2(); r.u1()
+            if not rev474: r.u1()
         elif op == 79:
-            r.u2(); r.u2(); r.u1(); r.u1()
+            r.u2(); r.u2(); r.u1()
+            if not rev474: r.u1()
             n = r.u1(); [r.u2() for _ in range(n)]
+        elif rev474 and op == 3: d['desc'] = r.string()
+        elif rev474 and op == 60: d['mapfunction'] = r.u2()
         elif op == 81: d['hillskew'] = True; r.u1()
         elif op == 82: d['maparea'] = r.u2()
         elif op in (89, 90, 94): pass

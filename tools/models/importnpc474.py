@@ -36,8 +36,8 @@ def main():
     print(f'# 474 npc {a.npc}: {n.get("name")}  size={n.get("size")}  '
           f'models={n["models"]}  recols={len(n["recol"])}')
     if n['recol']:
-        print('# NOTE: this npc has cache recolours; they are emitted raw as HSL16 and '
-              'must be checked against the model before shipping')
+        print('# NOTE: this npc has cache recolours; each is written back as the RGB15 the packer turns '
+              'into that HSL16 (import474.hsl16_to_rgb15), or raw where none exists - check those in game')
 
     model_pack = os.path.join(a.content, 'pack', 'model.pack')
     npc_pack = os.path.join(a.content, 'pack', 'npc.pack')
@@ -59,6 +59,15 @@ def main():
     if n.get('resizev'):  lines.append(f'resizev={n["resizev"]}')
     for k, v in sorted((n.get('ops') or {}).items()):
         lines.append(f'op{k+1}={v}')
+    # A .npc config writes RGB15 and the packer converts to HSL16, so each cache recolour goes back
+    # through the same preimage table import474.py uses for objs. These used to be announced and then
+    # left out, which put the npc in game in its models' base colours.
+    from import474 import hsl16_to_rgb15
+    for i, (s, d) in enumerate(n.get('recol') or [], start=1):
+        (sv, ok1), (dv, ok2) = hsl16_to_rgb15(s), hsl16_to_rgb15(d)
+        if not (ok1 and ok2):
+            print(f'# WARNING recol{i} has no RGB15 preimage (src={s} dst={d}) - emitted raw')
+        lines += [f'recol{i}s={sv}', f'recol{i}d={dv}']
     if n.get('vislevel'): lines.append(f'vislevel={n["vislevel"]}')
     for k, v in (('attack_anim', a.attack), ('defend_anim', a.defend), ('death_anim', a.death)):
         if v: lines.append(f'param={k},{v}')

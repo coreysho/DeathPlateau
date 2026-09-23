@@ -60,6 +60,16 @@ Fire cape face for face. **Do not reverse an imported mesh's winding** on a pixe
 - `Final.java` - the original one-model-at-a-time probe, kept for its icon-and-both-sides summary.
 - `layers.py` - one .ob2 per priority group of an OSRS model, other groups collapsed to a point,
   so each layer can be drawn alone. This is the probe that broke the wrong diagnosis.
+- `PoseRender.java <config.jag> <textures.jag> <content> <out.png> <seq>[:label] ...` - a new male
+  character (the first selectable kit of each body part) posed through six frames of each seq, with
+  the client's own AnimFrame and Model. Reads the .anim sets straight out of `<content>/models`, so it
+  needs no cache. Written for the Lunar spellbook's 474 cast animations, because 474's Home Teleport
+  ones pulled the head off this build's bodies; `-Dpose.h=` / `-Dpose.y=` for taller poses.
+- `IfRender.java <data/pack/client> <content> <out.png> <interface> [magic=N] [runes=obj:n,...]
+  [hover=<layer>]` - a side-tab interface drawn by `Client.drawInterface` on the tab's own stone,
+  with its client scripts run against the player you describe, so an icon is lit exactly when the
+  client would light it; `hover=` shows a panel as the mouse would. Compile it into
+  `jagex2.client`. Model components (a spell panel's runes) stay blank: nothing loads on-demand models.
 
 ## Reading the numbers
 

@@ -72,7 +72,7 @@ class Cache474:
         s.locs = {}
         for i, f in zip(ids, split_group(s.st.read(2, 6), len(ids))):
             if not f: continue
-            try: s.locs[i] = decode_osrs_loc(f)
+            try: s.locs[i] = decode_osrs_loc(f, rev474=True)
             except Exception: pass
     def terrain(s, reg):
         g = s.maps.get(jh('m' + reg))
@@ -216,6 +216,8 @@ def main():
     ap.add_argument('cache'); ap.add_argument('--region', action='append', required=True)
     ap.add_argument('--content', required=True); ap.add_argument('--out', required=True)
     ap.add_argument('--dry-run', action='store_true')
+    ap.add_argument('--header', action='append', default=[],
+                    help="a comment line for the top of the .loc (repeatable); without one the file says only where it came from")
     a = ap.parse_args()
     C = a.content
     c = Cache474(a.cache); c3 = Content377(C); R = Resolver(c, c3)
@@ -225,8 +227,8 @@ def main():
     kinds = {}
     for v in plan.values(): kinds[v[0]] = kinds.get(v[0], 0) + 1
     print(f'{len(used)} distinct 474 locs: {kinds}')
-    lines = ['// Construction room templates imported from the rev 474 cache by tools/models/import474map.py.',
-             '// Hotspots ("Chair space", "Door hotspot"...) and the house-style walls 377 never had.', '']
+    lines = ['// Imported from the rev 474 cache by tools/models/import474map.py: ' + ', '.join('m' + r for r in a.region) + '.']
+    lines += ['// ' + h for h in a.header] + ['']
     model_files = {}; notes = []; newname = {}
     for oid, (k, v) in sorted(plan.items()):
         if k == 'import' and v not in newname:

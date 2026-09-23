@@ -41,7 +41,13 @@ def decode_spot(b):
         elif op == 6: out['angle'] = g2()
         elif op == 7: out['ambient'] = g1()
         elif op == 8: out['contrast'] = g1()
-        elif 40 <= op < 50: g2(); g2()      # recolour pair
+        elif op in (40, 41):
+            # a COUNT, then that many (from, to) pairs: 40 recolours, 41 retextures. The 377 layout
+            # these used to be read as - one pair per opcode, 40..49 - is not 474's, and read that way
+            # the first recoloured graphic (Vengeance's, 726) ran into its own pairs as opcodes.
+            pairs = [(g2(), g2()) for _ in range(g1())]
+            if op == 40:
+                out['recol'] = pairs
         else:
             raise SystemExit('spotanim opcode %d unknown' % op)
 
@@ -60,7 +66,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('cache')
     ap.add_argument('spots', nargs='+', help='474 spotanim id:name')
-    ap.add_argument('--out', required=True, help='.spotanim to write (a .seq beside it gets the animations)')
+    ap.add_argument('--out', required=True, help='.spotanim to write. The .seq beside it gets the animations and is '
+                    'REWRITTEN, so this must not share a name with a .seq that holds anything else')
     a = ap.parse_args()
     from dat2 import Store
     from reftable import RefTable, split_group
@@ -71,22 +78,37 @@ def main():
     lines = ['// Graphics from the rev 474 cache, by LostCityServer tools/models/importspot474.py: models byte for',
              '// byte, animations converted by animconv474.py into the .seq beside this file.', '']
     seqs = []
+    # Graphics share: Vengeance and Vengeance Other are one model and one animation in two colours.
+    # Each model is copied once and each animation converted once, under the first name that asks
+    # - two names for one 474 seq would reach animconv474 as one id, which keeps only the last.
+    model_names, anim_names = {}, {}
     for spec in a.spots:
         sid, name = spec.split(':')
         d = decode_spot(spots[int(sid)])
         data = st.read(7, d['model'])
         if data[-2:] == b'\xff\xff':
             raise SystemExit('spotanim %s: model %d is new-format' % (sid, d['model']))
-        mname = 'spot_%s' % name
-        open(os.path.join(CONTENT, 'models', 'spot', mname + '.ob2'), 'wb').write(data)
-        register(os.path.join(CONTENT, 'pack', 'model.pack'), mname)
+        mname = model_names.setdefault(d['model'], 'spot_%s' % name)
+        if mname == 'spot_%s' % name:
+            open(os.path.join(CONTENT, 'models', 'spot', mname + '.ob2'), 'wb').write(data)
+            register(os.path.join(CONTENT, 'pack', 'model.pack'), mname)
         lines += ['[%s]' % name, 'model=%s' % mname]
         if 'anim' in d:
-            lines.append('anim=%s_anim' % name)
-            seqs.append('%d:%s_anim' % (d['anim'], name))
+            if d['anim'] not in anim_names:
+                anim_names[d['anim']] = '%s_anim' % name
+                seqs.append('%d:%s_anim' % (d['anim'], name))
+            lines.append('anim=%s' % anim_names[d['anim']])
         for k in ('resizeh', 'resizev', 'angle', 'ambient', 'contrast'):
             if k in d:
                 lines.append('%s=%d' % (k, d[k]))
+        # a .spotanim writes RGB15 and the packer converts to HSL16, so the cache's HSL16 goes back
+        # through the preimage table the obj and npc importers use
+        from import474 import hsl16_to_rgb15
+        for i, (s, e) in enumerate(d.get('recol', []), start=1):
+            (sv, ok1), (ev, ok2) = hsl16_to_rgb15(s), hsl16_to_rgb15(e)
+            if not (ok1 and ok2):
+                print('  %s recol%d has no RGB15 preimage (%d -> %d), written raw' % (name, i, s, e))
+            lines += ['recol%ds=%d' % (i, sv), 'recol%dd=%d' % (i, ev)]
         lines.append('')
         register(os.path.join(CONTENT, 'pack', 'spotanim.pack'), name)
         print('%s %s: model %d%s' % (sid, name, d['model'], ', anim %d' % d['anim'] if 'anim' in d else ''))
