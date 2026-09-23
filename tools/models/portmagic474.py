@@ -246,9 +246,42 @@ def port(cache, ifname, gid, slots, new, grid_layer, footer):
     return path, new_sprites
 
 
+def port_picker(cache):
+    """The staff's autocast picker (staff_spells.if) is 474 interface 319 component for component, in
+    the same places; 474 only repainted its sixteen spells with the new icons. So does this, joining
+    button to button by position and refusing if any has moved."""
+    from port474if import Converter
+    conv = Converter(cache, 319, 'staff_spells', {}, {}, 'overlay')
+    theirs = [(c['x'], c['y'], c['graphic'], c['activegraphic']) for f, c in sorted(conv.comps.items())
+              if c.get('buttontype') and c.get('graphic') is not None]
+    path = os.path.join(CONTENT, 'scripts', 'skill_combat', 'interfaces', 'magic', 'staff_spells.if')
+    blocks = parse_if(open(path, encoding='utf-8').read())
+    ours = [kv for n, kv in blocks if n and get(kv, 'buttontype') and re.match(r'(magicoff|i474_)', get(kv, 'graphic') or '')]
+    if len(ours) != len(theirs):
+        raise SystemExit('staff_spells: %d spell buttons, 474 has %d' % (len(ours), len(theirs)))
+    for kv, (x, y, dark, lit) in zip(ours, theirs):
+        if (int(get(kv, 'x')), int(get(kv, 'y'))) != (x, y):
+            raise SystemExit('staff_spells: a button at %s,%s where 474 has one at %d,%d' % (get(kv, 'x'), get(kv, 'y'), x, y))
+        put(kv, 'graphic', conv.sprite(dark))
+        put(kv, 'activegraphic', conv.sprite(lit))
+    out = []
+    for n, kv in blocks:
+        if n is None:
+            out += kv
+            continue
+        out.append('')
+        out.append('[%s]' % n)
+        out += ['%s=%s' % (k, v) for k, v in kv]
+    with open(path, 'w', encoding='utf-8', newline='\r\n') as f:
+        f.write('\n'.join(out).lstrip('\n') + '\n')
+    return path, conv.write_sprites(os.path.join(CONTENT, 'sprites'))
+
+
 def main():
     from if3_474 import Cache
     cache = Cache(sys.argv[1])
+    path, sprites = port_picker(cache)
+    print('staff_spells: %s (%d new sprites)' % (os.path.relpath(path, CONTENT), len(sprites)))
     for ifname, gid, slots, new, layer, footer in (('magic', 192, MODERN, NEW, 'com_510', 'com_42'),
                                                    ('ancient_magic', 193, ANCIENT, NEW_ANCIENT, None, 'com_0')):
         path, sprites = port(cache, ifname, gid, slots, new, layer, footer)
