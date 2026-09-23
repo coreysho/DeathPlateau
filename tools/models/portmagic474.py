@@ -47,7 +47,7 @@ ANCIENT = ['home_teleport', 'smoke_rush', 'shadow_rush', 'paddewwa_teleport', 'b
 
 # spell -> (option, level, description, runes [(rune obj, count)])
 NEW = {
-    'home_teleport': ('Cast @gre@Home Teleport', 0, 'Teleports you home without runes,\\nonce every 30 minutes', []),
+    'home_teleport': ('Cast @gre@Home Teleport', 0, 'Teleports you to Edgeville without\\nrunes, once every 30 minutes', []),
     'teleport_house': ('Cast @gre@Teleport to House', 40, 'Teleports you to your house', [('lawrune', 1), ('earthrune', 1), ('airrune', 1)]),
     'enchant_bolt': ('Cast @gre@Enchant Crossbow Bolt', 4, 'Enchants gem-tipped crossbow bolts', []),
 }
