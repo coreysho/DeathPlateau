@@ -129,6 +129,15 @@ class Converter:
         if c['parent'] is not None:
             head.append('layer=%s' % self.name(c['parent']))
         t = c['type']
+        if t == 9 and (c['width'] == 0 or abs(c['height']) == 0):
+            # a straight line (the new format's type 9) is a filled rect one line-width thick
+            lw = max(1, c.get('linewidth') or 1)
+            w, h = max(c['width'], lw), max(abs(c['height']), lw)
+            y = c['y'] + min(0, c['height'])
+            kv = [('type', 'rect')] + [tuple(x.split('=', 1)) for x in head]
+            kv += [('x', c['x']), ('y', y), ('width', w), ('height', h), ('fill', 'yes'),
+                   ('colour', '0x%06X' % (c.get('colour', 0) & 0xffffff))]
+            return [(name, kv)]
         if t not in TYPES:
             self.note(fid, 'type %d has no 377 form - skipped' % t)
             return []
