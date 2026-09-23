@@ -11,3 +11,7 @@ Engine-TS/
 
 # Source caches for asset imports (rev 474, OSRS). Tens of MB each - never commit.
 caches/
+
+# Python bytecode, written whenever the tools/models scripts run.
+__pycache__/
+*.pyc
