@@ -20,7 +20,9 @@ class _R:
             out[k] = s.string() if is_str else s.i4()
         return out
 
-def decode_osrs_loc(b):
+def decode_osrs_loc(b, rev474=False):
+    """rev474: the 474 cache's forms of the opcodes that changed since - 60 (map function), and the
+    area sounds 78 (bgsound, range) and 79 (random sounds), which OSRS widened by a byte."""
     r = _R(b); d = dict(ops={})
     while True:
         op = r.u1()
@@ -79,10 +81,14 @@ def decode_osrs_loc(b):
             d['multi'] = dict(varbit=None if vb == 0xFFFF else vb, varp=None if vp == 0xFFFF else vp,
                               children=[None if c == 0xFFFF else c for c in ch],
                               default=None if dflt in (None, 0xFFFF) else dflt)
-        elif op == 78: r.u2(); r.u1(); r.u1()
+        elif op == 60 and rev474: d['mapfunction'] = r.u2()
+        elif op == 78:
+            d['bgsound'] = (r.u2(), r.u1())
+            if not rev474: r.u1()
         elif op == 79:
-            r.u2(); r.u2(); r.u1(); r.u1()
-            n = r.u1(); [r.u2() for _ in range(n)]
+            lo = r.u2(); hi = r.u2(); rg = r.u1()
+            if not rev474: r.u1()
+            n = r.u1(); d['randomsound'] = (lo, hi, rg, [r.u2() for _ in range(n)])
         elif op == 81: d['hillskew'] = True; r.u1()
         elif op == 82: d['maparea'] = r.u2()
         elif op in (89, 90, 94): pass
