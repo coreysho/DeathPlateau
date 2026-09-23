@@ -160,7 +160,11 @@ class Converter:
     def behaviour(self, fid, c):
         kv = []
         if c.get('if3'):
-            if c['ops']:
+            if c['ops'] == ['Close']:
+                # 474's close X is a one-op component; the old format's own close button does what
+                # its script did, with no trigger to write
+                kv.append(('buttontype', 'close'))
+            elif c['ops']:
                 label = c['ops'][0]
                 if c.get('name'):
                     label += ' ' + tags(c['name'])
