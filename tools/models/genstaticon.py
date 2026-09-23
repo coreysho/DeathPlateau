@@ -42,6 +42,16 @@ KEY = (255, 0, 255)
 # The bounds are loose on purpose - caches of different years ship different skill counts.
 SKILLSET_MIN, SKILLSET_MAX, SKILLS_EXPECTED = 15, 32, 23
 
+# OSRS skill order, which is what an OSRS sprite group is laid out in. NOT this build's order:
+# 377 put Construction at 21 because it landed first in that client, and Hunter went in the spare
+# slot at 22. OSRS has it the other way round - Hunter 21, Construction 22 - so the sprite to lift
+# is 21 and the cell to paste it into is 4. Getting those two confused is the obvious mistake here.
+OSRS_SKILLS = ['Attack', 'Defence', 'Strength', 'Hitpoints', 'Ranged', 'Prayer', 'Magic',
+               'Cooking', 'Woodcutting', 'Fletching', 'Fishing', 'Firemaking', 'Crafting',
+               'Smithing', 'Mining', 'Herblore', 'Agility', 'Thieving', 'Slayer', 'Farming',
+               'Runecraft', 'Hunter', 'Construction']
+HUNTER_IN_OSRS = OSRS_SKILLS.index('Hunter')
+
 
 def load_png(path):
     from PIL import Image
@@ -176,7 +186,7 @@ def resolve_cache(path):
                      % (path, ', '.join(listing) if listing else '(nothing)'))
 
 
-def contact_sheet(group, indices, path, scale=3, pad=6):
+def contact_sheet(group, indices, path, scale=3, pad=6, names=None):
     """Every sprite in a group on one labelled sheet.
 
     Picking an icon out of a folder of twenty-three PNGs named by number means opening twenty-three
@@ -189,7 +199,9 @@ def contact_sheet(group, indices, path, scale=3, pad=6):
     tiles = [(i, sprite_to_image(group, i)) for i in indices]
     tw = max(im.size[0] for _, im in tiles) * scale
     th = max(im.size[1] for _, im in tiles) * scale
-    label = 12
+    # 24, not 20: the name sits 11px under the number and its glyphs are ~11 tall, so a
+    # shorter strip clips the bottom row of the sheet - which is the row Hunter is on.
+    label = 24 if names else 12
     cols = min(8, len(tiles))
     rows = (len(tiles) + cols - 1) // cols
     cw, ch = tw + pad * 2, th + pad + label
@@ -208,6 +220,9 @@ def contact_sheet(group, indices, path, scale=3, pad=6):
         bg.alpha_composite(big)
         sheet.paste(bg.convert('RGB'), (cx + pad + (tw - big.size[0]) // 2, cy + pad))
         draw.text((cx + pad, cy + pad + th + 1), str(i), fill=(235, 235, 235))
+        if names and i < len(names):
+            tint = (255, 225, 120) if names[i] == 'Hunter' else (170, 170, 178)
+            draw.text((cx + pad, cy + pad + th + 11), names[i][:11], fill=tint)
     sheet.save(path)
 
 def cache_groups(cache):
@@ -245,6 +260,9 @@ def main():
                          'the same size. Ranked, likeliest first')
     ap.add_argument('--max-size', type=int, default=64,
                     help='only consider sprites no larger than this (default 64)')
+    ap.add_argument('--pick', type=int,
+                    help='with --cache: take sprite N straight out of the detected icon group and '
+                         'paste it, with no intermediate file and no filename to type')
     ap.add_argument('--sprite', help='a PNG to paste into the sheet')
     ap.add_argument('--cell', type=int, help='which cell of the sheet to paste into, row-major from 0')
     ap.add_argument('--sheet', default='staticons2', help='sheet name (default staticons2)')
@@ -255,6 +273,41 @@ def main():
         if a.cell is None:
             raise SystemExit('--sprite needs --cell')
         paste(a.content, a.sprite, a.cell, a.sheet)
+        return
+
+    if a.pick is not None:
+        if a.cell is None:
+            raise SystemExit('--pick needs --cell')
+        if not a.cache:
+            raise SystemExit('--pick needs --cache')
+        best = None
+        for gid, group in cache_groups(a.cache):
+            sprites = group['sprites']
+            small = [i for i, sp in enumerate(sprites)
+                     if 0 < sp['w'] <= a.max_size and 0 < sp['h'] <= a.max_size]
+            if not small or len(small) != len(sprites):
+                continue
+            if not SKILLSET_MIN <= len(small) <= SKILLSET_MAX:
+                continue
+            if len({(sprites[i]['w'], sprites[i]['h']) for i in small}) != 1:
+                continue
+            rank = abs(len(small) - SKILLS_EXPECTED)
+            if best is None or rank < best[0]:
+                best = (rank, gid, group)
+        if best is None:
+            raise SystemExit('no group in index 8 is shaped like a skill-icon set - run --skills '
+                             '--dump first and see what is there')
+        _, gid, group = best
+        if not 0 <= a.pick < len(group['sprites']):
+            raise SystemExit('group %d has %d sprites, so --pick must be 0..%d'
+                             % (gid, len(group['sprites']), len(group['sprites']) - 1))
+        named = (OSRS_SKILLS[a.pick] if len(group['sprites']) == len(OSRS_SKILLS)
+                 and a.pick < len(OSRS_SKILLS) else None)
+        print('group %d sprite %d%s' % (gid, a.pick, ' - %s by OSRS order' % named if named else ''))
+        import tempfile
+        tmp = os.path.join(tempfile.mkdtemp(), 'pick.png')
+        sprite_to_image(group, a.pick).save(tmp)
+        paste(a.content, tmp, a.cell, a.sheet)
         return
 
     if not a.cache:
@@ -287,21 +340,32 @@ def main():
         if a.dump:
             for i in small:
                 sprite_to_image(group, i).save(os.path.join(a.dump, 'g%d_s%d.png' % (gid, i)))
-            contact_sheet(group, small, os.path.join(a.dump, 'g%d_ALL.png' % gid))
+            names = OSRS_SKILLS if len(group['sprites']) == len(OSRS_SKILLS) else None
+            contact_sheet(group, small, os.path.join(a.dump, 'g%d_ALL.png' % gid), names=names)
     print('%d group(s)%s' % (len(found), ' shaped like a skill-icon set' if a.skills else
                              ' with sprites <= %dpx' % a.max_size))
     if not found and a.skills:
         print('nothing matched - re-run without --skills to see everything small')
     if a.dump and found:
-        gid = found[0][1]
+        gid, group = found[0][1], found[0][2]
+        sheet = os.path.join(a.dump, 'g%d_ALL.png' % gid)
         print()
-        print('Open %s' % os.path.join(a.dump, 'g%d_ALL.png' % gid))
-        print('Every sprite in the group on one sheet, each with its number under it. Find Hunter,')
-        print('read its number, then paste that one in:')
-        print()
-        print('  python %s --sprite %s --cell 4 --content <your Content repo>'
-              % (os.path.join('tools', 'models', 'genstaticon.py'),
-                 os.path.join(a.dump, 'g%d_s<number>.png' % gid)))
+        print('Open %s' % sheet)
+        if len(group['sprites']) == len(OSRS_SKILLS):
+            print('It has %d sprites, so they are labelled with OSRS\'s skill order. CHECK THE '
+                  'LABELS FIT' % len(OSRS_SKILLS))
+            print('- 0 should be a sword, 14 a pickaxe - and then Hunter is %d, highlighted.'
+                  % HUNTER_IN_OSRS)
+            print()
+            print('  python %s --cache %s --pick %d --cell 4 --content <your Content repo>'
+                  % (os.path.join('tools', 'models', 'genstaticon.py'), a.cache, HUNTER_IN_OSRS))
+        else:
+            print('%d sprites, so they are numbered rather than named - this is not the 23-skill'
+                  % len(group['sprites']))
+            print('layout. Find Hunter, read its number, and pass that as --pick.')
+            print()
+            print('  python %s --cache %s --pick <number> --cell 4 --content <your Content repo>'
+                  % (os.path.join('tools', 'models', 'genstaticon.py'), a.cache))
 
 
 main()
