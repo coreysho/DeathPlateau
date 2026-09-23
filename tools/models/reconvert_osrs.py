@@ -6,8 +6,8 @@ over the slayer helmet's face) or vertex labels (worn models never moved with th
 animations). Nothing is registered or renamed: every model already has its model.pack line,
 so this only rewrites the .ob2 bytes, and refuses to create a file that does not exist.
 
-  python3 tools/models/reconvert_osrs.py <cache> --batch tools/models/batch_osrs_items.txt \
-          --batch tools/models/batch_osrs_outfits.txt [--content content] [--dry-run]
+  python3 tools/models/reconvert_osrs.py <cache> --batch tools/models/batches/batch_osrs_items.txt \
+          --batch tools/models/batches/batch_osrs_outfits.txt [--content content] [--dry-run]
 """
 import sys, os, argparse
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))

@@ -10,7 +10,8 @@ engine/
 javaclient/
 Client-Java/
 Engine-TS/
-.idea/.name
+# IDE settings are per machine.
+.idea/
 
 # Source caches for asset imports (rev 474, OSRS). Tens of MB each - never commit.
 caches/
