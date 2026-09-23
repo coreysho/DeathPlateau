@@ -45,6 +45,13 @@ SKILLSET_MIN, SKILLSET_MAX, SKILLS_EXPECTED = 15, 32, 23
 
 def load_png(path):
     from PIL import Image
+    if not os.path.exists(path):
+        folder = os.path.dirname(path) or '.'
+        near = sorted(f for f in os.listdir(folder) if f.lower().endswith('.png')) \
+            if os.path.isdir(folder) else []
+        raise SystemExit('no such file: %s%s' % (path,
+            '\n%s holds: %s%s' % (folder, ', '.join(near[:12]), ' ...' if len(near) > 12 else '')
+            if near else '\n%s has no PNGs in it - run the --dump step first.' % folder))
     return Image.open(path).convert('RGBA')
 
 
@@ -169,6 +176,40 @@ def resolve_cache(path):
                      % (path, ', '.join(listing) if listing else '(nothing)'))
 
 
+def contact_sheet(group, indices, path, scale=3, pad=6):
+    """Every sprite in a group on one labelled sheet.
+
+    Picking an icon out of a folder of twenty-three PNGs named by number means opening twenty-three
+    files. One sheet with the number written under each sprite is the same information in one look,
+    and it is what stops the next step being a guess at a filename.
+    """
+    from PIL import Image, ImageDraw
+    if not indices:
+        return
+    tiles = [(i, sprite_to_image(group, i)) for i in indices]
+    tw = max(im.size[0] for _, im in tiles) * scale
+    th = max(im.size[1] for _, im in tiles) * scale
+    label = 12
+    cols = min(8, len(tiles))
+    rows = (len(tiles) + cols - 1) // cols
+    cw, ch = tw + pad * 2, th + pad + label
+    sheet = Image.new('RGB', (cols * cw, rows * ch), (36, 36, 40))
+    draw = ImageDraw.Draw(sheet)
+    for n, (i, im) in enumerate(tiles):
+        cx, cy = (n % cols) * cw, (n // cols) * ch
+        big = im.resize((im.size[0] * scale, im.size[1] * scale), Image.NEAREST)
+        # Checkerboard behind it, so a transparent icon is not a dark icon on a dark sheet.
+        bg = Image.new('RGBA', big.size, (90, 90, 96, 255))
+        for y in range(0, big.size[1], 8):
+            for x in range(0, big.size[0], 8):
+                if (x // 8 + y // 8) % 2:
+                    bg.paste((120, 120, 128, 255), (x, y, min(x + 8, big.size[0]),
+                                                    min(y + 8, big.size[1])))
+        bg.alpha_composite(big)
+        sheet.paste(bg.convert('RGB'), (cx + pad + (tw - big.size[0]) // 2, cy + pad))
+        draw.text((cx + pad, cy + pad + th + 1), str(i), fill=(235, 235, 235))
+    sheet.save(path)
+
 def cache_groups(cache):
     """Every index-8 sprite group that decodes."""
     from dat2 import Store
@@ -246,14 +287,21 @@ def main():
         if a.dump:
             for i in small:
                 sprite_to_image(group, i).save(os.path.join(a.dump, 'g%d_s%d.png' % (gid, i)))
+            contact_sheet(group, small, os.path.join(a.dump, 'g%d_ALL.png' % gid))
     print('%d group(s)%s' % (len(found), ' shaped like a skill-icon set' if a.skills else
                              ' with sprites <= %dpx' % a.max_size))
     if not found and a.skills:
         print('nothing matched - re-run without --skills to see everything small')
     if a.dump and found:
-        print('written to %s - find the Hunter icon, then:' % a.dump)
-        print('  python3 tools/models/genstaticon.py --sprite %s/gN_sN.png --cell 4 '
-              '--content ../Content' % a.dump)
+        gid = found[0][1]
+        print()
+        print('Open %s' % os.path.join(a.dump, 'g%d_ALL.png' % gid))
+        print('Every sprite in the group on one sheet, each with its number under it. Find Hunter,')
+        print('read its number, then paste that one in:')
+        print()
+        print('  python %s --sprite %s --cell 4 --content <your Content repo>'
+              % (os.path.join('tools', 'models', 'genstaticon.py'),
+                 os.path.join(a.dump, 'g%d_s<number>.png' % gid)))
 
 
 main()
