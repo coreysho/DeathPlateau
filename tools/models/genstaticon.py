@@ -225,6 +225,33 @@ def contact_sheet(group, indices, path, scale=3, pad=6, names=None):
             draw.text((cx + pad, cy + pad + th + 11), names[i][:11], fill=tint)
     sheet.save(path)
 
+def contact_grid(items, path, scale=3, pad=6):
+    """[(image, label)] laid out on one sheet. The general form of contact_sheet."""
+    from PIL import Image, ImageDraw
+    if not items:
+        return
+    tw = max(im.size[0] for im, _ in items) * scale
+    th = max(im.size[1] for im, _ in items) * scale
+    label = 14
+    cols = min(16, len(items))
+    rows = (len(items) + cols - 1) // cols
+    cw, ch = tw + pad * 2, th + pad + label
+    sheet = Image.new('RGB', (cols * cw, rows * ch), (36, 36, 40))
+    draw = ImageDraw.Draw(sheet)
+    for n, (im, text) in enumerate(items):
+        cx, cy = (n % cols) * cw, (n // cols) * ch
+        big = im.resize((im.size[0] * scale, im.size[1] * scale), Image.NEAREST)
+        bg = Image.new('RGBA', big.size, (90, 90, 96, 255))
+        for y in range(0, big.size[1], 8):
+            for x in range(0, big.size[0], 8):
+                if (x // 8 + y // 8) % 2:
+                    bg.paste((120, 120, 128, 255), (x, y, min(x + 8, big.size[0]),
+                                                    min(y + 8, big.size[1])))
+        bg.alpha_composite(big)
+        sheet.paste(bg.convert('RGB'), (cx + pad + (tw - big.size[0]) // 2, cy + pad))
+        draw.text((cx + 2, cy + pad + th + 1), text, fill=(225, 225, 230))
+    sheet.save(path)
+
 def cache_groups(cache):
     """Every index-8 sprite group that decodes."""
     from dat2 import Store
@@ -255,6 +282,12 @@ def main():
                                     'or the folder holding that, which is looked one level down')
     ap.add_argument('--list', action='store_true', help='print index-8 groups that could hold icons')
     ap.add_argument('--dump', help='write every candidate sprite to this folder as PNG')
+    ap.add_argument('--all-small', action='store_true',
+                    help='every small sprite in index 8 on a few labelled sheets, whatever shape '
+                         'the groups are. For caches that put one sprite per group, where the '
+                         '--skills heuristic has nothing to match')
+    ap.add_argument('--group', type=int,
+                    help='with --pick: take it from this group rather than the detected one')
     ap.add_argument('--skills', action='store_true',
                     help='only groups shaped like a skill-icon set: many sprites, all small, all '
                          'the same size. Ranked, likeliest first')
@@ -280,6 +313,20 @@ def main():
             raise SystemExit('--pick needs --cell')
         if not a.cache:
             raise SystemExit('--pick needs --cache')
+        if a.group is not None:
+            hit = [g for gid, g in cache_groups(a.cache) if gid == a.group]
+            if not hit:
+                raise SystemExit('group %d is not in index 8, or does not decode' % a.group)
+            group = hit[0]
+            if not 0 <= a.pick < len(group['sprites']):
+                raise SystemExit('group %d has %d sprites, so --pick must be 0..%d'
+                                 % (a.group, len(group['sprites']), len(group['sprites']) - 1))
+            print('group %d sprite %d' % (a.group, a.pick))
+            import tempfile
+            tmp = os.path.join(tempfile.mkdtemp(), 'pick.png')
+            sprite_to_image(group, a.pick).save(tmp)
+            paste(a.content, tmp, a.cell, a.sheet)
+            return
         best = None
         for gid, group in cache_groups(a.cache):
             sprites = group['sprites']
@@ -316,6 +363,33 @@ def main():
 
     if a.dump:
         os.makedirs(a.dump, exist_ok=True)
+
+    if a.all_small:
+        if not a.dump:
+            raise SystemExit('--all-small needs --dump')
+        tiles = []
+        for gid, group in cache_groups(a.cache):
+            for i, sp in enumerate(group['sprites']):
+                if 0 < sp['w'] <= a.max_size and 0 < sp['h'] <= a.max_size:
+                    tiles.append((gid, i, group))
+        if not tiles:
+            raise SystemExit('nothing in index 8 is <= %dpx - try a bigger --max-size' % a.max_size)
+        # Paginated, because a cache can hold thousands of these and one sheet that size is not
+        # something a person can look at.
+        per = 160
+        pages = (len(tiles) + per - 1) // per
+        for pg in range(pages):
+            chunk = tiles[pg * per:(pg + 1) * per]
+            path = os.path.join(a.dump, 'ALL_page%d.png' % (pg + 1))
+            contact_grid([(sprite_to_image(g, i), '%d:%d' % (gid, i)) for gid, i, g in chunk], path)
+            print('%s  %d sprites' % (path, len(chunk)))
+        print()
+        print('%d small sprite(s) over %d page(s). Find Hunter, read its LABEL (group:sprite), then:'
+              % (len(tiles), pages))
+        print()
+        print('  python %s --cache %s --group <group> --pick <sprite> --cell 4 --content <repo>'
+              % (os.path.join('tools', 'models', 'genstaticon.py'), a.cache))
+        return
 
     found = []
     for gid, group in cache_groups(a.cache):
