@@ -19,11 +19,14 @@ cache holds (often ""), and that is flagged.
 
 WHAT CHANGES ON THE WAY
 
-  sprites   474 numbers them; the content names them. Group N is written to content/sprites as
-            i474_N.png on its full cache canvas (the packer crops it and keeps the offset), and a
-            graphic says i474_N,0. Existing files are left alone.
+  sprites   474 numbers them; the content names them. A 474 sprite that is already in
+            content/sprites - same pixels in the same place on the canvas, which most interface art
+            is - is written by its existing name (steelborder,0). Anything new is written to
+            content/sprites as i474_N.png on its full cache canvas (the packer crops it and keeps the
+            offset) and named i474_N,0. Existing files are left alone.
   tiling    a new-format graphic can tile its sprite over its box; 377's cannot, so a tiled one
-            becomes a grid of copies named <name>_t0, _t1, ...
+            becomes a row of copies named <name>_t0, _t1, ..., the last moved back to end on the
+            box's edge the way 377's own frames overlap it.
   fonts     474 names a font by its sprite group: 494 p11, 495 p12, 496 b12, 497 q8.
   text      377 draws a line's baseline at y + font height, one font height per line, left or
             centred, never vertically centred. 474 has a line height of its own and top/centre/
@@ -106,6 +109,7 @@ class Converter:
         self.comps = cache.load(gid)
         self.sprites = set()
         self.crops = set()
+        self.index = None
         self.notes = []
         self.varps = load_pack('varp')
         self.varbits = load_pack('varbit')
@@ -251,6 +255,9 @@ class Converter:
                     kv.append((k, c[k]))
         elif t == 2:
             self.note(fid, 'inventory - port by hand')
+        elif t == 8:
+            # a hover tooltip: its box is where the mouse has to be, its text what it says
+            kv.append(('text', tags(c.get('text', '')).replace('<br>', '\\n')))
         return kv
 
     def text_fields(self, fid, c, text):
@@ -320,11 +327,14 @@ class Converter:
         d = osrssprite.decode(self.cache.store.read(8, g))
         sw, sh = d['width'], d['height']
         out, k = [], 0
-        for y in range(0, max(1, c['height']), sh):
-            for x in range(0, max(1, c['width']), sw):
-                w, h = min(sw, c['width'] - x), min(sh, c['height'] - y)
-                # 474 clips a tile to the box; a 377 graphic cannot, so a tile that would overhang is
-                # a cropped copy of the sprite (i474_N_WxH)
+        W, H = max(1, c['width']), max(1, c['height'])
+        for y in self.steps(H, sh):
+            for x in self.steps(W, sw):
+                w, h = min(sw, W - x), min(sh, H - y)
+                # 474 clips a tile to its box; a 377 graphic cannot. The last tile of a row is moved
+                # back to end on the box's edge, overlapping the one before - what 377's own frames
+                # do (friends.if's top edge has a tile at 112 after the one at 100). Only a box
+                # smaller than one tile needs a cropped copy (i474_N_WxH).
                 graphic = self.sprite(g) if (w, h) == (sw, sh) else self.cropped(g, w, h)
                 kv = [('type', 'graphic')] + [tuple(p.split('=', 1)) for p in head]
                 kv += [('x', c['x'] + x), ('y', c['y'] + y), ('width', w), ('height', h), ('graphic', graphic)]
@@ -332,13 +342,37 @@ class Converter:
                 k += 1
         return out
 
+    @staticmethod
+    def steps(total, step):
+        if total <= step:
+            return [0]
+        out = list(range(0, total - step + 1, step))
+        if out[-1] + step < total:
+            out.append(total - step)
+        return out
+
     def cropped(self, g, w, h):
         self.crops.add((g, w, h))
         return 'i474_%d_%dx%d,0' % (g, w, h)
 
     def sprite(self, g):
+        found = self.existing(g)
+        if found:
+            return found
         self.sprites.add(g)
         return 'i474_%d,0' % g
+
+    def existing(self, g):
+        """The content sprite this 474 sprite already is, pixel for pixel, as 'sheet,index' - or None.
+
+        474 kept most of 377's interface art and gave it numbers: the Friends tab's steel border,
+        corner pieces and stone button are exactly steelborder, steelborder2, miscgraphics 2-3 and
+        combatboxes 0. Importing them again as i474_N would be a second copy of every one. So a
+        sprite is looked up by its opaque pixels AND where they sit on the canvas (the packer keeps
+        that offset, so two images with the same pixels in different places would draw apart)."""
+        if self.index is None:
+            self.index = content_sprite_index(os.path.join(ROOT, 'content', 'sprites'))
+        return self.index.get(signature(self.image(g)))
 
     # ---- the whole interface
 
@@ -404,6 +438,43 @@ class Converter:
             self.image(g).crop((0, 0, w, h)).save(path)
             written.append('%d_%dx%d' % (g, w, h))
         return written
+
+
+def signature(im):
+    """Opaque pixels plus their bounding box on the canvas - what the packer keeps of an image."""
+    px = im.load()
+    W, H = im.size
+    x0, y0, x1, y1 = W, H, -1, -1
+    for y in range(H):
+        for x in range(W):
+            if px[x, y] != (255, 0, 255):
+                x0, y0, x1, y1 = min(x0, x), min(y0, y), max(x1, x), max(y1, y)
+    if x1 < 0:
+        return None
+    return (x0, y0, im.crop((x0, y0, x1 + 1, y1 + 1)).tobytes())
+
+
+def content_sprite_index(folder):
+    """signature -> 'sheet,index' for every tile of every content sprite (sheets by their .opt)."""
+    from PIL import Image
+    out = {}
+    for f in sorted(os.listdir(folder)):
+        if not f.endswith('.png') or f.startswith('i474_'):
+            continue
+        name = f[:-4]
+        im = Image.open(os.path.join(folder, f)).convert('RGB')
+        tw, th = im.size
+        opt = os.path.join(folder, 'meta', name + '.opt')
+        if os.path.exists(opt):
+            tw, th = map(int, open(opt).read().splitlines()[0].strip().split('x'))
+        i = 0
+        for y in range(0, im.size[1], th):
+            for x in range(0, im.size[0], tw):
+                sig = signature(im.crop((x, y, x + tw, y + th)))
+                if sig and sig not in out:
+                    out[sig] = '%s,%d' % (name, i)
+                i += 1
+    return out
 
 
 def t_is_inv(c):
