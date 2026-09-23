@@ -20,7 +20,26 @@ Each has two remotes: `origin` is the fork, `upstream` is LostCityRS, so
 
 `caches/` holds the source caches for asset imports (474, OSRS). It is
 gitignored - tens of MB - so it exists only on the machine that downloaded it.
-Anything that needs a cache has to run here, not in a cloud session.
+
+Both come from the OpenRS2 archive (archive.openrs2.org), which is also how a
+cloud session gets them once that host is on its network allowlist:
+
+| folder | OpenRS2 cache | what |
+|---|---|---|
+| `caches/474` | runescape #237 | rev 474, Oct 2007: `disk.zip`, plus `keys.json` saved as `keys-237.json` (the XTEA keys `import474map.py` needs) |
+| `caches/osrs` | runescape #2710 | OSRS, 16 Sep 2026: `disk.zip`, converted with `tools/models/disk2flat.py` |
+
+```
+curl -o 474.zip  https://archive.openrs2.org/caches/runescape/237/disk.zip
+curl -o osrs.zip https://archive.openrs2.org/caches/runescape/2710/disk.zip
+unzip -j 474.zip  -d caches/474  && curl -o caches/474/keys-237.json https://archive.openrs2.org/caches/runescape/237/keys.json
+unzip -j osrs.zip -d caches/osrs-disk && python3 tools/models/disk2flat.py caches/osrs-disk caches/osrs
+```
+
+The OSRS tools (`importosrs*.py`, `animconvosrs.py`) read the `.flatcache` text
+layout; OpenRS2 serves disk stores, hence `disk2flat.py`. The OSRS caches on
+OpenRS2 carry no XTEA keys, so OSRS *map* imports still need keys from
+elsewhere; 474 has them, which is why Feldip came from 474.
 
 ## THE JAVA CLIENT IS ON dev-logging, NOT 377
 

@@ -176,6 +176,20 @@ class Converter:
                     k for k in ('onLoad', 'onVarTransmit', 'onInvTransmit', 'onStatTransmit', 'onTimer') if c.get(k)))
             return kv
         bt = c.get('buttontype', 0)
+        hover = c.get('overlayer2')
+        if hover in self.comps and hover != fid:
+            # a layer shown while the mouse is over this component - 474's lit close X is one.
+            # This client never lets you click inside a hidden layer, so a button in it is this
+            # component's button too.
+            kv.append(('overlayer', self.name(hover)))
+            if bt not in BUTTONS:
+                for kid in sorted(self.comps):
+                    k = self.comps[kid]
+                    if k['parent'] == hover and k.get('buttontype', 0) in BUTTONS:
+                        bt = k['buttontype']
+                        if k.get('option') and not c.get('option'):
+                            c = dict(c, option=k['option'])
+                        break
         if bt in BUTTONS:
             kv.append(('buttontype', BUTTONS[bt]))
         if c.get('clientcode'):
@@ -274,7 +288,12 @@ class Converter:
                 if c.get(k) is not None:
                     kv.append((k, c[k]))
         elif t == 2:
-            self.note(fid, 'inventory - port by hand')
+            # the grid and its options carry over; what fills it is the server's (inv_transmit)
+            if c.get('marginx') or c.get('marginy'):
+                kv.append(('margin', '%d,%d' % (c.get('marginx', 0), c.get('marginy', 0))))
+            for n, op in enumerate(c.get('iop') or []):
+                if op:
+                    kv.append(('option%d' % (n + 1), op))
         elif t == 8:
             # a hover tooltip: its box is where the mouse has to be, its text what it says
             kv.append(('text', tags(c.get('text', '')).replace('<br>', '\\n')))
