@@ -141,6 +141,10 @@ class Converter:
         kv += [('x', c['x']), ('y', c['y'])]
         kv += self.behaviour(fid, c)
         kv += [('width', c['width']), ('height', max(0, c['height']))]
+        if not c.get('if3') and c.get('trans'):
+            # an old-format component's own transparency - 255 is an invisible hit box, like the
+            # special attack bar's rect
+            kv.append(('trans', c['trans']))
         kv += self.body(fid, c)
         return [(name, kv)]
 
@@ -305,6 +309,9 @@ class Converter:
             base = (h - asc - DESCENT - lh * (n - 1)) // 2 + asc
         else:
             base = h - DESCENT - lh * (n - 1)
+        # the active text, if any, splits line for line with it, and every line keeps the client
+        # script that chooses between them ("Auto Retaliate / (Off)" against "... / (On)")
+        active = c.get('activetext', '').split('<br>') if c.get('activetext') else None
         out = []
         for i, line in enumerate(lines):
             nm = name if i == 0 else '%s_l%d' % (name, i)
@@ -313,8 +320,12 @@ class Converter:
             kv += [('x', c['x']), ('y', y)]
             if i == 0:
                 kv += self.behaviour(fid, c)
+            elif active and not c.get('if3'):
+                kv += self.scripts(fid, c)
             kv += [('width', c['width']), ('height', asc + DESCENT)]
-            kv += self.text_fields(fid, c, tags(line))
+            one = dict(c)
+            one['activetext'] = active[i] if active and i < len(active) else ''
+            kv += self.text_fields(fid, one, tags(line))
             out.append((nm, kv))
         if n > 1 and c.get('onLoad'):
             self.note(fid, 'split into %d lines, but a script sets its text - one line may be wanted' % n)
