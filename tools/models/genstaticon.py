@@ -31,7 +31,7 @@ packer and a black background would render as a black square in the stats tab.
 SCALING IS NEAREST-NEIGHBOUR AND ASPECT-PRESERVING. A 25x25 cell next to five hand-drawn ones is
 not the place for smooth resampling; the icon is centred in the cell with the remainder keyed out.
 """
-import argparse, os, sys
+import argparse, os, re, sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -122,13 +122,51 @@ def sprite_to_image(group, index):
     return im
 
 
+def resolve_cache(path):
+    """Accept either a cache folder or the folder holding them.
+
+    A cache is the directory with main_file_cache.dat2 in it. Pointing at caches/ instead of
+    caches/<name> is the obvious thing to do and the obvious thing to get wrong, so rather than
+    letting open() fail with errno 22 on a path the user cannot see the shape of, look one level
+    down and say what is actually there.
+    """
+    if not os.path.isdir(path):
+        # Split on either separator: this runs on Windows, where the path is typed with
+        # backslashes, and gets written on Linux, where os.path would not see them.
+        parent = re.split(r'[\\/]', path.rstrip('/\\'))[:-1]
+        parent = os.path.join(*parent) if parent else '.'
+        near = []
+        if os.path.isdir(parent):
+            near = sorted(d for d in os.listdir(parent) if os.path.isdir(os.path.join(parent, d)))
+        raise SystemExit('no such folder: %s%s' % (path, '\n  %s holds: %s' % (parent, ', '.join(near))
+                                                   if near else ''))
+    if os.path.exists(os.path.join(path, 'main_file_cache.dat2')):
+        return path
+    subs = [d for d in sorted(os.listdir(path))
+            if os.path.exists(os.path.join(path, d, 'main_file_cache.dat2'))]
+    if len(subs) == 1:
+        print('using %s' % os.path.join(path, subs[0]))
+        return os.path.join(path, subs[0])
+    if subs:
+        raise SystemExit('%s holds more than one cache - name the one you want:\n  %s'
+                         % (path, '\n  '.join(os.path.join(path, d) for d in subs)))
+    listing = sorted(os.listdir(path))[:12]
+    raise SystemExit('%s has no main_file_cache.dat2, and nor does anything directly inside it.\n'
+                     'It holds: %s\nPoint --cache at the folder with main_file_cache.dat2 in it.'
+                     % (path, ', '.join(listing) if listing else '(nothing)'))
+
+
 def cache_groups(cache):
     """Every index-8 sprite group that decodes."""
     from dat2 import Store
     import osrssprite
-    st = Store(cache)
+    folder = resolve_cache(cache)
+    st = Store(folder)
     if 8 not in st.idx:
-        raise SystemExit('%s has no main_file_cache.idx8 - index 8 is the sprite index' % cache)
+        raise SystemExit('%s has no main_file_cache.idx8 - index 8 is the sprite index. An OSRS '
+                         'cache has one; a 377 or 474 cache uses the older .dat/idx0-4 and will '
+                         'not work here.\nIt has: %s'
+                         % (folder, ', '.join('idx%d' % i for i in sorted(st.idx)) or '(none)'))
     for gid in range(st.count(8)):
         try:
             raw = st.read(8, gid)
@@ -144,7 +182,8 @@ def cache_groups(cache):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('--cache', help='an OSRS cache folder (the one holding main_file_cache.dat2)')
+    ap.add_argument('--cache', help='an OSRS cache folder - the one holding main_file_cache.dat2, '
+                                    'or the folder holding that, which is looked one level down')
     ap.add_argument('--list', action='store_true', help='print index-8 groups that could hold icons')
     ap.add_argument('--dump', help='write every candidate sprite to this folder as PNG')
     ap.add_argument('--skills', action='store_true',
