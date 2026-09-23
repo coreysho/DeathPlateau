@@ -219,6 +219,9 @@ class Converter:
                     elif a == 'b':
                         parts.append(self.varbits.get(v) or self.flag(fid, 'varbit %d has no content name' % v, 'varbit_%d' % v))
                     elif a == 'c':
+                        # a component is two script words in 474, interface then component - 377
+                        # component ids fit one word, 474's (interface << 16 | component) do not
+                        v = (v << 16) | script[k]; k += 1
                         parts.append(self.links.get(v) or self.flag(fid, 'component link %d:%d needs --links' % (v >> 16, v & 0xffff), 'link_%d' % v))
                     elif a == 'o':
                         parts.append(self.objs.get(v) or self.flag(fid, 'obj %d has no content name' % v, 'obj_%d' % v))
