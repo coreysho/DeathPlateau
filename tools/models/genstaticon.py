@@ -12,13 +12,17 @@ cache, anything - and it lands in the cell, scaled and keyed, with the rest of t
 
     python3 tools/models/genstaticon.py --sprite hunter.png --cell 4 --content ../Content
 
-The two listing steps DO need a cache, and are for pulling the icon out of one yourself:
+The listing steps DO need a cache, and are for pulling the icon out of one yourself. caches/ is in
+this repo's .gitignore ("Tens of MB each - never commit"), so a cache only ever exists on the
+machine that downloaded it:
 
-    python3 tools/models/genstaticon.py --cache "C:/LostCityServer/caches/osrs" --list
-    python3 tools/models/genstaticon.py --cache "C:/LostCityServer/caches/osrs" --dump out/
+    python3 tools/models/genstaticon.py --cache "C:/LostCityServer/caches/osrs" --skills --dump out/
 
---list prints every sprite group in index 8 whose sprites are small enough to be an icon; --dump
-writes them all out as PNGs so the right one can be picked by eye. Neither writes to the repo.
+--skills is the one to use. Index 8 of an OSRS cache holds thousands of sprite groups and looking
+through them all is not a job for a person; the skill icons are the group that holds twenty-odd
+sprites which are ALL small and ALL exactly the same size, which almost nothing else in the index
+is. That shape is what --skills matches, and it ranks what it finds so the likeliest group prints
+first. --list is the unranked version for when that misses. Neither writes to the repo.
 
 TRANSPARENCY IS MAGENTA, not alpha. tools/pack/PixPack.ts keys 0xFF00FF when it splits the sheet,
 so that is what a transparent pixel has to be written as - an alpha channel is thrown away by the
@@ -33,6 +37,10 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 CELL = 25
 KEY = (255, 0, 255)
+
+# A skill-icon group is twenty-odd same-sized sprites and almost nothing else in index 8 is.
+# The bounds are loose on purpose - caches of different years ship different skill counts.
+SKILLSET_MIN, SKILLSET_MAX, SKILLS_EXPECTED = 15, 32, 23
 
 
 def load_png(path):
@@ -112,6 +120,9 @@ def main():
     ap.add_argument('--cache', help='an OSRS cache folder (the one holding main_file_cache.dat2)')
     ap.add_argument('--list', action='store_true', help='print index-8 groups that could hold icons')
     ap.add_argument('--dump', help='write every candidate sprite to this folder as PNG')
+    ap.add_argument('--skills', action='store_true',
+                    help='only groups shaped like a skill-icon set: many sprites, all small, all '
+                         'the same size. Ranked, likeliest first')
     ap.add_argument('--max-size', type=int, default=64,
                     help='only consider sprites no larger than this (default 64)')
     ap.add_argument('--sprite', help='a PNG to paste into the sheet')
@@ -132,23 +143,37 @@ def main():
 
     if a.dump:
         os.makedirs(a.dump, exist_ok=True)
-    n = 0
+
+    found = []
     for gid, sprites in cache_groups(a.cache):
         small = [(i, s) for i, s in enumerate(sprites)
                  if s.size[0] <= a.max_size and s.size[1] <= a.max_size]
         if not small:
             continue
-        n += 1
-        sizes = ', '.join('%d:%dx%d' % (i, s.size[0], s.size[1]) for i, s in small[:8])
-        print('group %-6d %d sprite(s)  %s%s' % (gid, len(sprites), sizes,
-                                                 ' ...' if len(small) > 8 else ''))
+        sizes = {s.size for _, s in small}
+        uniform = len(sizes) == 1
+        if a.skills and not (uniform and SKILLSET_MIN <= len(small) == len(sprites) <= SKILLSET_MAX):
+            continue
+        # Likeliest first: a full set of same-sized icons beats a near-miss, and among those the
+        # one whose count is closest to the number of skills a cache of that era ships.
+        rank = (0 if uniform else 1, abs(len(small) - SKILLS_EXPECTED))
+        found.append((rank, gid, sprites, small, uniform))
+
+    found.sort(key=lambda r: r[0])
+    for _, gid, sprites, small, uniform in found:
+        shape = '%dx%d' % small[0][1].size if uniform else '%d sizes' % len({s.size for _, s in small})
+        print('group %-6d %2d sprite(s)  %s' % (gid, len(sprites), shape))
         if a.dump:
             for i, s in small:
                 s.save(os.path.join(a.dump, 'g%d_s%d.png' % (gid, i)))
-    print('%d group(s) with sprites <= %dpx' % (n, a.max_size))
-    if a.dump:
-        print('written to %s - find the Hunter icon, then re-run with --sprite <that file> --cell 4'
-              % a.dump)
+    print('%d group(s)%s' % (len(found), ' shaped like a skill-icon set' if a.skills else
+                             ' with sprites <= %dpx' % a.max_size))
+    if not found and a.skills:
+        print('nothing matched - re-run without --skills to see everything small')
+    if a.dump and found:
+        print('written to %s - find the Hunter icon, then:' % a.dump)
+        print('  python3 tools/models/genstaticon.py --sprite %s/gN_sN.png --cell 4 '
+              '--content ../Content' % a.dump)
 
 
 main()
