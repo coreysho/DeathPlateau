@@ -1,24 +1,24 @@
 #!/usr/bin/env python3
-"""Lay content's skill tab (scripts/interfaces/stats.if) out as current OSRS's (OSRS interface 320).
+"""Give content's skill tab (scripts/interfaces/stats.if) pre-Sailing OSRS's art.
 
     python tools/models/genstatsosrs.py "caches/newest cache"
 
-OSRS's tab is 24 cells of 62x30 on a 63x30 grid, each drawn by client script 393: two halves of a
-stone cell (sprites 187, and 188 with the slash across it), the skill's icon (enum 255) at 3,4, the
-current level at 32,4 and the base level at 44,16, small yellow font. Under the grid is a bar
-(sprites 189 / 191 / 190) that says "Total level: N". This tab had 474's layout: the same icon and
-level offsets on a 63x31 grid of 474's full cells, and the total in the last cell.
+OSRS's skill tab until Sailing (2013-2025) was 474's: the same 3x8 grid of stone cells on a 63x31
+pitch, the icon at the left of each, level over level with a slash between, and the total in the
+last cell. What OSRS changed was the art, and a current cache still carries it: sprite 174 is a
+cell's left half, 175 its right half with the slash, 176 the right half without one - the total's
+cell - and the skill icons are enum 255's. (The cells today's tab draws, 187/188, and its total bar,
+189-191, came with Sailing and are not used here.)
 
-So this moves rather than rebuilds. Every component the stats tab has keeps its name, because the
-names are used - xplock.rs2 retitles the hover panels, genxplock.py reads the guide buttons, the
-gamemode battery reads both - and each is put in the OSRS cell of the 474 cell it was in, by what it
-is: an icon to 3,4, a level to 32,4 or 44,16, a click box over the whole cell. 474's cell art goes,
-and OSRS's is drawn under the grid.
+So this re-skins the 474 file rather than moving anything, and every name and place the scripts and
+genxplock.py rely on stays as it is:
 
-OSRS's last cell is Sailing, which this game does not have. It is an empty cell, so the grid is whole.
+  - 474's left and right halves (miscgraphics,4 and i474_175) become OSRS's 174 and 175
+  - an icon becomes OSRS's where OSRS's differs (Runecraft, Slayer, Farming, Hunter, Construction)
+  - the total's cell, which 474 drew as nested rects, becomes 174 + 176 like the others, and says
+    "Total level:" over the number in the small yellow font, as OSRS's did
 
-Run it on the 474 layout only once; a second run finds no 474 grid to map from and stops. It reruns
-content's genxplock.py (whose lock buttons follow the guide buttons) and ifids.py.
+It runs on the 474 layout; a second run finds no 474 art to replace and stops.
 """
 import os, re, subprocess, sys
 
@@ -28,14 +28,7 @@ sys.path.insert(0, HERE)
 CONTENT = os.path.join(ROOT, 'content')
 PATH = os.path.join(CONTENT, 'scripts', 'interfaces', 'stats.if')
 SPRITES = os.path.join(CONTENT, 'sprites')
-KEY = (255, 0, 255)
-MARK = '// LAID OUT AS OSRS\'s'
-
-# 474's grid, which the file is in, and OSRS's, which it goes to
-OLD_W, OLD_H = 63, 31
-NEW_X, NEW_Y, NEW_W, NEW_H = 1, 1, 63, 30
-ROWS = 8
-BAR_Y = 241
+MARK = "// PRE-SAILING OSRS's art"
 
 
 def parse(text):
@@ -43,7 +36,8 @@ def parse(text):
     for part in re.split(r'\n(?=\[)', text.replace('\r\n', '\n')):
         lines = [l for l in part.split('\n') if l.strip()]
         if lines and lines[0].startswith('['):
-            blocks.append([lines[0][1:-1], [l.split('=', 1) for l in lines[1:] if '=' in l]])
+            blocks.append([lines[0][1:-1], [l.split('=', 1) for l in lines[1:] if '=' in l],
+                           [l for l in lines[1:] if l.startswith('//')]])
         else:
             head += lines
     return head, blocks
@@ -59,25 +53,9 @@ def get(kv, k):
 def put(kv, k, v):
     for p in kv:
         if p[0] == k:
-            if v is None:
-                kv.remove(p)
-            else:
-                p[1] = str(v)
+            p[1] = str(v)
             return
-    if v is not None:
-        # after the geometry, where the other files keep it
-        at = max([i + 1 for i, p in enumerate(kv) if p[0] in ('type', 'layer', 'x', 'y')] or [0])
-        kv.insert(at, [k, str(v)])
-
-
-def cell_of(x, y, w, h):
-    col = max(0, min(2, int((x + w / 2) // OLD_W)))
-    row = max(0, min(ROWS - 1, int((y + h / 2) // OLD_H)))
-    return col, row
-
-
-def origin(col, row):
-    return NEW_X + col * NEW_W, NEW_Y + row * NEW_H
+    kv.append([k, str(v)])
 
 
 def write_sprite(name, im):
@@ -87,28 +65,22 @@ def write_sprite(name, im):
 
 def main():
     from osrsif import Cache
-    from PIL import Image, ImageOps
+    from PIL import Image
     cache = Cache(sys.argv[1])
     raw = open(PATH, encoding='utf-8').read()
-    if MARK in raw:
-        raise SystemExit('stats.if is already laid out as OSRS\'s - nothing to map from')
+    if MARK in raw or 'miscgraphics,4' not in raw:
+        raise SystemExit('stats.if has no 474 cell art to replace - is it already done?')
     head, blocks = parse(raw)
-    by = {n: kv for n, kv in blocks}
 
-    # the art: both halves of a cell, an empty right half for the Sailing cell, the total bar, and the
-    # icons wherever OSRS's differ from the 474 ones content has
-    left = write_sprite('osrsstat_left', cache.sprite(187))
-    right = write_sprite('osrsstat_right', cache.sprite(188))
-    blank = write_sprite('osrsstat_blank', ImageOps.mirror(cache.sprite(187)))
-    bar_l = write_sprite('osrsstat_bar_l', cache.sprite(189))
-    bar_m = write_sprite('osrsstat_bar_m', cache.sprite(191))
-    bar_r = write_sprite('osrsstat_bar_r', cache.sprite(190))
+    left = write_sprite('osrsstat_cell_l', cache.sprite(174))
+    right = write_sprite('osrsstat_cell_r', cache.sprite(175))
+    plain = write_sprite('osrsstat_cell_rplain', cache.sprite(176))
+    wanted = set(cache.enum(255).values())
     icons = {}
 
     def icon(g):
-        """OSRS's version of a skill icon: content's i474_N where it is the same picture, else its own."""
         m = re.match(r'i474_(\d+),0$', g)
-        if not m or int(m.group(1)) not in set(cache.enum(255).values()):
+        if not m or int(m.group(1)) not in wanted:
             return g
         if g not in icons:
             sid = int(m.group(1))
@@ -117,92 +89,41 @@ def main():
             icons[g] = g if mine.tobytes() == im.tobytes() else write_sprite('osrsstat_icon%d' % sid, im)
         return icons[g]
 
-    # every component's absolute place; row layers are opened out so their children stand alone
-    layers = {n for n, kv in blocks if get(kv, 'type') == 'layer'}
-    offset = {}
-    for n, kv in blocks:
-        p = get(kv, 'layer')
-        ox, oy = offset.get(p, (0, 0))
-        offset[n] = (ox + int(get(kv, 'x') or 0), oy + int(get(kv, 'y') or 0))
-    rowlayers = {n for n in layers if get(by[n], 'hide') is None}
+    out = []
+    for n, kv, comments in blocks:
+        g = get(kv, 'graphic') or ''
+        if g == 'miscgraphics,4':
+            put(kv, 'graphic', left)
+        elif g == 'i474_175,0':
+            put(kv, 'graphic', right)
+        elif get(kv, 'type') == 'graphic' and get(kv, 'width') == '25':
+            put(kv, 'graphic', icon(g))
+        if get(kv, 'layer') == 'com_42' and get(kv, 'type') == 'rect':
+            continue  # 474's box for the total; OSRS's cell replaces it below
+        if n == 'total_label':
+            put(kv, 'y', 3); put(kv, 'font', 'p11_full'); put(kv, 'text', 'Total level:')
+        if get(kv, 'script1op1') == 'op9':
+            put(kv, 'y', 16); put(kv, 'font', 'p11_full')
+        out.append((n, kv, comments))
+        if n == 'com_42':
+            # the total's cell, drawn first inside its layer: the left half and the plain right half,
+            # where the row layers put theirs
+            out.append(('total_cell_l', [['layer', 'com_42'], ['type', 'graphic'], ['x', 0], ['y', 0], ['width', 36],
+                                         ['height', 36], ['graphic', left]], []))
+            out.append(('total_cell_r', [['layer', 'com_42'], ['type', 'graphic'], ['x', 30], ['y', 0], ['width', 36],
+                                         ['height', 36], ['graphic', plain]], []))
 
-    out, dropped, total_cell = [], [], None
-    for n, kv in blocks:
-        t, g = get(kv, 'type'), get(kv, 'graphic') or ''
-        ax, ay = offset[n]
-        w, h = int(get(kv, 'width') or 0), int(get(kv, 'height') or 0)
-        parent = get(kv, 'layer')
-        if n in rowlayers:
-            dropped.append(n)
-            continue
-        in_row = parent in rowlayers
-        if in_row or (parent is None and t != 'layer'):
-            op = get(kv, 'script1op1') or ''
-            # 474's cell art, and the total cell's own box
-            if t == 'graphic' and (g.startswith('miscgraphics,4') or g.startswith('i474_175')):
-                dropped.append(n)
-                continue
-            if t == 'rect' and parent == 'com_42':
-                dropped.append(n)
-                continue
-            col, row = cell_of(ax, ay, w, h)
-            cx, cy = origin(col, row)
-            put(kv, 'layer', None)
-            if n == 'total_label':
-                dropped.append(n)
-                continue
-            if op == 'op9':
-                # the total, on the bar
-                total_cell = (col, row)
-                put(kv, 'x', 2); put(kv, 'y', BAR_Y + 3); put(kv, 'width', 186); put(kv, 'height', 14)
-                put(kv, 'font', 'p11_full'); put(kv, 'center', 'yes'); put(kv, 'text', 'Total level: %1')
-            elif n == 'total_hover_target':
-                put(kv, 'x', 0); put(kv, 'y', BAR_Y); put(kv, 'width', 190); put(kv, 'height', 19)
-            elif t == 'graphic' and w == 25 and h == 25:
-                put(kv, 'x', cx + 3); put(kv, 'y', cy + 4)
-                put(kv, 'graphic', icon(g))
-            elif op.startswith('stat_level,'):
-                put(kv, 'x', cx + 32); put(kv, 'y', cy + 4); put(kv, 'width', 15); put(kv, 'height', 12)
-                put(kv, 'font', 'p11_full')
-            elif op.startswith('stat_base_level,'):
-                put(kv, 'x', cx + 44); put(kv, 'y', cy + 16); put(kv, 'width', 15); put(kv, 'height', 12)
-                put(kv, 'font', 'p11_full')
-            elif get(kv, 'buttontype') or get(kv, 'overlayer'):
-                put(kv, 'x', cx); put(kv, 'y', cy); put(kv, 'width', 62)
-                put(kv, 'height', 32 if row == ROWS - 1 else 30)
-            else:
-                raise SystemExit('%s: a %s in cell %d,%d this does not know how to place' % (n, t, col, row))
-        elif n == 'com_42':
-            dropped.append(n)
-            continue
-        out.append([n, kv])
-
-    # the cells, under everything: two halves each, the last one empty
-    art = []
-    for col in range(3):
-        for row in range(ROWS):
-            cx, cy = origin(col, row)
-            empty = (col, row) == (2, ROWS - 1)
-            art.append(['cell%d_%d' % (col, row), [['type', 'graphic'], ['x', cx], ['y', cy], ['width', 36],
-                                                   ['height', 36], ['graphic', left]]])
-            art.append(['cell%d_%d_r' % (col, row), [['type', 'graphic'], ['x', cx + (26 if empty else 31)],
-                                                     ['y', cy], ['width', 36], ['height', 36],
-                                                     ['graphic', blank if empty else right]]])
-    for i, (x, gname) in enumerate([(1, bar_l)] + [(x, bar_m) for x in (36, 72, 108)] + [(153, bar_r)]):
-        art.append(['totalbar%d' % i, [['type', 'graphic'], ['x', x], ['y', BAR_Y], ['width', 36], ['height', 19],
-                                       ['graphic', gname]]])
-
-    lines = [MARK + ' (OSRS interface 320), by LostCityServer tools/models/genstatsosrs.py, which moved every',
-             '// component to its OSRS cell and drew OSRS\'s cells under them. Rerun genxplock.py after editing.']
+    lines = [MARK + ' (174 / 175 / 176 and enum 255\'s icons), by LostCityServer tools/models/genstatsosrs.py;',
+             '// the layout is 474\'s, which OSRS\'s was. Rerun genxplock.py after editing.']
     lines += [l for l in head if not l.startswith('//')]
-    for n, kv in art + out:
+    for n, kv, comments in out:
         lines.append('')
         lines.append('[%s]' % n)
         lines += ['%s=%s' % (k, v) for k, v in kv]
+        lines += comments  # a comment above the next block is read as the tail of this one
     with open(PATH, 'w', encoding='utf-8', newline='\r\n') as f:
         f.write('\n'.join(lines) + '\n')
-    print('stats.if: %d components moved, %d dropped (%s), total from cell %s'
-          % (len(out), len(dropped), ' '.join(dropped[:12]) + (' ...' if len(dropped) > 12 else ''), total_cell))
+    print('stats.if re-skinned; icons replaced: %s' % (' '.join(sorted(v for k, v in icons.items() if k != v)) or '-'))
     subprocess.check_call([sys.executable, os.path.join(CONTENT, 'tools', 'genxplock.py')], cwd=CONTENT)
     subprocess.check_call([sys.executable, os.path.join(CONTENT, 'tools', 'ifids.py'), 'stats'])
 
