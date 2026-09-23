@@ -9,19 +9,21 @@ on a dark translucent panel inside a thin stone border (sprites 962-975), and tw
 Join Chat and Clan Setup, whose border 474 drew with client script 92 (four 9x9 corners, 913-916, and
 four edges, 917-920) - written out here as the components that script made. Its changing parts are
 the CLIENT's, as they were: client codes 1001 talking, 1002 owner, 1003 Join/Leave (the button and its
-label), 1005 the list, 1101-1200 member names (Kick), 1201-1300 their worlds - Client.updateClanContent
-in Client-Java. 474's LootShare toggle is left out; this game has no LootShare.
+label), 1005 the list, 1101-1200 member names (Kick), 1201-1300 their worlds, 1301-1400 their rank
+icons (474's sprites 1004-1012, written here as the clanrank sheet) - Client.updateClanContent in
+Client-Java. 474's LootShare toggle is left out; this game has no LootShare.
 
 THE WINDOW is 590: a stone panel (sprite 297) in its own border, "Clan Chat Setup", and one bordered
 box per setting (script 93: the stone and the same border) with its question in orange and its answer
-in white. 474 changed an answer from a right-click menu of every rank; a component here has one option,
-so a click steps through the ranks this game has (clan_chat/scripts/clan_chat.rs2), and the hint under
-the boxes says so. 474's right-hand panel listed your friends with the rank you had given each; ranks
-between member and owner are not in this game yet, so the panel is there and says that instead.
+in white. 474 changed an answer from a right-click menu of every rank. A component here has one option,
+so each box carries one invisible click box per option, stacked: right-clicking lists them all, in
+474's order, and left click is the first, as it was. The right-hand panel lists your friends by name
+with the rank you have given each, and every row carries the same stack of rank options. A row is a
+layer, so the script hides the ones past the end of your list (clan_chat/scripts/clan_chat.rs2).
 LootShare's box is left out with its toggle.
 
-Names the scripts use are kept: clanchat:setup, clan_setup:name / enter / talk / kick and their
-*_value texts, clan_setup:close.
+Names the scripts use: clanchat:setup; clan_setup:<setting>_op<k>, <setting>_value, friend_row<i>,
+friend<i>, friend_rank<i>, friend<i>_r<rank>, close.
 """
 import os, subprocess, sys
 
@@ -32,7 +34,15 @@ CONTENT = os.path.join(ROOT, 'content')
 OUT = os.path.join(CONTENT, 'scripts', 'clan_chat', 'interfaces')
 
 MAX_MEMBERS = 100
+MAX_FRIENDS = 100
 ROW = 15
+# 474 interface 590's menus. A setting's option k is rank k - 1 for enter and talk (-1 Anyone .. 7 Only
+# me) and k + 2 for kick (2 Corporal+ .. 7); a friend's option r is rank r (0 not in clan .. 6 General).
+RANK_OPS = ['Anyone', 'Any friends', 'Recruit+', 'Corporal+', 'Sergeant+', 'Lieutenant+', 'Captain+', 'General+',
+            'Only me']
+KICK_OPS = ['Corporal+', 'Sergeant+', 'Lieutenant+', 'Captain+', 'General+', 'Only me']
+NAME_OPS = ['Set prefix', 'Disable']
+FRIEND_RANKS = ['Not in clan', 'Recruit', 'Corporal', 'Sergeant', 'Lieutenant', 'Captain', 'General']
 
 
 class If:
@@ -103,23 +113,29 @@ def tab(cache):
     lay = c[5]
     f.com('list', [('type', 'layer'), ('x', lay['x']), ('y', lay['y']), ('clientcode', 1005),
                    ('width', c[6]['x'] - lay['x']), ('height', lay['height']), ('scroll', lay['height'] + 1)])
+    # a row as 474's script 197 drew it: the rank icon (client code 1301-1400; 474 sprites 1004-1012),
+    # the name, and "World N" in pale yellow
     for i in range(MAX_MEMBERS):
-        f.com('name%d' % i, [('layer', 'list'), ('type', 'text'), ('x', 2), ('y', 2 + i * ROW), ('buttontype', 'normal'),
-                             ('clientcode', 1101 + i), ('width', 88), ('height', 14), ('font', 'p11_full'),
+        f.com('rank%d' % i, [('layer', 'list'), ('type', 'graphic'), ('x', 3), ('y', 4 + i * ROW),
+                             ('clientcode', 1301 + i), ('width', 9), ('height', 9)])
+        f.com('name%d' % i, [('layer', 'list'), ('type', 'text'), ('x', 15), ('y', 2 + i * ROW), ('buttontype', 'normal'),
+                             ('clientcode', 1101 + i), ('width', 83), ('height', 14), ('font', 'p11_full'),
                              ('shadowed', 'yes'), ('colour', '0xFFFFFF'), ('option', 'Kick')])
-        f.com('world%d' % i, [('layer', 'list'), ('type', 'text'), ('x', 92), ('y', 2 + i * ROW),
-                              ('clientcode', 1201 + i), ('width', 58), ('height', 14), ('font', 'p11_full'),
-                              ('shadowed', 'yes'), ('colour', '0xFFFF00')])
+        f.com('world%d' % i, [('layer', 'list'), ('type', 'text'), ('x', 98), ('y', 2 + i * ROW),
+                              ('clientcode', 1201 + i), ('width', 52), ('height', 14), ('font', 'p11_full'),
+                              ('shadowed', 'yes'), ('colour', '0xFFFF64')])
     for fid in range(10, 18):
         f.cache(fid, 'frame%d' % (fid - 10))
     # the buttons: 474's border, a click box over it, and the label
     for key, fid, label_fid in (('join', 2, 8), ('setup', 3, 9)):
         b, lab = c[fid], c[label_fid]
         f.border('%s_border' % key, b['x'], b['y'], b['width'], b['height'])
+        # a see-through rect, not an empty text: the client writes Join/Leave Chat into every text with
+        # client code 1003, which would draw the label a second time
         kv = [('type', 'rect'), ('x', b['x']), ('y', b['y']), ('buttontype', 'normal')]
         if key == 'join':
             kv.append(('clientcode', 1003))
-        kv += [('width', b['width']), ('height', b['height']), ('trans', 255), ('option', lab['text'])]
+        kv += [('width', b['width']), ('height', b['height']), ('fill', 'yes'), ('trans', 255), ('option', lab['text'])]
         f.com(key, kv)
         lkv = [('type', 'text'), ('x', lab['x']), ('y', lab['y'] + (lab['height'] - 12) // 2)]
         if key == 'join':
@@ -161,9 +177,28 @@ def window(cache):
     f.com('ranks_head', [('type', 'rect'), ('x', h['x']), ('y', h['y']), ('width', h['width']), ('height', h['height']),
                          ('colour', colour(o['colour']))])
     ln = c[23]
-    # only as far as the header: with no rows under it, a full-height line would cut the note in two
-    f.com('ranks_divider', [('type', 'rect'), ('x', ln['x']), ('y', ln['y']), ('width', 1), ('height', h['height']),
+    f.com('ranks_divider', [('type', 'rect'), ('x', ln['x']), ('y', ln['y']), ('width', 1), ('height', ln['height']),
                             ('fill', 'yes'), ('colour', colour(ln['colour']))])
+    # the friends, one row each: a row is a layer so the script can hide the ones past the end of the
+    # list, and each carries a click box per rank - right-clicking a name offers them all, 474's menu
+    lay = c[19]
+    f.com('ranks_list', [('type', 'layer'), ('x', lay['x']), ('y', lay['y']), ('width', lay['width']),
+                         ('height', lay['height']), ('scroll', MAX_FRIENDS * ROW + 4)])
+    split = ln['x'] - lay['x']
+    for i in range(MAX_FRIENDS):
+        row = 'friend_row%d' % i
+        f.com(row, [('layer', 'ranks_list'), ('type', 'layer'), ('x', 0), ('y', 2 + i * ROW), ('width', lay['width']),
+                    ('height', ROW), ('hide', 'yes')])
+        f.com('friend%d' % i, [('layer', row), ('type', 'text'), ('x', 4), ('y', 0), ('width', split - 6),
+                               ('height', 14), ('font', 'p11_full'), ('shadowed', 'yes'), ('colour', '0xFFFFFF')])
+        f.com('friend_rank%d' % i, [('layer', row), ('type', 'text'), ('x', split + 4), ('y', 0),
+                                    ('width', lay['width'] - split - 8), ('height', 14), ('font', 'p11_full'),
+                                    ('shadowed', 'yes'), ('colour', orange)])
+        # the last one added is the top of the menu and the left click; 474's first is "Not in clan"
+        for r in reversed(range(len(FRIEND_RANKS))):
+            f.com('friend%d_r%d' % (i, r), [('layer', row), ('type', 'text'), ('x', 0), ('y', 0),
+                                            ('buttontype', 'normal'), ('width', lay['width']), ('height', ROW),
+                                            ('font', 'p11_full'), ('text', ''), ('option', FRIEND_RANKS[r])])
     for key, fid in (('ranks_name', 24), ('ranks_rank', 25)):
         t = c[fid]
         f.com(key, [('type', 'text'), ('x', t['x'] + 3), ('y', t['y'] + 2), ('width', t['width']), ('height', 14),
@@ -171,14 +206,11 @@ def window(cache):
     t = c[26]
     f.com('ranks_title', [('type', 'text'), ('x', t['x']), ('y', t['y'] + 3), ('width', t['width']), ('height', 14),
                           ('center', 'yes'), ('font', 'b12_full'), ('shadowed', 'yes'), ('text', t['text']), ('colour', orange)])
-    f.com('ranks_none', [('type', 'text'), ('x', p['x']), ('y', p['y'] + 90), ('width', p['width']), ('height', 30),
-                         ('center', 'yes'), ('font', 'p11_full'), ('shadowed', 'yes'),
-                         ('text', 'Clan ranks are not available yet:\\nfriends can enter, talk or kick\\nas the settings say.'),
-                         ('colour', '0xFFFFFF')])
-    # the four settings: 474's bordered box, the question over the answer, and a click box over it all
-    rows = [('name', 27, 32, 37, 'Set prefix'), ('enter', 28, 33, 38, 'Change'), ('talk', 29, 34, 39, 'Change'),
-            ('kick', 30, 35, 40, 'Change')]
-    for key, box_fid, value_fid, label_fid, verb in rows:
+    # the four settings: 474's bordered box, the question over the answer, and a click box per option
+    # over it all - 474's own menu for each, in its order (the name box has Set prefix and Disable)
+    rows = [('name', 27, 32, 37, NAME_OPS), ('enter', 28, 33, 38, RANK_OPS), ('talk', 29, 34, 39, RANK_OPS),
+            ('kick', 30, 35, 40, KICK_OPS)]
+    for key, box_fid, value_fid, label_fid, ops in rows:
         b, v, lab = c[box_fid], c[value_fid], c[label_fid]
         f.border('%s_box' % key, b['x'], b['y'], b['width'], b['height'], fill=297)
         f.com('%s_label' % key, [('type', 'text'), ('x', lab['x']), ('y', b['y'] + 7), ('width', lab['width']),
@@ -187,22 +219,67 @@ def window(cache):
         f.com('%s_value' % key, [('type', 'text'), ('x', v['x']), ('y', b['y'] + 21), ('width', v['width']),
                                  ('height', 14), ('center', 'yes'), ('font', 'b12_full'), ('shadowed', 'yes'),
                                  ('text', v['text']), ('colour', '0xFFFFFF')])
-        f.com(key, [('type', 'rect'), ('x', b['x']), ('y', b['y']), ('buttontype', 'normal'), ('width', b['width']),
-                    ('height', b['height']), ('trans', 255), ('option', verb)])
+        for k in reversed(range(len(ops))):
+            f.com('%s_op%d' % (key, k), [('type', 'text'), ('x', b['x']), ('y', b['y']), ('buttontype', 'normal'),
+                                         ('width', b['width']), ('height', b['height']), ('font', 'p11_full'), ('text', ''),
+                                         ('option', ops[k])])
     t = c[42]
     f.com('hint', [('type', 'text'), ('x', t['x']), ('y', c[31]['y'] + 8), ('width', t['width']), ('height', 26),
                    ('center', 'yes'), ('font', 'p11_full'), ('shadowed', 'yes'),
-                   ('text', 'Click on white text to\\nchange options.'), ('colour', colour(t['colour']))])
+                   ('text', 'Right-click on white text\\nto change options.'), ('colour', colour(t['colour']))])
     f.write('clan_setup')
     return conv
 
 
+def scripts():
+    """Clan Setup's click boxes need a trigger each, and the rows a way from an index to a component:
+    both written here, beside the interface they belong to. The procs they call are hand-written, in
+    clan_chat/scripts/clan_chat.rs2."""
+    base = os.path.join(CONTENT, 'scripts', 'clan_chat')
+    enums = ['// GENERATED by LostCityServer tools/models/genclan474.py - Clan Setup\'s friend rows by index.', '']
+    for name, comp in (('clan_setup_friend_row', 'friend_row%d'), ('clan_setup_friend_name', 'friend%d'),
+                       ('clan_setup_friend_rank', 'friend_rank%d')):
+        # a miss must not return component 0, which is a real component (rs2check rule 17)
+        enums += ['[%s]' % name, 'inputtype=int', 'outputtype=component', 'default=null']
+        enums += ['val=%d,clan_setup:%s' % (i, comp % i) for i in range(MAX_FRIENDS)]
+        enums.append('')
+    with open(os.path.join(base, 'configs', 'clan_setup.enum'), 'w', newline='\r\n') as f:
+        f.write('\n'.join(enums))
+
+    rs = ['// GENERATED by LostCityServer tools/models/genclan474.py - a trigger per Clan Setup click box.',
+          '// Each hands its option to a proc in clan_chat.rs2; see the generator for why there are so many.', '']
+    rs.append('[if_button,clan_setup:name_op0] ~clan_setup_prefix;')
+    rs.append('[if_button,clan_setup:name_op1] ~clan_setup_disable;')
+    for key, setting, first in (('enter', '^clan_setting_enter', -1), ('talk', '^clan_setting_talk', -1),
+                                ('kick', '^clan_setting_kick', 2)):
+        ops = KICK_OPS if key == 'kick' else RANK_OPS
+        for k in range(len(ops)):
+            rs.append('[if_button,clan_setup:%s_op%d] ~clan_setup_setting(%s, %d);' % (key, k, setting, first + k))
+    for i in range(MAX_FRIENDS):
+        for r in range(len(FRIEND_RANKS)):
+            rs.append('[if_button,clan_setup:friend%d_r%d] ~clan_setup_friendrank(%d, %d);' % (i, r, i, r))
+    with open(os.path.join(base, 'scripts', 'clan_setup_buttons.rs2'), 'w', newline='\r\n') as f:
+        f.write('\n'.join(rs) + '\n')
+
+
 def main():
     from if3_474 import Cache
+    from port474if import Converter
     cache = Cache(sys.argv[1])
     new = []
     for conv in (tab(cache), window(cache)):
         new += conv.write_sprites(os.path.join(CONTENT, 'sprites'))
+    scripts()
+    # the member list's rank icons, for the client (Client.imageClanRanks): one 9x9 sheet in rank
+    # order - friend, Recruit .. General, owner, staff - from 474's 1004-1012 (its script 198's table)
+    from PIL import Image
+    conv = Converter(cache, 589, 'clanchat', {}, {}, 'overlay')
+    sheet = Image.new('RGB', (9 * 9, 9), (255, 0, 255))
+    for k, sprite in enumerate((1004, 1012, 1011, 1010, 1009, 1008, 1007, 1006, 1005)):
+        sheet.paste(conv.image(sprite).convert('RGB'), (k * 9, 0))
+    sheet.save(os.path.join(CONTENT, 'sprites', 'clanrank.png'))
+    with open(os.path.join(CONTENT, 'sprites', 'meta', 'clanrank.opt'), 'w', newline='\r\n') as f:
+        f.write('9x9\n')
     print('wrote clanchat.if and clan_setup.if; sprites new: %s' % (' '.join(new) or '-'))
     subprocess.check_call([sys.executable, os.path.join(CONTENT, 'tools', 'ifids.py'), 'clanchat', 'clan_setup'])
 
