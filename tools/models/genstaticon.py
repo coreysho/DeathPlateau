@@ -75,7 +75,20 @@ def paste(content, sprite_path, cell_index, sheet='staticons2'):
     from PIL import Image
     sheet_path = os.path.join(content, 'sprites', '%s.png' % sheet)
     if not os.path.exists(sheet_path):
-        raise SystemExit('no such sheet: %s' % sheet_path)
+        # --content is the Content REPO, not the folder holding it, and on a real install it is
+        # nested (C:\LostCityServer\content) rather than a sibling. Rather than naming a path the
+        # person already knows is wrong, look for the sheet somewhere plausible and say where.
+        near = []
+        for base in (content, os.path.join(content, 'content'), os.path.join(content, 'Content'),
+                     os.path.dirname(os.path.abspath(__file__)) + '/../../content',
+                     os.path.dirname(os.path.abspath(__file__)) + '/../../Content'):
+            cand = os.path.join(base, 'sprites', '%s.png' % sheet)
+            if os.path.exists(cand) and os.path.abspath(cand) not in near:
+                near.append(os.path.abspath(cand))
+        raise SystemExit('no such sheet: %s\n%s' % (
+            sheet_path,
+            'Did you mean --content %s ?' % os.path.dirname(os.path.dirname(near[0])) if near else
+            '--content wants the Content repo itself - the folder with sprites/ in it.'))
     im = Image.open(sheet_path).convert('RGBA')
     cols = im.size[0] // CELL
     rows = im.size[1] // CELL
