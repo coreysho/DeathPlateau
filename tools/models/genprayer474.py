@@ -5,8 +5,9 @@
 
 474's prayer tab is a new-format interface: twenty-six prayers in five columns, each a 34x34 glow
 behind a 30x30 icon, with the prayer's name as its op ("Activate Thick Skin") and a client script
-that lit the icon when your level allowed it and drew a tooltip. This writes the same grid in the
-old format, taking every position and sprite from the cache:
+that lit the icon when your level allowed it and drew a tooltip. This writes the same prayers in the
+old format, every sprite from the cache, laid out as the owner asked (COLS / PITCH below: four to a
+row, Thick Skin to Smite, Chivalry and Piety left out):
 
   prayer_<key>   the button: buttontype toggle on %prayerN, showing the glow (474 sprite 155) while
                  it is on - the names the content's [if_button,prayer:prayer_<key>] scripts use
@@ -57,6 +58,11 @@ PRAYERS = [
     ('piety', 'prayer25', 'Piety', 70, 'Increases your Defence by 25%,\\nStrength by 23% and Attack by 20%\\n(needs Defence 70)'),
 ]
 DEFENCE = {'chivalry': 65, 'piety': 70}
+# THE LAYOUT, the owner's own (2026-09-23, from a screenshot): 474's icons in 474's order, four to a
+# row, six rows - Thick Skin to Smite - with the prayer points centred under them. Chivalry and Piety
+# are not in it; their components are kept in a hidden layer, because their [if_button] scripts name them.
+COLS, PITCH_X, PITCH_Y, X0, Y0 = 4, 42, 39, 15, 1
+HIDDEN = {'chivalry', 'piety'}
 # a dark (locked) icon -> its bright one, where it is not simply 20 lower
 BRIGHT = {506: 502, 507: 503, 508: 504, 509: 505, 949: 945, 950: 946}
 
@@ -81,16 +87,29 @@ def main():
         out.append('[%s]' % name)
         out.extend('%s=%s' % (k, v) for k, v in kv)
 
+    # the prayers the layout leaves out, inside a hidden layer: the packer only hides layers
+    com('unused', [('type', 'layer'), ('x', 0), ('y', 0), ('width', 190), ('height', 261), ('hide', 'yes')])
     glow = conv.sprite(comps[4]['sprite'])
+    # which slot each shown prayer takes: 474's order, left to right, COLS to a row
+    slot = {key: k for k, key in enumerate(p[0] for p in PRAYERS if p[0] not in HIDDEN)}
+
+    def at(key, dx=0, dy=0):
+        k = slot.get(key, 0)
+        return X0 + PITCH_X * (k % COLS) + dx, Y0 + PITCH_Y * (k // COLS) + dy
+
     for (bg, icon), (key, varp, name, level, desc) in zip(pairs, PRAYERS):
         b, i = comps[bg], comps[icon]
         dark = i['sprite']
         bright = BRIGHT.get(dark, dark - 20)
-        com('prayer_%s' % key, [('type', 'graphic'), ('x', gx + b['x']), ('y', gy + b['y']),
-                                ('buttontype', 'toggle'), ('width', b['width']), ('height', b['height']),
+        hide = [('layer', 'unused')] if key in HIDDEN else []
+        x, y = at(key)
+        com('prayer_%s' % key, [('type', 'graphic'), ('x', x), ('y', y)] + hide +
+                               [('buttontype', 'toggle'), ('width', b['width']), ('height', b['height']),
                                 ('script1op1', 'pushvar,%s' % varp), ('script1', 'eq,1'),
                                 ('activegraphic', glow), ('option', 'Activate @lre@%s' % name)])
-        kv = [('type', 'graphic'), ('x', gx + i['x']), ('y', gy + i['y']), ('width', i['width']),
+        # the icon sits in its glow as 474 had it
+        x, y = at(key, i['x'] - b['x'], i['y'] - b['y'])
+        kv = [('type', 'graphic'), ('x', x), ('y', y)] + hide + [('width', i['width']),
               ('height', i['height']), ('script1op1', 'stat_base_level,prayer'), ('script1', 'gt,%d' % (level - 1))]
         if key in DEFENCE:
             kv += [('script2op1', 'stat_base_level,defence'), ('script2', 'gt,%d' % (DEFENCE[key] - 1))]
@@ -98,7 +117,9 @@ def main():
         com('icon_%s' % key, kv)
     for (bg, icon), (key, varp, name, level, desc) in zip(pairs, PRAYERS):
         b = comps[bg]
-        com('tip_%s' % key, [('type', '8'), ('x', gx + b['x']), ('y', gy + b['y']), ('width', b['width']),
+        x, y = at(key)
+        hide = [('layer', 'unused')] if key in HIDDEN else []
+        com('tip_%s' % key, [('type', '8'), ('x', x), ('y', y)] + hide + [('width', b['width']),
                              ('height', b['height']), ('text', 'Level %d\\n%s\\n%s' % (level, name, desc))])
 
     # prayer points, where 474 has them: its icon, then current/base
