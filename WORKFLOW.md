@@ -10,10 +10,10 @@ inside it, each its own git repo:
 
 | folder | repo | branch |
 |---|---|---|
-| `C:\LostCityServer` | coreysho/LostCityServer | `main` |
-| `C:\LostCityServer\content` | coreysho/Content | `377-wip` |
-| `C:\LostCityServer\engine` | coreysho/Engine-TS | `377-wip` |
-| `C:\LostCityServer\javaclient` | coreysho/Client-Java | `dev-logging` |
+| `C:\LostCityServer` | coreysho/DeathPlateau | `main` |
+| `C:\LostCityServer\content` | coreysho/DeathPlateau-Content | `377-wip` |
+| `C:\LostCityServer\engine` | coreysho/DeathPlateau-Engine | `377-wip` |
+| `C:\LostCityServer\javaclient` | coreysho/DeathPlateau-Client | `dev-logging` |
 
 Each has two remotes: `origin` is the fork, `upstream` is LostCityRS, so
 `git fetch upstream` still pulls the project's own updates.
