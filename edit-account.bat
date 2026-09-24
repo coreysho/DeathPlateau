@@ -22,6 +22,19 @@ set "CFG=%~dp0edit-account.cfg"
 
 if not exist "%CFG%" goto firstrun
 for /f "usebackq tokens=1,* delims==" %%A in ("%CFG%") do set "%%A=%%B"
+REM The server moved from /opt/lostcity to /opt/deathplateau when it was named. A settings file
+REM saved before that still points at the old folder, where there is nothing now - move it over.
+if /i "!ENGINE_DIR!"=="/opt/lostcity/engine" (
+  set "ENGINE_DIR=/opt/deathplateau/engine"
+  (
+    echo SSH_HOST=!SSH_HOST!
+    echo SSH_USER=!SSH_USER!
+    echo SSH_PORT=!SSH_PORT!
+    echo ENGINE_DIR=!ENGINE_DIR!
+  ) > "%CFG%"
+  echo  The server's folder is now /opt/deathplateau - edit-account.cfg updated.
+  echo.
+)
 goto connected
 
 :firstrun
@@ -30,7 +43,7 @@ echo ==================================================
 echo  First run - where is the server?
 echo ==================================================
 echo.
-echo  Host: the LXC's address, e.g. 192.168.1.50 or lostcity.local
+echo  Host: the LXC's address, e.g. 192.168.4.97
 set /p SSH_HOST=  Host: 
 echo.
 echo  User: the account you ssh in as, usually root
@@ -42,8 +55,8 @@ set /p SSH_PORT=  Port [22]:
 if "!SSH_PORT!"=="" set "SSH_PORT=22"
 echo.
 echo  Engine folder on the server
-set /p ENGINE_DIR=  Path [/opt/lostcity/engine]: 
-if "!ENGINE_DIR!"=="" set "ENGINE_DIR=/opt/lostcity/engine"
+set /p ENGINE_DIR=  Path [/opt/deathplateau/engine]: 
+if "!ENGINE_DIR!"=="" set "ENGINE_DIR=/opt/deathplateau/engine"
 (
   echo SSH_HOST=!SSH_HOST!
   echo SSH_USER=!SSH_USER!
