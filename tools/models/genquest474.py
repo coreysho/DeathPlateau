@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Write content's quest list (scripts/interfaces/questlist.if) as 474's (474 interface 274).
 
-    python tools/models/genquest474.py "caches/474 cache"
+    python tools/models/genquest474.py "caches/474 cache" [--content=<content checkout>]
 
 474's quest tab is a new-format interface: "Quest Points: N" across the top, a steel frame over a
 darkened panel, and one scrolling list - "Free Quests", every free quest, "Members' Quests", every
@@ -18,8 +18,18 @@ and coloured. This writes the same tab in the old format:
                 re-laid, not replaced: 474's font, 15 pixels apart, in 474's order, the free ones
                 above com_43 as the 377 list had them.
 
-tools/genbosskills.py (in content) appends its "Boss kill counts" row under the last one; this reruns
-it afterwards so the row follows the new list.
+tools/genbosskills.py (in content) appends its "Boss kill counts" row under the last one and
+tools/gencollectionlog.py its "Collection log" row under that; this reruns both afterwards so the
+rows follow the new list.
+
+THE QUEST TAB'S BUTTON ROW. The quest list is one of the quest tab's five pages (content's
+tools/genquesttab.py has the rest), so the whole of 474's tab is moved down under the row of page
+buttons: the title to where every page has its title, and the framed list to the band every page's
+body uses. Edges in the top half of 474's list move down by TOP, edges in the bottom half by
+TOP - SHRINK, so the steel frame's corners keep their size and its sides get shorter. The button row
+itself is genquesttab.py's own block in this file, which it puts back itself when this reruns it.
+
+    python tools/models/genquest474.py "caches/474 cache" [--content=<content checkout>]
 """
 import os, re, subprocess, sys
 
@@ -27,8 +37,28 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
 sys.path.insert(0, HERE)
 CONTENT = os.path.join(ROOT, 'content')
+for _a in sys.argv[1:]:
+    if _a.startswith('--content='):
+        CONTENT = os.path.abspath(_a.split('=', 1)[1])
 PATH = os.path.join(CONTENT, 'scripts', 'interfaces', 'questlist.if')
 BOSS_ROW = 'boss_kills'   # genbosskills.py's, which it puts back itself
+# gencollectionlog.py's, likewise - left in, it was read back as a members' quest and sorted in
+OWN_ROWS = (BOSS_ROW, 'collection_log')
+
+
+def quest_tab_layout():
+    """The quest tab's shared geometry, from content's genquesttab.py."""
+    sys.path.insert(0, os.path.join(CONTENT, 'tools'))
+    import genquesttab
+    return genquesttab
+
+
+def fit(c, top, shrink, mid):
+    """Move one of 474's components into the band under the page buttons (see the docstring)."""
+    y0, y1 = c['y'], c['y'] + c['height']
+    y0 += top if y0 < mid else top - shrink
+    y1 += top if y1 < mid else top - shrink
+    return dict(c, y=y0, height=y1 - y0)
 
 
 def parse_if(text):
@@ -48,14 +78,24 @@ def sort_key(title):
 def main():
     from if3_474 import Cache
     from port474if import Converter
-    cache = Cache(sys.argv[1])
+    args = [a for a in sys.argv[1:] if not a.startswith('--content=')]
+    cache = Cache(args[0])
     comps = cache.load(274)
     conv = Converter(cache, 274, 'questlist', {}, {}, 'overlay')
+
+    # 474's list spans 24..250; the page body is BODY_TOP..BODY_BOTTOM
+    qt = quest_tab_layout()
+    lay0 = comps[0]
+    top = qt.BODY_TOP - lay0['y']
+    shrink = lay0['height'] - (qt.BODY_BOTTOM - qt.BODY_TOP)
+    mid = lay0['y'] + lay0['height'] // 2
+    for fid in range(0, 10):
+        comps[fid] = fit(comps[fid], top, shrink, mid)
 
     old = parse_if(open(PATH, encoding='utf-8').read())
     by = dict(old)
     members_y = int(by['com_43']['y'])
-    rows = [(n, d) for n, d in old if d.get('layer') == 'com_0' and 'buttontype' in d and n != BOSS_ROW]
+    rows = [(n, d) for n, d in old if d.get('layer') == 'com_0' and 'buttontype' in d and n not in OWN_ROWS]
     free = sorted([r for r in rows if int(r[1]['y']) < members_y], key=lambda r: sort_key(r[1]['text']))
     members = sorted([r for r in rows if int(r[1]['y']) > members_y], key=lambda r: sort_key(r[1]['text']))
 
@@ -111,17 +151,28 @@ def main():
         for name, kv in conv.blocks(fid, comps[fid]):
             com('frame%d' % k, kv)
             k += 1
-    t = comps[10]
+    # the title where every page of the quest tab has its title
+    t = dict(comps[10], x=qt.TITLE_X, y=qt.TITLE_Y, width=qt.TITLE_W, height=qt.TITLE_H)
     com('qp', [('type', 'text'), ('x', t['x']), ('y', t['y']), ('width', t['width']), ('height', t['height']),
                ('script1op1', 'pushvar,qp'), ('font', 'b12_full'), ('shadowed', 'yes'), ('text', 'Quest Points: %1'),
                ('colour', '0x%06X' % t['colour'])])
 
+    # The other generators' rows are carried over as they were, for them to put back in place: were
+    # they dropped here, the first of the tools below to sync questlist's interface ids would free
+    # their ids, and the rows would come back under new numbers on every run.
+    old_text = open(PATH, encoding='utf-8').read().replace('\r\n', '\n')
+    marks = [i for i in (old_text.find('// APPENDED by tools/gencollectionlog.py'),
+                         old_text.find('// APPENDED by tools/genbosskills.py')) if i >= 0]
+    tail = old_text[min(marks):].rstrip('\n') if marks else ''
     with open(PATH, 'w', encoding='utf-8', newline='\r\n') as f:
-        f.write('\n'.join(out) + '\n')
+        f.write('\n'.join(out) + '\n' + ('\n' + tail + '\n' if tail else ''))
     new = conv.write_sprites(os.path.join(CONTENT, 'sprites'))
     print('wrote %s: %d free, %d members; sprites new: %s' % (PATH, len(free), len(members), ' '.join(new) or '-'))
-    subprocess.check_call([sys.executable, os.path.join(CONTENT, 'tools', 'genbosskills.py')], cwd=CONTENT)
-    subprocess.check_call([sys.executable, os.path.join(CONTENT, 'tools', 'ifids.py'), 'questlist'])
+    # the button row first: gencollectionlog.py syncs questlist's interface ids, and would drop the
+    # row's ids if the row were not back in the file yet
+    for tool in ('genquesttab.py', 'genbosskills.py', 'gencollectionlog.py'):
+        subprocess.check_call([sys.executable, os.path.join(CONTENT, 'tools', tool)], cwd=CONTENT)
+    subprocess.check_call([sys.executable, os.path.join(CONTENT, 'tools', 'ifids.py'), 'questlist'], cwd=CONTENT)
 
 
 if __name__ == '__main__':
