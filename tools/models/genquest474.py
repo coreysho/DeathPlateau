@@ -18,9 +18,9 @@ and coloured. This writes the same tab in the old format:
                 re-laid, not replaced: 474's font, 15 pixels apart, in 474's order, the free ones
                 above com_43 as the 377 list had them.
 
-tools/genbosskills.py (in content) appends its "Boss kill counts" row under the last one and
-tools/gencollectionlog.py its "Collection log" row under that; this reruns both afterwards so the
-rows follow the new list.
+The list is quests only. "Boss kill counts" and "Collection log" were rows under the last quest,
+appended by content's genbosskills.py and gencollectionlog.py, until the quest tab got pages of its
+own; they open from those pages now, and both generators take their old rows back out.
 
 THE QUEST TAB'S BUTTON ROW. The quest list is one of the quest tab's five pages (content's
 tools/genquesttab.py has the rest), so the whole of 474's tab is moved down under the row of page
@@ -41,9 +41,9 @@ for _a in sys.argv[1:]:
     if _a.startswith('--content='):
         CONTENT = os.path.abspath(_a.split('=', 1)[1])
 PATH = os.path.join(CONTENT, 'scripts', 'interfaces', 'questlist.if')
-BOSS_ROW = 'boss_kills'   # genbosskills.py's, which it puts back itself
-# gencollectionlog.py's, likewise - left in, it was read back as a members' quest and sorted in
-OWN_ROWS = (BOSS_ROW, 'collection_log')
+# The rows genbosskills.py and gencollectionlog.py used to append: never read back as quests, should
+# a checkout still have them
+OWN_ROWS = ('boss_kills', 'collection_log')
 
 
 def quest_tab_layout():
@@ -108,7 +108,7 @@ def main():
         out.append('[%s]' % name)
         out.extend('%s=%s' % (k, v) for k, v in kv)
 
-    # the list, first, and with its scroll line in its first block - genbosskills.py grows that line
+    # the list, first, and with its scroll line in its first block
     lay = comps[0]
     head, rest = [], []
     y = comps[13]['y']
@@ -157,21 +157,12 @@ def main():
                ('script1op1', 'pushvar,qp'), ('font', 'b12_full'), ('shadowed', 'yes'), ('text', 'Quest Points: %1'),
                ('colour', '0x%06X' % t['colour'])])
 
-    # The other generators' rows are carried over as they were, for them to put back in place: were
-    # they dropped here, the first of the tools below to sync questlist's interface ids would free
-    # their ids, and the rows would come back under new numbers on every run.
-    old_text = open(PATH, encoding='utf-8').read().replace('\r\n', '\n')
-    marks = [i for i in (old_text.find('// APPENDED by tools/gencollectionlog.py'),
-                         old_text.find('// APPENDED by tools/genbosskills.py')) if i >= 0]
-    tail = old_text[min(marks):].rstrip('\n') if marks else ''
     with open(PATH, 'w', encoding='utf-8', newline='\r\n') as f:
-        f.write('\n'.join(out) + '\n' + ('\n' + tail + '\n' if tail else ''))
+        f.write('\n'.join(out) + '\n')
     new = conv.write_sprites(os.path.join(CONTENT, 'sprites'))
     print('wrote %s: %d free, %d members; sprites new: %s' % (PATH, len(free), len(members), ' '.join(new) or '-'))
-    # the button row first: gencollectionlog.py syncs questlist's interface ids, and would drop the
-    # row's ids if the row were not back in the file yet
-    for tool in ('genquesttab.py', 'genbosskills.py', 'gencollectionlog.py'):
-        subprocess.check_call([sys.executable, os.path.join(CONTENT, 'tools', tool)], cwd=CONTENT)
+    # the page buttons are genquesttab.py's own block in the file, which it puts back itself
+    subprocess.check_call([sys.executable, os.path.join(CONTENT, 'tools', 'genquesttab.py')], cwd=CONTENT)
     subprocess.check_call([sys.executable, os.path.join(CONTENT, 'tools', 'ifids.py'), 'questlist'], cwd=CONTENT)
 
 
