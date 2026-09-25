@@ -43,6 +43,9 @@ TABS = {
     'combat_unarmed': 92, 'combat_whip': 93,
     # the trident's tab (custom, 2026-09-21) was built from the bow's in 377, and is again from 474's
     'combat_powered_staff': 77,
+    # Hunter's two weapons (2026-09-25), started as copies of combat_thrown.if - 474 draws both exactly as
+    # the thrown tab: the salamander's Scorch/Flare/Blaze and the chinchompa's Short/Medium/Long fuse
+    'combat_salamander': 474, 'combat_chinchompa': 475,
 }
 
 # combat_powered_staff: the bow's three buttons with OSRS's powered-staff styles - Accurate,
