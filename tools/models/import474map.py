@@ -129,7 +129,13 @@ class Resolver:
         sig = s.sig474(d)
         if sig is None: return ('import', oid)
         if s.sig377(oid) == sig: return ('reuse', oid)
-        if sig in s.by_sig: return ('reuse', s.by_sig[sig])
+        # A loc with an area sound or a map icon is not just its model: the signature below matches
+        # on looks alone, and every invisible 474 sound loc looks exactly like minigame_start_icon -
+        # so Lunar Isle and two charter piers came in as 38 and 5 minigame icons, with no sound. Such
+        # a loc is only reused under its own id; otherwise it comes in as itself, and
+        # importlocsounds474.py gives it its sound.
+        if sig in s.by_sig and not ('bgsound' in d or 'randomsound' in d or 'mapfunction' in d):
+            return ('reuse', s.by_sig[sig])
         if s.same_object(oid, d): return ('reuse', oid)
         return ('import', oid)
     def same_object(s, oid, d):
