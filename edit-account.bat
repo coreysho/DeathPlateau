@@ -225,7 +225,13 @@ goto done
 call :askname
 if "%PLAYER%"=="" goto menu
 echo.
-echo  0 = ordinary player. Higher numbers are staff.
+echo  0 = ordinary player
+echo  1 = player moderator  (silver crown)
+echo  2 = moderator         (gold crown)
+echo  3 = administrator     (gold crown)
+echo  4 = developer         (purple crown - dev commands on a dev server only)
+echo  5 = owner             (red crown - every command, live included)
+echo  6 = owner             (blue and gold crown - every command, live included)
 set /p LVL=  Level: 
 if "%LVL%"=="" goto menu
 echo.
