@@ -24,7 +24,18 @@ Delays: 377's seq config delay WINS (SeqType.method214 only falls back to the fr
 when the seq delay is 0), and it is packed g2, so 474's long hold delays survive intact. The
 .anim del byte is therefore just a sane fallback.
 
+--used-only: THE ANIM BUDGET. A frame group is converted whole - every frame of the rig, not just
+the ones the seqs you asked for reference - and anim.pack costs one id per frame. A rig can be
+185 frames, so five rigs (a monster and four bosses) came to 622 ids against a 600-id round range,
+and there was no way to trim it seq by seq. With --used-only, only the frames the requested seqs
+actually reference are converted, which took those same five rigs to 400. The frames left out are
+not referenced by anything that was written, so nothing can ask for them.
+    Use it when a round's anim range is tight. Leave it off when the point is to have the whole rig
+available for later work - a set converted this way has to be reconverted, with the new seqs added
+to the same command, to gain a frame it skipped.
+
   python3 animconv474.py <cache> --seq 1234 [--seq ...] --content ../../content [--dry-run]
+  python3 animconv474.py <cache> --seq 1234 --used-only --content ../../content --out out.seq
 """
 import argparse, os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -209,6 +220,9 @@ def main():
     ap.add_argument('--content', default=None)
     ap.add_argument('--out', default=None, help='.seq config to write')
     ap.add_argument('--dry-run', action='store_true')
+    ap.add_argument('--used-only', action='store_true',
+                    help='convert only the frames the given seqs reference, not the whole rig '
+                         '(see the docstring: this is the anim.pack budget lever)')
     a = ap.parse_args()
 
     st = Store(a.cache)
@@ -235,11 +249,17 @@ def main():
     for g in groups:
         files = split_group(st.read(0, g), rt0.file_counts[g])
         idxs = rt0.file_ids[g]
+        # --used-only: keep the frames the requested seqs reference and drop the rest of the rig.
+        # The skeleton is still read from every frame, so a group that spans two skeletons is still
+        # refused rather than quietly half-converted.
+        used = {f & 0xffff for d in wanted.values() for f in d['frames'] if (f >> 16) == g}
         parsed = []; skels = set()
         for fi, blob in zip(idxs, files):
             if not blob: continue
             sk, n, flags, vals = parse_474_frame(blob)
-            skels.add(sk); parsed.append((fi, n, flags, vals))
+            skels.add(sk)
+            if a.used_only and fi not in used: continue
+            parsed.append((fi, n, flags, vals))
         if len(skels) != 1:
             raise SystemExit(f'474 group {g} spans {len(skels)} skeletons {skels}; '
                              f'a 377 .anim set carries exactly one base')
