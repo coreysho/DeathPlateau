@@ -36,8 +36,15 @@ from dat2 import Store
 from objconfig474 import load_all
 from ob2palette import REV, TABLE            # RGB15 <-> HSL16, verified against vanilla configs
 
+# An obj carries TWO chathead models per gender, and the client draws both: ObjType.method228
+# merges manhead with manhead2 exactly as the worn model merges manwear with manwear2. Which of
+# the pair is the headgear varies - a hood-style helm puts the BARE HEAD in manhead and the helmet
+# in manhead2, a hat that hides the head slot does the reverse - so dropping head2 deletes the
+# helmet on one and the face on the other. Leaving these two out cost the void helms their helmets
+# and the granite helm its face, and nobody noticed until somebody opened a dialogue.
 MODEL_SLOTS = [('model', ''), ('manwear', '_manwear'), ('womanwear', '_womanwear'),
                ('manhead', '_manhead'), ('womanhead', '_womanhead'),
+               ('manhead2', '_manhead2'), ('womanhead2', '_womanhead2'),
                ('manwear2', '_manwear2'), ('womanwear2', '_womanwear2')]
 
 def model_extent(data):
@@ -153,6 +160,12 @@ def main():
                 lines.append(f'{key}={local},{o.get(key + "_off", 0)}')
             else:
                 lines.append(f'{key}={local}')
+
+        if 'head' in r['wearpos'] and not any(o.get(k) for k in
+                                              ('manhead', 'manhead2', 'womanhead', 'womanhead2')):
+            warnings.append(f'{r["name"]}: wearpos hides "head" and the cache names no chathead '
+                            f'model at all, so the face beside your own chat will be missing. '
+                            f'Check the id, or give it a head pair by hand.')
 
         for i, (cfg, src) in enumerate([('2dxof','xof2d'),('2dyof','yof2d'),('2dzoom','zoom2d'),
                                         ('2dxan','xan2d'),('2dyan','yan2d'),('2dzan','zan2d')]):

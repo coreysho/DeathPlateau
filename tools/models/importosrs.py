@@ -22,9 +22,15 @@ from animconv474 import pack_append
 WEARPOS = ['hat', 'back', 'front', 'righthand', 'torso', 'lefthand', 'arms', 'legs',
            'head', 'hands', 'feet', 'jaw', 'ring', 'quiver']
 
+# Both halves of the chathead, not just the first. ObjType.method228 merges manhead with manhead2
+# the way the worn model merges manwear with manwear2, and which half is the headgear varies: a
+# hood-style helm keeps the BARE HEAD in manhead and the helmet in manhead2, a hat that hides the
+# head slot does the reverse. Import one without the other and the chatbox shows a bald face or an
+# empty hat. objconfig474 has decoded all four since it was written (ops 51-54 and 90-93).
 MODEL_FIELDS = [('model', ''), ('manwear', '_manwear'), ('manwear2', '_manwear2'),
                 ('womanwear', '_womanwear'), ('womanwear2', '_womanwear2'),
-                ('manhead', '_manhead'), ('womanhead', '_womanhead')]
+                ('manhead', '_manhead'), ('manhead2', '_manhead2'),
+                ('womanhead', '_womanhead'), ('womanhead2', '_womanhead2')]
 
 
 def rgb15_to_hsl16(v):
@@ -156,10 +162,17 @@ def main():
         if 'womanwear2' in models: lines.append(f'womanwear2=obj_{local}_womanwear2')
         if 'manhead' in models:    lines.append(f'manhead=obj_{local}_manhead')
         if 'womanhead' in models:  lines.append(f'womanhead=obj_{local}_womanhead')
+        if 'manhead2' in models:   lines.append(f'manhead2=obj_{local}_manhead2')
+        if 'womanhead2' in models: lines.append(f'womanhead2=obj_{local}_womanhead2')
         for k in ('wearpos', 'wearpos2', 'wearpos3'):
             v = o.get(k)
             if v is not None and 0 <= v < len(WEARPOS):
                 lines.append(f'{k}={WEARPOS[v]}')
+        if o.get('wearpos2') == WEARPOS.index('head') or o.get('wearpos3') == WEARPOS.index('head'):
+            if not any(k in models for k in ('manhead', 'manhead2', 'womanhead', 'womanhead2')):
+                warnings.append(f'{cache_name}: wearpos hides "head" and the cache names no '
+                                f'chathead model at all - the face beside your own chat will be '
+                                f'missing. Check the id, or give it a head pair by hand.')
         # Lost City's obj packer spells these 2dzoom/2dxan/... - the decoder's
         # zoom2d/xan2d names are rejected with "Invalid property key".
         for cfg, k in (('2dzoom', 'zoom2d'), ('2dxan', 'xan2d'), ('2dyan', 'yan2d'),
