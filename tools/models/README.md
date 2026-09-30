@@ -101,22 +101,37 @@ The model lands in `models/spot/spot_<name>.ob2`. Extra `--seq` entries - the pl
 goes with the graphic, usually - are converted into the same `.seq` file. Spotanims and seqs are
 separate namespaces, so both can share a name.
 
-## 3. Register the pack ids if the build asks you to
+## 3. Give the new name a pack id
 
-The build normally registers new names itself. Its source-mtime check is unreliable in a worktree
-and skips silently, and then the build fails with:
+Whether you do this by hand depends on the pack, and the rule is not obvious.
+
+**Packs the client is sent are yours to edit.** `loc`, `npc`, `obj`, `seq`, `spotanim`, `flo`,
+`idk`, `varp` and `varbit` are *transmitted*, and `validateConfigPack` deliberately refuses to
+hand out ids for them while `BUILD_VERIFY` is on - an id the client already knows must not move
+because a config was renamed. So this is working as intended, not a bug:
 
 ```
 ERROR You may need to edit ../content/pack/loc.pack
 ```
 
-Append `<max id + 1>=<name>` to that pack file by hand. The current maximum:
+Append `<max id + 1>=<name>` yourself. The current maximum:
 
 ```
 awk -F= '{if ($1+0 > m) m=$1+0} END {print m}' ../../content/pack/loc.pack
 ```
 
-The same applies to `npc.pack`, `obj.pack`, `model.pack` and `category.pack`.
+**Every other config pack registers itself.** `dbrow`, `dbtable`, `enum`, `hunt`, `inv`,
+`mesanim`, `param`, `struct`, `varn` and `vars` get ids from the build. If one of those ever
+reports a missing id, something is wrong with the build rather than with what you wrote - that
+was a real bug in `SourceSnapshot` until 2026-09-30, where a race made the source-mtime check
+report an arbitrary file's timestamp instead of the newest, so revalidation was skipped and new
+`.hunt` names were never registered. `Engine-TS/tools/pack/snapshotcheck.ts` guards it now.
+
+**Never hand-edit `category.pack`.** `validateCategoryPack` regenerates it in full from every
+`.loc`, `.npc` and `.obj` that names a category, so anything you add is thrown away on the next
+build - quietly, and with different ids than you wrote.
+
+`model.pack` is written by the importers themselves; you should not need to touch it.
 
 **Never delete a line from anything in `content/pack/`.** Several of those files are gitignored and
 cannot be regenerated - deleting entries breaks the build with errors that do not name the cause
