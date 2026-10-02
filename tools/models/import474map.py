@@ -158,9 +158,12 @@ class Resolver:
             same += open(p, 'rb').read() == s.c.model(mid)
         return same > 0
 
-def import_loc(c, oid, lines, model_files, notes):
+def import_loc(c, oid, lines, model_files, notes, rename=None):
     d = c.locs[oid]
-    name = f'loc474_{oid}'
+    # loc474_<id> unless the caller named it. 474 gives most scenery a name, but names repeat -
+    # a God Wars boss door and the one next to it are both 'Big door' - so the id is the identity
+    # and --rename is how a loc that content has to NAME gets a name content can read.
+    name = (rename or {}).get(oid) or f'loc474_{oid}'
     slots = {}
     for mid, t in d.get('models', []):
         k = 0
@@ -222,12 +225,38 @@ def main():
     ap.add_argument('cache'); ap.add_argument('--region', action='append', required=True)
     ap.add_argument('--content', required=True); ap.add_argument('--out', required=True)
     ap.add_argument('--dry-run', action='store_true')
+    ap.add_argument('--rename', action='append', default=[], metavar='ID:NAME',
+                    help='name an imported loc, repeatable (e.g. 26425:gwd_door_bandos). Without one a loc'
+                         ' is loc474_<id>, which is fine for scenery and unreadable for anything a script'
+                         ' has to reference.')
+    ap.add_argument('--skip-loc', action='append', type=int, default=[],
+                    help='474 loc id to leave out of the map, repeatable. The import REFUSES a model it'
+                         ' cannot carry rather than dropping it quietly; naming the id here is how you say'
+                         ' you looked at it and it can go.')
     ap.add_argument('--header', action='append', default=[],
                     help="a comment line for the top of the .loc (repeatable); without one the file says only where it came from")
     a = ap.parse_args()
     C = a.content
     c = Cache474(a.cache); c3 = Content377(C); R = Resolver(c, c3)
-    regions = {r: (c.terrain(r), c.locs_of(r)) for r in a.region}
+    skip = set(a.skip_loc)
+    rename = {}
+    for spec in a.rename:
+        i, _, n = spec.partition(':')
+        if not n: raise SystemExit(f'--rename {spec}: expected ID:NAME')
+        rename[int(i)] = n
+    regions = {}
+    dropped = {}
+    for r in a.region:
+        land, ls = c.terrain(r), c.locs_of(r)
+        if skip:
+            for l in ls:
+                if l[0] in skip: dropped[l[0]] = dropped.get(l[0], 0) + 1
+            ls = [l for l in ls if l[0] not in skip]
+        regions[r] = (land, ls)
+    for oid, n in sorted(dropped.items()):
+        print(f'# skipped loc {oid}: {n} placement(s) left out of the map')
+    for oid in sorted(skip - set(dropped)):
+        print(f'# --skip-loc {oid} matched nothing in these regions')
     used = sorted({l[0] for _, (_, ls) in regions.items() for l in ls})
     plan = {oid: R.resolve(oid) for oid in used}
     kinds = {}
@@ -238,7 +267,7 @@ def main():
     model_files = {}; notes = []; newname = {}
     for oid, (k, v) in sorted(plan.items()):
         if k == 'import' and v not in newname:
-            newname[v] = import_loc(c, v, lines, model_files, notes)
+            newname[v] = import_loc(c, v, lines, model_files, notes, rename)
     for n in notes: print('  note:', n)
     print(f'import {len(newname)} locs, {len(model_files)} models; drop {sum(1 for v in plan.values() if v[0] == "drop")}')
     if a.dry_run: return
