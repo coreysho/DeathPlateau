@@ -23,15 +23,18 @@ import argparse, os, sys
 CRLF = chr(13) + chr(10)
 
 # THE ROOF A COURSE IS WALKED ON. Old School paints the flat deck of a rooftop course with overlay
-# 55, a plain grey 0x606058 with no texture. 377's overlay 55 is `lightrock`, 0x767676 - a pale
-# quarry rock - so the deck came out as a blank light slab laid over Draynor's textured slate, which
-# is what the owner saw and called "all the gray" on 2026-10-03. 377 has the right floor already:
-# `greyroof` (flo.pack 7, so overlay 8), 0x5b5b5b, which 2006 itself uses for the roofs you can
-# stand on in Ardougne and Varrock - a shade off Old School's own and the same material underneath.
+# 55, a plain grey 0x606058 and no texture, and that is how it looks there: a slab. 377's overlay 55
+# happens to be `lightrock`, a pale 0x767676 quarry rock, so the Draynor graft first laid a blank
+# light slab over the town's textured slate; a flat `greyroof` after that was the right colour and
+# still read as a missing texture, because every roof it touches is shingled.
 #
-# Scoped to the graft on purpose: this is only right for the levels and box being grafted, which for
-# a rooftop course is the deck and nothing else.
-OVERLAY_REMAP = {55: 8}
+# So the deck takes the slate itself: `roofdeck_greyslate`, the flo carrying texture roof2, which is
+# what oldroof_greyslate retextures onto its own model. By NAME, not by id - a content tree without
+# that flo should stop here rather than write an overlay the client will index off the end of its
+# table. Scoped to the graft on purpose: it is only right for the levels and box being grafted,
+# which for a course is the deck and nothing else.
+ROOF_DECK_FLO = 'roofdeck_greyslate'
+OSRS_ROOF_DECK_OVERLAY = 55
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import importosrsmap as IM
@@ -75,7 +78,17 @@ def main():
         raise SystemExit('could not find the map source class in importosrsmap')
     c377 = LI.Content377(a.content)
 
-    flo_max = max(int(l.split('=')[0]) for l in open(os.path.join(a.content, 'pack', 'flo.pack')) if '=' in l)
+    flo = {}
+    for l in open(os.path.join(a.content, 'pack', 'flo.pack')):
+        if '=' in l:
+            i, nm = l.strip().split('=', 1); flo[nm] = int(i)
+    flo_max = max(flo.values())
+    if ROOF_DECK_FLO not in flo:
+        raise SystemExit(f'{ROOF_DECK_FLO} is not in flo.pack - add it before grafting a rooftop '
+                         f'course, or the deck overlay points past the end of the floor table')
+    # a tile stores the overlay as the flo id PLUS ONE; the client reads FloType[value - 1]
+    roof_deck = flo[ROOF_DECK_FLO] + 1
+
     texnames = {}
     for l in open(os.path.join(a.content, 'pack', 'texture.pack')):
         if '=' in l:
@@ -107,7 +120,7 @@ def main():
                         continue
                     t = dict(tiles[lv][x][z])
                     if t['ov'] in IM.OVERLAY_REMAP: t['ov'] = IM.OVERLAY_REMAP[t['ov']]
-                    if t['ov'] in OVERLAY_REMAP: t['ov'] = OVERLAY_REMAP[t['ov']]
+                    if t['ov'] == OSRS_ROOF_DECK_OVERLAY: t['ov'] = roof_deck
                     if land.get((lv, x, z)) != t:
                         land[(lv, x, z)] = t
                         tchanged += 1
