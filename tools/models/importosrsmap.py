@@ -198,6 +198,13 @@ def main():
             if nid is not None: out.append((nid, lv, x, z, sh, rot))
         jm2.write(os.path.join(a.content, 'maps', f'm{reg}.jm2'), land, out, npcs, objs)
         print(f'#   wrote maps/m{reg}.jm2 ({len(out)} locs)')
+        # AND REGISTER IT. A square that is not in map.pack is not packed and never loads, with no
+        # error anywhere - the .jm2 sits on disk looking finished while the game has solid rock
+        # there. import474map.py has always done this; this one did not, and the God Wars square it
+        # imported read as empty space until the entry was added by hand. pack_append is a no-op
+        # when the names are already registered, so re-importing a square stays safe.
+        ids, _ = pack_append(os.path.join(a.content, 'pack', 'map.pack'), [f'm{reg}', f'l{reg}'])
+        print(f'#   map.pack {{"m{reg}": {ids[f"m{reg}"]}, "l{reg}": {ids[f"l{reg}"]}}}')
     for reg in a.blend:
         x0, y0 = map(int, reg.split('_')); ms = (x0 << 8) | y0
         tiles = src.terrain(reg, ms)
