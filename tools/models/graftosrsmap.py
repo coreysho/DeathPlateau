@@ -21,6 +21,18 @@ model conversion, loc.pack and model.pack - is importosrsmap's own machinery, ca
 import argparse, os, sys
 
 CRLF = chr(13) + chr(10)
+
+# THE ROOF A COURSE IS WALKED ON. Old School paints the flat deck of a rooftop course with overlay
+# 55, a plain grey 0x606058 with no texture. 377's overlay 55 is `lightrock`, 0x767676 - a pale
+# quarry rock - so the deck came out as a blank light slab laid over Draynor's textured slate, which
+# is what the owner saw and called "all the gray" on 2026-10-03. 377 has the right floor already:
+# `greyroof` (flo.pack 7, so overlay 8), 0x5b5b5b, which 2006 itself uses for the roofs you can
+# stand on in Ardougne and Varrock - a shade off Old School's own and the same material underneath.
+#
+# Scoped to the graft on purpose: this is only right for the levels and box being grafted, which for
+# a rooftop course is the deck and nothing else.
+OVERLAY_REMAP = {55: 8}
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import importosrsmap as IM
 import osrslocimport as LI
@@ -95,6 +107,7 @@ def main():
                         continue
                     t = dict(tiles[lv][x][z])
                     if t['ov'] in IM.OVERLAY_REMAP: t['ov'] = IM.OVERLAY_REMAP[t['ov']]
+                    if t['ov'] in OVERLAY_REMAP: t['ov'] = OVERLAY_REMAP[t['ov']]
                     if land.get((lv, x, z)) != t:
                         land[(lv, x, z)] = t
                         tchanged += 1
