@@ -1,0 +1,48 @@
+# The God Wars Dungeon cast, rev 474. The four bosses are already in the build (graardor,
+# kril, zilyana, kreearra); this is everyone who stands between you and them.
+#
+# Ready and walk are the cache's own. Attack, defend and death are left out on purpose: the
+# cache does not state them, they are the config author's guess, and guessing them here would
+# put a wrong animation on thirty-nine npcs at once. They get derived per npc when the fights
+# are built.
+#
+# 474id	local_name	ready	walk
+6204	gwd_tstanon_karlak	gwd_seq_66	gwd_seq_63
+6206	gwd_zakln_gritch	gwd_seq_66	gwd_seq_63
+6208	gwd_balfrug_kreeyath	gwd_seq_66	gwd_seq_63
+6219	gwd_spiritual_warrior_zamorak	gwd_seq_808	gwd_seq_819
+6220	gwd_spiritual_ranger_zamorak	gwd_seq_808	gwd_seq_819
+6221	gwd_spiritual_mage_zamorak	gwd_seq_808	gwd_seq_819
+6223	gwd_wingman_skree	gwd_seq_6949	gwd_seq_6950
+6225	gwd_flockleader_geerin	gwd_seq_6949	gwd_seq_6950
+6227	gwd_flight_kilisa	gwd_seq_6949	gwd_seq_6950
+6229	gwd_spiritual_warrior_armadyl	gwd_seq_6949	gwd_seq_6950
+6230	gwd_spiritual_ranger_armadyl	gwd_seq_6949	gwd_seq_6950
+6231	gwd_spiritual_mage_armadyl	gwd_seq_6949	gwd_seq_6950
+6232	gwd_aviansie_1	gwd_seq_6949	gwd_seq_6950
+6233	gwd_aviansie_2	gwd_seq_6949	gwd_seq_6950
+6234	gwd_aviansie_3	gwd_seq_6949	gwd_seq_6950
+6235	gwd_aviansie_4	gwd_seq_6949	gwd_seq_6950
+6236	gwd_aviansie_5	gwd_seq_6949	gwd_seq_6950
+6237	gwd_aviansie_6	gwd_seq_6949	gwd_seq_6950
+6238	gwd_aviansie_7	gwd_seq_6949	gwd_seq_6950
+6239	gwd_aviansie_8	gwd_seq_6949	gwd_seq_6950
+6240	gwd_aviansie_9	gwd_seq_6949	gwd_seq_6950
+6241	gwd_aviansie_10	gwd_seq_6949	gwd_seq_6950
+6242	gwd_aviansie_11	gwd_seq_6949	gwd_seq_6950
+6243	gwd_aviansie_12	gwd_seq_6949	gwd_seq_6950
+6244	gwd_aviansie_13	gwd_seq_6949	gwd_seq_6950
+6245	gwd_aviansie_14	gwd_seq_6949	gwd_seq_6950
+6246	gwd_aviansie_15	gwd_seq_6949	gwd_seq_6950
+6248	gwd_starlight	gwd_seq_6374	gwd_seq_6373
+6250	gwd_growler	gwd_seq_7014	gwd_seq_7015
+6252	gwd_bree	gwd_seq_4311	gwd_seq_4310
+6255	gwd_spiritual_warrior_saradomin	gwd_seq_808	gwd_seq_819
+6256	gwd_spiritual_ranger_saradomin	gwd_seq_808	gwd_seq_819
+6257	gwd_spiritual_mage_saradomin	gwd_seq_808	gwd_seq_819
+6261	gwd_strongstack	gwd_seq_6153	gwd_seq_6152
+6263	gwd_steelwill	gwd_seq_6153	gwd_seq_6152
+6265	gwd_grimspike	gwd_seq_6153	gwd_seq_6152
+6276	gwd_spiritual_ranger_bandos	gwd_seq_4318	gwd_seq_4319
+6277	gwd_spiritual_warrior_bandos	gwd_seq_4318	gwd_seq_4319
+6278	gwd_spiritual_mage_bandos	gwd_seq_4318	gwd_seq_4319
