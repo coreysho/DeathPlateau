@@ -102,6 +102,7 @@ class Model:
         finfo_o = o
         if f_tex == 1:    o += s.fcount          # var6 face info (texture/shading)
         if f_vlabel == 1: o += s.vcount          # var10 vertex labels
+        alpha_o = o
         if f_alpha == 1:  o += s.fcount          # var8 face alpha
         fdata_o = o;  o += flen
         colour_o = o; o += s.fcount * 2
@@ -131,6 +132,14 @@ class Model:
         s.finfo = None
         if f_tex == 1:
             ip = P(b, finfo_o); s.finfo = np.array([ip.g1() for _ in range(s.fcount)], np.int32)
+
+        # FACE ALPHA, which this used to walk past. 255 is the client's "do not draw this face"
+        # and osrs2ob2 writes it for every face Old School never draws - including the eight
+        # frames of the magic shortbow (i)'s sparkle that are not the one being shown. A render
+        # that ignores it shows a model nobody will ever see, which is the opposite of the point.
+        s.alpha = None
+        if f_alpha == 1:
+            ap = P(b, alpha_o); s.alpha = np.array([ap.g1() for _ in range(s.fcount)], np.int32)
 
         fd, ft = P(b, fdata_o), P(b, ftype_o)
         s.fa = np.zeros(s.fcount, np.int32); s.fb = np.zeros(s.fcount, np.int32)
@@ -247,6 +256,8 @@ def render(m, size=192, xan=0, yan=0, zan=0, zoom=None, xof=0, yof=0, bg=(24,24,
     for i in order:
         if m.finfo is not None and (m.finfo[i] & 2) != 0:
             continue                                   # textured face, no texture here
+        if m.alpha is not None and m.alpha[i] >= 255:
+            continue                                   # the client does not draw this one
         ia, ib, ic = m.fa[i], m.fb[i], m.fc[i]
         x0, y0, x1, y1, x2, y2 = px[ia], py[ia], px[ib], py[ib], px[ic], py[ic]
         area = (x1-x0)*(y2-y0) - (x2-x0)*(y1-y0)
