@@ -183,9 +183,23 @@ def decode(b, textures=SHARED_TEXTURES):
         elif t == 2:                               # OSRS: faceColors3 = -2, never drawn
             if alpha is None: alpha = [0] * fc
             alpha[i] = 255
-        elif t == 3:                               # OSRS: flat, colour 128
-            finfo[i] = 1; colours[i] = 128
-            if alpha is not None: alpha[i] = 0
+        elif t == 3:                               # OSRS alpha -2: the face is not drawn
+            # IT IS NOT DRAWN, so do not draw it. This used to force colour 128 and alpha 0, which
+            # is a SOLID BLACK face - and 128 is lightness zero, not a neutral grey. Measured over
+            # 1200 models from the cache: 8 of them carry alpha-254 faces, 1542 faces in all, and
+            # they hold real colours (39256, 9329, ...) that this was overwriting with black.
+            #
+            # Caught at the Draynor rooftops. Loc 11630 (the Wall) and 11632 (the Crate) share model
+            # 16238: eight vertices, twelve faces, every one alpha 254 and colour 128 - an obstacle
+            # clickbox that Old School never shows. Converted this way it became a black box sitting
+            # on the roof, which is exactly what the owner screenshotted.
+            #
+            # Transparent rather than deleted: dropping faces would shift every index the round-trip
+            # check compares. If some model somewhere really did want a black face here, it loses a
+            # black face; everything else stops being painted over.
+            finfo[i] = 1
+            if alpha is None: alpha = [0] * fc
+            alpha[i] = 255
 
     return dict(ver=L['ver'], vcount=vc, fcount=fc, vx=vx, vy=vy, vz=vz,
                 fa=fa, fb=fb, fc=fcc, colour=colours, alpha=alpha,
