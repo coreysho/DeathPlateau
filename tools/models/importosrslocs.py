@@ -23,8 +23,16 @@ def main():
     ap.add_argument('cache'); ap.add_argument('--loc', action='append', type=int, required=True)
     ap.add_argument('--no-anim', action='store_true')
     ap.add_argument('--loc-props')
+    ap.add_argument('--rename', action='append', default=[], metavar='ID:NAME',
+                    help='name an imported loc, repeatable - as importosrsmap.py takes it. Without'
+                         ' one a loc is osrsloc_<id>, which content cannot readably reference.')
     ap.add_argument('--content', required=True); ap.add_argument('--out', required=True)
-    a = ap.parse_args()
+    a = ap.parse_args()
+    rename = {}
+    for spec in a.rename:
+        i, _, n = spec.partition(':')
+        if not n: raise SystemExit(f'--rename {spec}: expected ID:NAME')
+        rename[int(i)] = n
     st = Store(a.cache); locs, _ = load_osrs_locs(st)
     texnames = set()
     for l in open(os.path.join(a.content, 'pack', 'texture.pack')):
@@ -40,13 +48,13 @@ def main():
              '// Models re-encoded by osrs2ob2.py with the loc recolours baked in.', '']
     model_files = {}; anim_names = {}
     for oid in a.loc:
-        LI.import_loc(st, locs, oid, a.content, texnames, anim_names, lines, model_files)
+        LI.import_loc(st, locs, oid, a.content, texnames, anim_names, lines, model_files, rename)
         lines.pop()
         if a.no_anim:
             while lines and lines[-1].startswith('anim='): lines.pop()
         lines.extend(props.get(oid, []) + [''])
     if a.no_anim: anim_names = {}
-    pack_append(os.path.join(a.content, 'pack', 'loc.pack'), [f'osrsloc_{i}' for i in a.loc])
+    pack_append(os.path.join(a.content, 'pack', 'loc.pack'), [rename.get(i) or f'osrsloc_{i}' for i in a.loc])
     ids, _ = pack_append(os.path.join(a.content, 'pack', 'model.pack'), list(model_files))
     os.makedirs(os.path.join(a.content, 'models', 'loc'), exist_ok=True)
     for n, b in model_files.items():

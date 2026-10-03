@@ -1,0 +1,15 @@
+# Animal Magnetism (12 December 2006) - every item the quest adds, from the rev 474 cache.
+# 474id	local_name	wearpos	model_basename	desc
+10487	animmag_undead_chicken	righthand	animmag_undead_chicken	It's an undead chicken. It doesn't smell great.
+10488	animmag_selected_iron	-	animmag_selected_iron	A carefully selected iron bar.
+10489	animmag_bar_magnet	-	animmag_bar_magnet	A magnetised iron bar.
+10490	animmag_undead_twigs	-	animmag_undead_twigs	Twigs from an undead tree.
+10491	animmag_blessed_axe	righthand	animmag_blessed_axe	A mithril axe with a silver edge.
+10492	animmag_research_notes	-	animmag_research_notes	These make no sense at all.
+10493	animmag_translated_notes	-	animmag_research_notes	Ava's research notes, now in a language I can read.
+10494	animmag_pattern	-	animmag_pattern	A pattern for a container.
+10495	animmag_container	-	animmag_container	A container for Ava's arrow machine.
+10496	polished_buttons	-	polished_buttons	Shiny buttons, the sort a H.A.M. robe is missing.
+10498	avas_attractor	back	avas_attractor	It attracts arrows.
+10499	avas_accumulator	back	avas_accumulator	It accumulates arrows.
+10500	animmag_crone_amulet	front	animmag_crone_amulet	An amulet the Old Crone made from a golden hair.
