@@ -220,6 +220,10 @@ def main():
     ap.add_argument('--content', default=None)
     ap.add_argument('--out', default=None, help='.seq config to write')
     ap.add_argument('--dry-run', action='store_true')
+    ap.add_argument('--allow-shrink', action='store_true',
+                    help='let a run rewrite an existing .anim set with FEWER bytes. Refused by default:'
+                         ' a frame group is shared by every npc on that rig and --used-only only keeps'
+                         ' what this run asked for.')
     ap.add_argument('--used-only', action='store_true',
                     help='convert only the frames the given seqs reference, not the whole rig '
                          '(see the docstring: this is the anim.pack budget lever)')
@@ -312,7 +316,23 @@ def main():
                     f'round-trip mismatch on group {g} frame {fid}'
             assert gotbase == c['base'], 'base lost'
             assert len(blob) < 65000, f'{set_name} is {len(blob)} bytes - client buffer is 65000'
-            open(os.path.join(C, 'models', f'{set_name}.anim'), 'wb').write(blob)
+            # NEVER SILENTLY SHRINK A SET THAT IS ALREADY THERE. A frame group is shared by every
+            # npc on that rig, and --used-only writes only the frames THIS run's seqs reference. Run
+            # it for two npcs that happen to stand on General Graardor's skeleton and it rewrites his
+            # group with two frames in it, taking his attack, block, death and slam with it - and
+            # nothing complains, because anim.pack still lists the names and only the data is gone.
+            # That is exactly what happened to groups 1124, 1125 and 1208, the last of which is the
+            # demon rig and broke every demon in the game. --allow-shrink to mean it.
+            target = os.path.join(C, 'models', f'{set_name}.anim')
+            if os.path.exists(target) and not a.allow_shrink:
+                was = os.path.getsize(target)
+                if len(blob) < was:
+                    raise SystemExit(
+                        f'{set_name}.anim already holds {was} bytes and this run would cut it to'
+                        f' {len(blob)} ({len(chunk)} frames). Something else on that rig needs the'
+                        f' frames being dropped - drop --used-only, or pass --allow-shrink if you'
+                        f' have checked nothing else uses them.')
+            open(target, 'wb').write(blob)
             print(f'#   wrote models/{set_name}.anim  ({len(blob)} bytes, {len(chunk)} frames, '
                   f'ids {chunk[0][0]}-{chunk[-1][0]}) - round-trip verified')
 
