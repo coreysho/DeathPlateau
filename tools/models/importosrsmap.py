@@ -118,8 +118,16 @@ def main():
                     help='neighbouring 377 square whose heights within 4 tiles of an imported square '
                          'are taken from OSRS too, so the seam does not step (e.g. 45_55)')
     ap.add_argument('--dry-run', action='store_true')
+    ap.add_argument('--rename', action='append', default=[], metavar='ID:NAME',
+                    help='name an imported loc, repeatable (e.g. 40419:gwd_door_saradomin). Without'
+                         ' one a loc is osrsloc_<id>, which content cannot readably reference.')
     a = ap.parse_args()
 
+    rename = {}
+    for spec in a.rename:
+        i, _, n = spec.partition(':')
+        if not n: raise SystemExit(f'--rename {spec}: expected ID:NAME')
+        rename[int(i)] = n
     src = MapSource(a.maps); st = Store(a.cache)
     locs, _ = load_osrs_locs(st)
     c377 = LI.Content377(a.content)
@@ -172,12 +180,12 @@ def main():
             if l:
                 i, kv = l.split(None, 1); props.setdefault(int(i), []).append(kv)
     for oid in imp:
-        LI.import_loc(st, locs, oid, a.content, texnames, anim_names, lines, model_files)
+        LI.import_loc(st, locs, oid, a.content, texnames, anim_names, lines, model_files, rename)
         if oid in props:
             lines.pop()                                  # the blank line import_loc ended with
             lines.extend(props[oid] + [''])
     if imp:
-        pack_append(os.path.join(a.content, 'pack', 'loc.pack'), [f'osrsloc_{i}' for i in imp])
+        pack_append(os.path.join(a.content, 'pack', 'loc.pack'), [rename.get(i) or f'osrsloc_{i}' for i in imp])
         ids, _ = pack_append(os.path.join(a.content, 'pack', 'model.pack'), list(model_files))
         os.makedirs(os.path.join(a.content, 'models', 'loc'), exist_ok=True)
         for n, b in model_files.items():
@@ -189,7 +197,7 @@ def main():
     def new_id(oid):
         r = results[oid]
         if r[0] == 'reuse': return r[1]
-        if r[0] == 'import': return locpack[f'osrsloc_{r[1]}']
+        if r[0] == 'import': return locpack[rename.get(r[1]) or f'osrsloc_{r[1]}']
         return None
     for reg, (land, placed, npcs, objs) in to_import.items():
         out = []

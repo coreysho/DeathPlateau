@@ -127,9 +127,12 @@ def bake(m, recol, retex, texnames):
                 if c == a: m['colour'][i] = b; break
     return m
 
-def import_loc(st, locs, oid, C, texnames, anim_names, lines, model_files):
+def import_loc(st, locs, oid, C, texnames, anim_names, lines, model_files, rename=None):
     d = locs[oid]
-    name = f'osrsloc_{oid}'
+    # osrsloc_<id> unless the caller named it. Fine for scenery; unreadable for anything a
+    # script has to reference, and OSRS names repeat the way 474's do - a God Wars boss door
+    # and the one beside it are both 'Big door' - so the id stays the identity.
+    name = (rename or {}).get(oid) or f'osrsloc_{oid}'
     slots = {}                                          # slot -> {type: model}
     for mid, t in d.get('models', []):
         k = 0
