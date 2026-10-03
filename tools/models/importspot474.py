@@ -66,9 +66,16 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('cache')
     ap.add_argument('spots', nargs='+', help='474 spotanim id:name')
+    ap.add_argument('--content', default=None,
+                    help='content/ root. Defaults to the one beside this checkout, which is WRONG when'
+                         ' you are working in a worktree - it silently writes models and pack entries'
+                         ' into the main tree instead. The other importers all take this; this one did'
+                         ' not, and dirtied the main checkout.')
     ap.add_argument('--out', required=True, help='.spotanim to write. The .seq beside it gets the animations and is '
                     'REWRITTEN, so this must not share a name with a .seq that holds anything else')
     a = ap.parse_args()
+    global CONTENT
+    if a.content: CONTENT = os.path.abspath(a.content)
     from dat2 import Store
     from reftable import RefTable, split_group
     st = Store(a.cache)
