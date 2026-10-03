@@ -43,6 +43,7 @@ import jm2
 from flatcache import Store
 from osrsloc import load_osrs_locs
 from animconv474 import pack_append
+from animconvosrs import convert_seqs
 
 
 def main():
@@ -197,6 +198,22 @@ def main():
         else:
             open(path, 'w', newline='').write(CRLF.join(lines))
             print(f'#   wrote {path}')
+
+        # AND THE SEQS THOSE LOCS PLAY. importosrsmap.py writes these and this did not, so a graft
+        # that pulled in an animated loc wrote `anim=osrsloc_anim_<id>` naming a seq that existed
+        # nowhere, and the build stopped on it. The Trollheim graft was the first to hit it, with
+        # the Old fire pit. Appended for the same reason as the .loc above.
+        if anim_names:
+            seq_text = convert_seqs(st, anim_names, a.content)
+            sp = a.out + '.seq'
+            if os.path.exists(sp):
+                have = open(sp, newline='').read().rstrip()
+                body = [l for l in seq_text.split(CRLF) if not l.startswith('//')]
+                open(sp, 'w', newline='').write(have + CRLF + CRLF + CRLF.join(body))
+                print(f'#   appended {len(anim_names)} seq(s) to {sp}')
+            else:
+                open(sp, 'w', newline='').write(seq_text)
+                print(f'#   wrote {sp}')
 
 
 if __name__ == '__main__':

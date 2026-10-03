@@ -6,3 +6,4 @@ Seed box=seed_box
 Looting bag=looting_bag
 Magic secateurs=magic_secateurs
 Imbued heart=imbued_heart
+Magic shortbow (i)=magic_shortbow_i

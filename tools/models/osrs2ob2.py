@@ -46,7 +46,11 @@ SHARED_TEXTURES = frozenset({0, 2, 3, 4, 5, 6, 11, 13, 14, 15, 16, 18, 20, 22, 2
 #
 #   50  OSRS 59, sprite 318: black crust with molten cracks, animated dir 1 speed 1. The Infernal
 #       cape's own, and used by nothing else in the OSRS item list.
-LOCAL_TEXTURES = {59: 50}
+# 34 is the sparkle the magic shortbow (i) is covered in - pale stars on a transparent field,
+# scrolling (the cache marks it animated, dir 1 speed 2). 377's own texture 34 is yewtree, so
+# this one could not be shared and the twelve faces carrying it were painted with its average
+# colour instead: a solid cream slab over the bow, which is what shipped on 2026-10-03.
+LOCAL_TEXTURES = {59: 50, 34: 51}
 
 
 # ------------------------------------------------------------------ decode

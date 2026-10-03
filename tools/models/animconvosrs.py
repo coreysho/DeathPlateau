@@ -152,7 +152,19 @@ def convert_seqs(st, names, content):
                 assert i1 == i2 and n == gn and fl == gfl and vs == gvs, f'round-trip {g}/{i1}'
             assert gotbase == c['base']
             assert len(blob) < 65000, f'{set_name} is {len(blob)} bytes'
-            open(os.path.join(C, 'models', f'{set_name}.anim'), 'wb').write(blob)
+            # NEVER SHRINK A SET THAT IS ALREADY THERE. Only the frames this run's seqs reference
+            # get converted, so a later import touching a group someone else already brought in
+            # rewrites the set with that subset - and nothing complains, because pack_append only
+            # ever adds, so anim.pack still names every frame the file no longer holds. That is how
+            # General Graardor and every demon in the game lost their animations on 2026-10-02,
+            # through this same hole in animconv474.py.
+            dst = os.path.join(C, 'models', f'{set_name}.anim')
+            if os.path.exists(dst) and os.path.getsize(dst) > len(blob):
+                raise SystemExit(
+                    f'{set_name}.anim is {os.path.getsize(dst)} bytes and this run would write '
+                    f'{len(blob)} - frame group {g} is shared and you would be dropping frames '
+                    f'off it. Convert every seq on the group in one run, not only the new ones.')
+            open(dst, 'wb').write(blob)
             print(f'#   wrote models/{set_name}.anim ({len(blob)} bytes, {len(chunk)} frames)')
 
     lines = ['// Animations converted from the OSRS cache by tools/models/animconvosrs.py.',
