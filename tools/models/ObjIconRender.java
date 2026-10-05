@@ -23,10 +23,13 @@ import java.awt.image.BufferedImage; import javax.imageio.ImageIO;
 public class ObjIconRender {
     public static void main(String[] a) throws Exception {
         String dir = a[0], out = a[1];
-        int scale = 6;
+        int scale = 6, cols = 0;   // cols 0 = one row
+        boolean all = false;
         List<String> want = new ArrayList<>();
         for (int i = 2; i < a.length; i++) {
             if (a[i].equals("--scale")) { scale = Integer.parseInt(a[++i]); continue; }
+            if (a[i].equals("--cols")) { cols = Integer.parseInt(a[++i]); continue; }
+            if (a[i].equals("--all")) { all = true; continue; }
             want.add(a[i]);
         }
 
@@ -40,10 +43,14 @@ public class ObjIconRender {
         }
 
         Map<String, Integer> byName = new HashMap<>();
+        List<String> byNameOrder = new ArrayList<>();
         for (String l : Files.readAllLines(Paths.get(dir, "objs.txt"))) {
             int sp = l.indexOf(' ');
-            if (sp > 0) byName.put(l.substring(sp + 1).trim(), Integer.parseInt(l.substring(0, sp)));
+            if (sp > 0) { byName.put(l.substring(sp + 1).trim(), Integer.parseInt(l.substring(0, sp)));
+                          byNameOrder.add(l.substring(sp + 1).trim()); }
         }
+
+        if (all) want.addAll(byNameOrder);
 
         // The icon raster needs the same 3D setup the client gives it, and the TEXTURES - which is
         // the entire reason this exists.
@@ -55,7 +62,9 @@ public class ObjIconRender {
         Pix3D.init3D(H, W);
 
         int cell = 32 * scale, pad = 6;
-        BufferedImage sheet = new BufferedImage(want.size() * (cell + pad) + pad, cell + pad * 2,
+        int nc = cols > 0 ? Math.min(cols, want.size()) : want.size();
+        int nr = (want.size() + nc - 1) / nc;
+        BufferedImage sheet = new BufferedImage(nc * (cell + pad) + pad, nr * (cell + pad) + pad,
                 BufferedImage.TYPE_INT_RGB);
         java.awt.Graphics2D g = sheet.createGraphics();
         g.setColor(new java.awt.Color(0x14, 0x14, 0x14));
@@ -76,8 +85,7 @@ public class ObjIconRender {
                 one.setRGB(x, y, p == 0 ? 0x141414 : p);
             }
             java.awt.Image big = one.getScaledInstance(cell, cell, java.awt.Image.SCALE_REPLICATE);
-            g.drawImage(big, pad + i * (cell + pad), pad, null);
-            System.out.println("drew " + s + " (obj " + id + ")");
+            g.drawImage(big, pad + (i % nc) * (cell + pad), pad + (i / nc) * (cell + pad), null);
         }
         g.dispose();
         ImageIO.write(sheet, "png", new File(out));
