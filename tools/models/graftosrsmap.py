@@ -215,6 +215,15 @@ def main():
                     if t['ov'] in overlay_remap:
                         t['ov'] = overlay_remap[t['ov']]
                     elif t['ov']:
+                        # A TILE STORES THE FLO ID PLUS ONE, so an overlay passed through RAW lands
+                        # one floor short of where it was meant to - Old School's N becomes 377's
+                        # N-1. This build imported Old School's own floors at matching ids, so
+                        # same-id is the right guess and one-short is noise: 161 is #435541 in both,
+                        # 155 is #44886e in both, 9 is #505050 in both. Without the plus one,
+                        # Draynor's balance wall - Old School overlay 161 - was painted with flo 160,
+                        # which is #ff00ff, the invisible marker, so the wall a player balances along
+                        # drew nothing at all and they appeared to walk on the roof edge over air.
+                        t['ov'] = t['ov'] + 1
                         warn_overlay(t['ov'], osrs_colour, flo_colour, flo_name, warned, lv, roof_hits)
                     if land.get((lv, x, z)) != t:
                         land[(lv, x, z)] = t
