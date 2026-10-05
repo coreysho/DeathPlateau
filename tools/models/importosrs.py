@@ -86,6 +86,8 @@ def main():
     ap.add_argument('--dir', required=True, help='content/scripts/<area>; configs/ written under it')
     ap.add_argument('--content', default='content')
     ap.add_argument('--out', default=None, help='.obj file to write (default <dir>/configs/osrs.obj)')
+    ap.add_argument('--append', action='store_true',
+                    help='add to --out instead of refusing because it already exists')
     ap.add_argument('--dry-run', action='store_true')
     a = ap.parse_args()
 
@@ -96,6 +98,21 @@ def main():
             if line: items.append(line)
     if not items:
         raise SystemExit('nothing to import: pass --item or --batch')
+
+    # NEVER CLOBBER A FILE SOMEBODY ELSE'S ITEMS ARE IN, and decide it BEFORE anything is written.
+    # This used to open(out, 'w') whatever was there, and pointing --out at the file a previous
+    # import had written - the obvious thing to do when adding fifteen items to the four hundred
+    # already in it - silently deleted all four hundred. The pack ids were taken, the models were
+    # written, the build still passed, and the only sign was a .obj that had got shorter.
+    #
+    # The check belongs here and not beside the write: by the time the file is opened the model and
+    # obj pack ids have been appended and the .ob2 files are on disk, so failing there leaves a
+    # half-done import to unpick by hand. --append is how you add to an existing file.
+    out = a.out or os.path.join(a.dir, 'configs', 'osrs.obj')
+    if not a.dry_run and not a.append and os.path.exists(out):
+        n = sum(1 for l in open(out, encoding='utf8', errors='replace') if l.startswith('['))
+        raise SystemExit(f'{out} already exists and holds {n} objs. Pass --append to add to it, '
+                         f'or --out somewhere new. Nothing has been written.')
 
     st = Store(a.cache)
     objs = load_all(a.cache)
@@ -216,10 +233,14 @@ def main():
     obj_assigned, _ = pack_append(obj_pack, locals_)
     print(f'#   obj.pack {min(obj_assigned.values())}-{max(obj_assigned.values())}')
 
-    out = a.out or os.path.join(a.dir, 'configs', 'osrs.obj')
     os.makedirs(os.path.dirname(out), exist_ok=True)
-    open(out, 'w', newline='').write(text)
-    print(f'#   wrote {out}')
+    if a.append:
+        with open(out, 'a', newline='') as f:
+            f.write('\n' + text[text.index('['):] if '[' in text else text)
+        print(f'#   appended {len(locals_)} objs to {out}')
+    else:
+        open(out, 'w', newline='').write(text)
+        print(f'#   wrote {out}')
 
 
 if __name__ == '__main__':

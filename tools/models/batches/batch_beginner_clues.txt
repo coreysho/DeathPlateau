@@ -1,0 +1,19 @@
+# Old School's fifteen BEGINNER Treasure Trail uniques. This build has no beginner tier - the
+# 377 cache has easy, medium and hard, and Beginner Treasure Trails is a 2018 addition - so these
+# are wired into the EASY tables instead of inventing a fourth tier.
+# Template:Clue scroll (beginner)/Rewards, OSRS wiki.
+Bear feet=bear_feet
+Mole slippers=mole_slippers
+Frog slippers=frog_slippers
+Demon feet=demon_feet
+Sandwich lady hat=sandwich_lady_hat
+Sandwich lady top=sandwich_lady_top
+Sandwich lady bottom=sandwich_lady_bottom
+Jester cape=jester_cape
+Shoulder parrot=shoulder_parrot
+Monk's robe top (t)=monk_s_robe_top_t
+Monk's robe (t)=monk_s_robe_t
+Amulet of defence (t)=amulet_of_defence_t
+Rune scimitar ornament kit (Guthix)=rune_scimitar_ornament_kit_guthix
+Rune scimitar ornament kit (Saradomin)=rune_scimitar_ornament_kit_saradomin
+Rune scimitar ornament kit (Zamorak)=rune_scimitar_ornament_kit_zamorak

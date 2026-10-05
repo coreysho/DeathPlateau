@@ -1,0 +1,7 @@
+# What the three rune scimitar ornament kits make. BY ID, NOT BY NAME: this cache calls all three
+# ornamented scimitars "Rune scimitar", exactly as it calls both halves of a monk's robe "Monk's
+# robe" - a name match finds the plain one at 1333 and nothing else. Ids confirmed on the OSRS wiki
+# (Rune scimitar (guthix) 23330, (saradomin) 23332); zamorak is the third of the same run.
+id:23330=rune_scimitar_guthix
+id:23332=rune_scimitar_saradomin
+id:23334=rune_scimitar_zamorak
