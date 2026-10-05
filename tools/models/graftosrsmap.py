@@ -92,11 +92,24 @@ def read_osrs_overlay_colours(st):
     return out
 
 
-def warn_overlay(value, osrs_colour, flo_colour, flo_name, warned):
-    """An overlay passed through unmapped, where Old School's colour and 377's are nothing alike."""
+def warn_overlay(value, osrs_colour, flo_colour, flo_name, warned, level=0, roof_hits=None):
+    """An overlay passed through unmapped.
+
+    TWO FAULTS LIVED HERE. The colour test read osrs_colour[value - 1], which is the colour of a
+    DIFFERENT Old School overlay - `value` is already the Old School id for anything unmapped, and
+    only the 377 side needs the minus one. And a colour test cannot catch the case that matters
+    anyway: Old School's course deck is #606058 and 377 keeps greyroof (#5b5b5b) at that id, so
+    grey passed for grey and Al Kharid shipped 452 tiles of slate roof on a sandstone town, while
+    Rellekka shipped 176 tiles of `invisible` - a roof you can see straight through.
+
+    So anything unmapped ABOVE GROUND is counted and reported at the end whatever its colour. A
+    floor a player stands on at level 1 or higher is a deck, and a deck is always a decision.
+    """
+    if level >= 1 and roof_hits is not None:
+        roof_hits[value] += 1
     if value in warned:
         return
-    a = osrs_colour.get(value - 1)
+    a = osrs_colour.get(value)
     b = flo_colour.get(value - 1)
     if a is None or b is None:
         return
@@ -165,6 +178,8 @@ def main():
     osrs_colour = read_osrs_overlay_colours(st)
     flo_name = {v: k for k, v in flo.items()}
     warned = set()
+    from collections import Counter
+    roof_hits = Counter()      # unmapped overlays written above ground - see warn_overlay
 
     texnames = {}
     for l in open(os.path.join(a.content, 'pack', 'texture.pack')):
@@ -200,10 +215,18 @@ def main():
                     if t['ov'] in overlay_remap:
                         t['ov'] = overlay_remap[t['ov']]
                     elif t['ov']:
-                        warn_overlay(t['ov'], osrs_colour, flo_colour, flo_name, warned)
+                        warn_overlay(t['ov'], osrs_colour, flo_colour, flo_name, warned, lv, roof_hits)
                     if land.get((lv, x, z)) != t:
                         land[(lv, x, z)] = t
                         tchanged += 1
+        if roof_hits:
+            worst = ", ".join(f"{v} ({n} tiles, now {flo_name.get(v - 1, chr(63))})"
+                              for v, n in roof_hits.most_common(6))
+            print(f"# WARNING {sum(roof_hits.values())} tile(s) ABOVE GROUND took an overlay this "
+                  f"graft was not told about: {worst}. A floor a player stands on at level 1 or "
+                  f"higher is a deck - pass --overlay <id>=<floor> for each, or it wears whatever "
+                  f"377 keeps at that number.")
+            roof_hits.clear()
 
         kept = [l for l in ours if not (l[1] in levels and inbox(l[2], l[3]))]
         dropped = len(ours) - len(kept)
