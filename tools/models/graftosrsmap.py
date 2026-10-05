@@ -22,19 +22,18 @@ import argparse, os, sys
 
 CRLF = chr(13) + chr(10)
 
-# THE ROOF A COURSE IS WALKED ON. Old School paints the flat deck of a rooftop course with overlay
-# 55, a plain grey 0x606058 and no texture, and that is how it looks there: a slab. 377's overlay 55
-# happens to be `lightrock`, a pale 0x767676 quarry rock, so the Draynor graft first laid a blank
-# light slab over the town's textured slate; a flat `greyroof` after that was the right colour and
-# still read as a missing texture, because every roof it touches is shingled.
+# AN OVERLAY ID MEANS SOMETHING DIFFERENT IN EACH CACHE, and a graft that passes them through
+# writes whatever 377 happens to keep at that id. Old School's 55 is the deck of a rooftop course;
+# 377's 55 is `lightrock`, a pale quarry rock, so Draynor's course arrived as a blank slab over the
+# town's slate. The remap for that was written into this file as a constant - and then Al Kharid
+# showed why that was wrong too: 55 there wants a DESERT roof, not Draynor's grey slate, and its
+# 64 (sand, 0xb8b098) was landing on 377's `mud2` and terracing the roofs brown.
 #
-# So the deck takes the slate itself: `roofdeck_greyslate`, the flo carrying texture roof2, which is
-# what oldroof_greyslate retextures onto its own model. By NAME, not by id - a content tree without
-# that flo should stop here rather than write an overlay the client will index off the end of its
-# table. Scoped to the graft on purpose: it is only right for the levels and box being grafted,
-# which for a course is the deck and nothing else.
-ROOF_DECK_FLO = 'roofdeck_greyslate'
-OSRS_ROOF_DECK_OVERLAY = 55
+# So the mapping belongs to the GRAFT, not to the tool: --overlay 55=roofdeck_greyslate. What the
+# tool owes the caller is a loud warning for every overlay it passes through whose Old School
+# colour is nothing like the 377 floor of the same id, which is what both of those bugs looked like
+# and what nobody noticed until it was in front of the owner.
+MISMATCH = 60           # sum of |dR|+|dG|+|dB| past which a passed-through overlay is called out
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import importosrsmap as IM
@@ -44,6 +43,70 @@ from flatcache import Store
 from osrsloc import load_osrs_locs
 from animconv474 import pack_append
 from animconvosrs import convert_seqs
+
+
+def read_flo_colours(content):
+    """Every 377 floor's own colour, by flo id, read out of the .flo configs beside flo.pack."""
+    import glob, re
+    name_colour = {}
+    for path in glob.glob(os.path.join(content, 'scripts', '**', '*.flo'), recursive=True):
+        cur = None
+        for line in open(path, newline='', encoding='latin-1').read().splitlines():
+            line = line.split('//')[0].strip()
+            if line.startswith('[') and line.endswith(']'):
+                cur = line[1:-1]
+            elif cur and line.startswith('colour='):
+                name_colour[cur] = int(line.split('=', 1)[1], 0)
+    out = {}
+    for l in open(os.path.join(content, 'pack', 'flo.pack')):
+        if '=' in l:
+            i, nm = l.strip().split('=', 1)
+            if nm in name_colour:
+                out[int(i)] = name_colour[nm]
+    return out
+
+
+def read_osrs_overlay_colours(st):
+    """Every Old School overlay's own colour. Where the primary is the 0xFF00FF 'not drawn' marker
+    the secondary is what it actually shows, which is true of every course deck overlay there is."""
+    from reftable import split_group
+    ids = st.reftable(2).file_ids[4]
+    files = split_group(st.read(2, 4), len(ids))
+    out = {}
+    for fid, b in zip(ids, files):
+        p = 0; rgb = None; rgb2 = None
+        while p < len(b):
+            op = b[p]; p += 1
+            if op == 0: break
+            if op == 1: rgb = int.from_bytes(b[p:p + 3], 'big'); p += 3
+            elif op == 2: p += 1
+            elif op == 3: p += 2
+            elif op == 5: pass
+            elif op == 7: rgb2 = int.from_bytes(b[p:p + 3], 'big'); p += 3
+            elif op == 9: p += 2
+            else: break
+        if rgb == 0xFF00FF and rgb2 is not None:
+            rgb = rgb2
+        if rgb is not None:
+            out[fid] = rgb
+    return out
+
+
+def warn_overlay(value, osrs_colour, flo_colour, flo_name, warned):
+    """An overlay passed through unmapped, where Old School's colour and 377's are nothing alike."""
+    if value in warned:
+        return
+    a = osrs_colour.get(value - 1)
+    b = flo_colour.get(value - 1)
+    if a is None or b is None:
+        return
+    d = sum(abs(((a >> s) & 255) - ((b >> s) & 255)) for s in (16, 8, 0))
+    if d <= MISMATCH:
+        return
+    warned.add(value)
+    print(f'# WARNING overlay {value}: Old School paints it #{a:06x}, and this build keeps '
+          f'{flo_name.get(value - 1, "?")} (#{b:06x}) at that id'
+          f' - pass --overlay {value}=<floor> if that is wrong')
 
 
 def main():
@@ -56,6 +119,10 @@ def main():
     ap.add_argument('--content', required=True)
     ap.add_argument('--out')
     ap.add_argument('--rename', action='append', default=[], metavar='ID:NAME')
+    ap.add_argument('--overlay', action='append', default=[], metavar='OSRS=FLONAME',
+                    help='map an Old School overlay id onto a 377 floor BY NAME, for the tiles '
+                         'this graft writes. Repeatable. Every course needs its own: the deck of '
+                         'a slate town and the deck of a desert town are not the same floor.')
     ap.add_argument('--locs-only', action='store_true',
                     help='graft the locs but leave the terrain alone - for a ground-level obstacle '
                          'whose tile belongs to the 2006 town under it, like a rough wall')
@@ -84,11 +151,20 @@ def main():
         if '=' in l:
             i, nm = l.strip().split('=', 1); flo[nm] = int(i)
     flo_max = max(flo.values())
-    if ROOF_DECK_FLO not in flo:
-        raise SystemExit(f'{ROOF_DECK_FLO} is not in flo.pack - add it before grafting a rooftop '
-                         f'course, or the deck overlay points past the end of the floor table')
-    # a tile stores the overlay as the flo id PLUS ONE; the client reads FloType[value - 1]
-    roof_deck = flo[ROOF_DECK_FLO] + 1
+
+    # --overlay, resolved BY NAME so a content tree without the floor stops here rather than
+    # writing an overlay the client would index off the end of its table.
+    # A tile stores the overlay as the flo id PLUS ONE; the client reads FloType[value - 1].
+    overlay_remap = {}
+    for r in a.overlay:
+        osrs_ov, _, dst = r.partition('=')
+        if dst not in flo:
+            raise SystemExit(f'--overlay {r}: {dst} is not in pack/flo.pack')
+        overlay_remap[int(osrs_ov)] = flo[dst] + 1
+    flo_colour = read_flo_colours(a.content)
+    osrs_colour = read_osrs_overlay_colours(st)
+    flo_name = {v: k for k, v in flo.items()}
+    warned = set()
 
     texnames = {}
     for l in open(os.path.join(a.content, 'pack', 'texture.pack')):
@@ -121,7 +197,10 @@ def main():
                         continue
                     t = dict(tiles[lv][x][z])
                     if t['ov'] in IM.OVERLAY_REMAP: t['ov'] = IM.OVERLAY_REMAP[t['ov']]
-                    if t['ov'] == OSRS_ROOF_DECK_OVERLAY: t['ov'] = roof_deck
+                    if t['ov'] in overlay_remap:
+                        t['ov'] = overlay_remap[t['ov']]
+                    elif t['ov']:
+                        warn_overlay(t['ov'], osrs_colour, flo_colour, flo_name, warned)
                     if land.get((lv, x, z)) != t:
                         land[(lv, x, z)] = t
                         tchanged += 1
