@@ -19,7 +19,7 @@ impossible for four hundred. Every clue reward is one of two things and each has
   python3 tools/models/fillosrsstats.py <cache> --content ../../content \\
       --file ../../content/scripts/minigames/game_trail/configs/clue_rewards.obj [--dry-run]
 """
-import argparse, os, re, sys, glob, collections
+import argparse, difflib, os, re, sys, glob, collections
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -30,6 +30,10 @@ TODO = '// TODO by hand: category, param= combat bonuses, equip requirement'
 BONUS = {0: 'stabattack', 1: 'slashattack', 2: 'crushattack', 3: 'magicattack', 4: 'rangeattack',
          5: 'stabdefence', 6: 'slashdefence', 7: 'crushdefence', 8: 'magicdefence', 9: 'rangedefence',
          10: 'strengthbonus', 11: 'prayerbonus'}
+
+def norm(s):
+    return re.sub(r'[^a-z0-9]', '', s.lower())
+
 
 VARIANT = re.compile(r'\s*\((t|g|h[1-5]|or|i|r|t4|g4)\)\s*$', re.I)
 GODS = ('zamorak', 'guthix', 'saradomin', 'ancient', 'armadyl', 'bandos')
@@ -98,11 +102,54 @@ def main():
             osrs.setdefault(nm.lower(), d)
 
     objs = read_objs(a.content)
-    byname = {}
+    # A DISPLAY NAME IS NOT UNIQUE AND THE FIRST ONE IS NOT ALWAYS RIGHT. This used to be a
+    # setdefault, so when several objs answered to a name the rest were invisible - and worse, a
+    # name no obj displays at all ("Monk's robe top", because this build calls both halves "Monk's
+    # robe") fell straight through to the modern cache's rebalanced numbers. Both silently.
+    #
+    # So: keep EVERY obj under a name, prefer one that actually has stats to copy, and break a tie
+    # on how close its debugname is to the name being looked up - the debugnames are the only place
+    # this build writes "top" and "bottom" down. tools/models/checkosrsstats.py audits the result.
+    byname = collections.defaultdict(list)
     for dbg, f in objs.items():
         nm = (f.get('name') or [None])[0]
         if nm and nm != 'null' and not f.get('certlink'):
-            byname.setdefault(nm.lower(), dbg)
+            byname[nm.lower()].append(dbg)
+    bydebug = {norm(d): d for d in objs}
+
+    def lift_for(cand, wearpos):
+        """The obj to copy stats from for a wanted display name, or None.
+
+        WEARPOS IS THE TIE-BREAK, not how alike the two names look. Both halves of a monk's robe
+        are called "Monk's robe" and the only thing that tells the top from the legs is the slot
+        they go in - which the item being filled states. Name similarity gets this wrong: the top
+        reads as closer to "Monk's robe" than the legs do, so it wins both.
+        """
+        here = [d for d in byname.get(cand.lower(), []) if objs[d].get('param')]
+        if len(here) > 1 and wearpos:
+            same = [d for d in here if (objs[d].get('wearpos') or [None])[0] == wearpos]
+            if same:
+                here = same
+        return here[0] if here else None
+
+    def lift_by_debugname(name, wearpos):
+        """LAST RESORT, once no candidate name matched anything this build displays.
+
+        "Monk's robe top" is no obj's display name here, so nothing above can find monkrobetop
+        sitting right there and the stats fall through to the modern cache. The debugnames are the
+        only place this build writes "top" and "bottom" down. It must run AFTER every candidate has
+        been tried, never instead of one: "Adamant shield" fuzzily resembles adamant_sq_shield, and
+        trying it first stops base_names ever reaching "Adamant kiteshield", which is the answer.
+        """
+        near = difflib.get_close_matches(norm(VARIANT.sub('', name)), list(bydebug), n=3, cutoff=0.86)
+        for n in near:
+            d = bydebug[n]
+            if not objs[d].get('param'):
+                continue
+            if wearpos and (objs[d].get('wearpos') or [None])[0] != wearpos:
+                continue
+            return d
+        return None
 
     raw = open(a.file, newline='').read()
     nl = '\r\n' if '\r\n' in raw else '\n'
@@ -115,11 +162,17 @@ def main():
         lines = [l for l in b.split(nl) if l.strip() != TODO]
         name = next((l[5:] for l in lines if l.startswith('name=')), '')
 
+        me = next((l[1:-1] for l in lines if l.startswith('[') and l.endswith(']')), None)
+        wearpos = next((l[8:].strip() for l in lines if l.startswith('wearpos=')), None)
         lift = None
         for cand in base_names(name):
-            dbg = byname.get(cand.lower())
-            if dbg and objs[dbg].get('param'):
+            dbg = lift_for(cand, wearpos)
+            if dbg and dbg != me:
                 lift = (dbg, objs[dbg]); break
+        if not lift:
+            dbg = lift_by_debugname(name, wearpos)
+            if dbg and dbg != me:
+                lift = (dbg, objs[dbg])
 
         add = []
         if lift:
