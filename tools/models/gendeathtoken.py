@@ -58,6 +58,16 @@ def transform(m, scale=1.0, dx=0, dy=0, dz=0):
     return m
 
 
+def scale3(m, sx, sy, sz):
+    """Scale each axis on its own. A coin's device is struck in SHALLOW RELIEF - wide across the
+    face, almost flat front to back - and a cache skull scaled evenly is a whole head glued on."""
+    for i in range(m['vcount']):
+        m['vx'][i] = int(round(m['vx'][i] * sx))
+        m['vy'][i] = int(round(m['vy'][i] * sy))
+        m['vz'][i] = int(round(m['vz'][i] * sz))
+    return m
+
+
 def tint(m, hue, sat, light_scale=1.0, skip=()):
     """Every face keeps its own lightness; only hue and saturation change, so the shading survives."""
     for i in range(m['fcount']):
@@ -108,7 +118,11 @@ def _add(m, verts, faces, colour):
 
 
 def coin(radius, thick, face, rim, sides=14):
-    """A coin standing face-on: the n-gon is in the x/y plane and z is its axis."""
+    """A coin standing face-on: the n-gon is in the x/y plane and z is its axis.
+
+    It is built face-on because that is the easy frame to press a stamp into - the skull is a
+    standing model and its front is its -z - and then lie_flat() turns the finished coin over.
+    """
     m = blank()
     ring_f = [(radius * math.cos(2 * math.pi * i / sides), radius * math.sin(2 * math.pi * i / sides), -thick / 2)
               for i in range(sides)]
@@ -125,6 +139,33 @@ def coin(radius, thick, face, rim, sides=14):
             m['fa'].append(a + base); m['fb'].append(b + base); m['fc'].append(c + base)
             m['colour'].append(rim); m['pri'].append(0); m['fcount'] += 1
     return m
+
+
+def lie_flat(m):
+    """Tip a model that stands facing the camera onto its back, so its face points at the sky.
+
+    (x, y, z) -> (x, z, -y). A proper rotation, so every face keeps its winding and nothing turns
+    inside out. THE GROUND RENDER DRAWS THE MODEL AS IT IS BUILT - no 2d camera touches it - so a
+    coin whose disc lies in the x/y plane stands on its edge in the world like a dropped wheel. A
+    coin lies flat only if the mesh itself lies flat.
+    """
+    for i in range(m['vcount']):
+        y, z = m['vy'][i], m['vz'][i]
+        m['vy'][i] = z
+        m['vz'][i] = -y
+    return m
+
+
+def sit_on_ground(m):
+    """Drop a model so its lowest point is y=0 and it extends UPWARD into negative y.
+
+    THIS IS WHAT CENTRES AN INVENTORY ICON, and it is not a convention worth breaking. The client
+    aims the icon camera at model.minY / 2, where minY is max(-vy) - the model's height above the
+    origin - because it assumes a model rests on the ground plane the way every cache model does.
+    A mesh built symmetrically about y=0 gets a camera pointed at half its own half-height and
+    renders low in the 32x32 frame, which is exactly what the first Death token did.
+    """
+    return transform(m, 1.0, 0, -max(m['vy']), 0)
 
 
 def write(m, name):
@@ -159,13 +200,29 @@ def centre(m, keep_z=False):
     return transform(m, 1.0, -cx, -cy, -cz)
 
 
-def death_token():
-    c = coin(32, 8, OBSIDIAN, RIM)
+# THE COIN, and the stamp struck into it. The skull is a DEVICE, not an ornament: widened to fill
+# the recessed field and flattened front to back so it reads as pressed stone, standing only a few
+# units proud of the face. A cache skull at even scale is a whole head sitting on a disc, and at 32
+# pixels it loses its eye sockets and becomes a pale smudge - which is the only thing that has to
+# survive the size.
+RADIUS, THICK = 32, 8
+# Tuned against ObjIconRender at --mode 0 (a pack slot, not a cert's 1.5x), beside coins, bones and
+# a tinderbox for scale: 1.55 fills the recessed field without climbing onto the rim, and the
+# shallower 0.25 keeps the eye sockets black instead of letting the brow highlight flood them.
+SKULL_XY, SKULL_DEPTH, SKULL_PROUD = 1.55, 0.25, 4
+
+
+def death_token(xy=SKULL_XY, depth=SKULL_DEPTH, proud=SKULL_PROUD):
+    c = coin(RADIUS, THICK, OBSIDIAN, RIM)
     # a recessed field for the skull to sit in, a touch darker than the face around it
-    c = merge([c, coin(23, 7, FIELD, FIELD, sides=14)])
-    skull = centre(part('obj_ghostskull'))
-    skull = tint(transform(skull, scale=0.86, dz=-9), 7, 2, light_scale=1.45)
-    return merge([c, skull])
+    c = merge([c, coin(23, THICK - 1, FIELD, FIELD, sides=14)])
+    skull = scale3(centre(part('obj_ghostskull')), xy, xy, depth)
+    # push the stamp forward until its highest point stands `proud` above the coin's own face
+    dz = int(round(-THICK / 2 - proud - min(skull['vz'])))
+    skull = tint(transform(skull, 1.0, 0, 0, dz), 7, 2, light_scale=1.45)
+    # Built standing, delivered lying down, resting on the ground: the first keeps the stamp easy to
+    # place, the second is what the world render needs, the third is what the icon camera expects.
+    return sit_on_ground(lie_flat(merge([c, skull])))
 
 
 # ---------------------------------------------------------------- the Undertaker
@@ -264,4 +321,5 @@ def main():
     print('model.pack:', ', '.join(added) or 'nothing new')
 
 
-main()
+if __name__ == '__main__':
+    main()
