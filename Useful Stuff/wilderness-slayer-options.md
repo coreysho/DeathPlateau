@@ -1,160 +1,157 @@
 # Wilderness Slayer: options for this server
 
-This tables the Horror from the Deep work for now and covers what "wilderness slayer" could mean for
-this project, what's already built, what the real OSRS feature actually is, and the paths forward with
-their tradeoffs. Nothing here has been implemented — this is a decision document.
+> **Reviewed and corrected 8 October 2026.** The original was written before the Slayer reward
+> system existed, and its central argument rested on that absence. The facts below are re-measured
+> against the tree as it stands today; the four options survive, their costs and their tradeoffs do
+> not. What changed, in one line: **this server now runs the whole OSRS points economy, so Krystilia
+> would no longer be the first anachronism in the skill — she would be consistent with it.**
+> Nothing here has been implemented — this is still a decision document.
 
-## The core tension up front
+## The core tension, restated
 
-"Wilderness Slayer" as most people mean it — Krystilia, a dedicated slayer master standing in the
-Edgeville jail who assigns wilderness-only tasks for points and unique drops — is not 2006 content. She
-was released as a plain NPC on 11 July 2013 and only became a functioning slayer master on 13 April
-2017, more than a decade after this server's January 2006 cutoff. So the first real decision isn't a
-technical one, it's scope: does "wilderness slayer" for this project mean *the wilderness-located
-monsters that 2006's five real slayer masters already assign* (which is period-accurate and, per the
-audit below, already partly built), or does it mean *building Krystilia's actual system* as a deliberate
-piece of bonus content that knowingly breaks the project's own accuracy premise? Both are legitimate
-things a private server can do; they're just different projects with very different amounts of work.
+"Wilderness Slayer" as most people mean it — Krystilia, a dedicated slayer master in the Edgeville
+jail who assigns wilderness-only tasks for points and unique drops — is not 2006 content. She was
+released as a plain NPC on 11 July 2013 and only became a functioning slayer master on 13 April 2017,
+more than a decade after this server's January 2006 cutoff.
+
+The original framed the decision as *period accuracy versus a knowing break*. That framing is now
+weaker, because the break has already been made deliberately and thoroughly:
+
+* the **Slayer reward points economy** — points, streak, tasks completed, four block slots, cancel,
+  block, unblock — is 2011 content and is built;
+* **superior slayer monsters** and Bigger and Badder are 2015 content and are built;
+* the **rewards window** (five tabs: Unlock, Extend, Buy, Tasks, Cosmetics), the **Scroll of
+  imbuing**, the **slayer helmet recolours** and the **collection log** are all post-2006 and built;
+* so are Zulrah, the Kraken, the God Wars Dungeon, the Dagannoth Kings and Horror from the Deep.
+
+So the question is no longer "does this break the premise". It is plainly a design question: **do you
+want a master whose whole point is forcing repeated time-at-risk in a PvP zone?**
 
 ## What already exists in this codebase today
 
-The audit below is current as of this session, from `content/scripts/skill_slayer/` and
-`content/scripts/areas/area_wilderness/`.
+Current as of 8 October 2026, measured rather than remembered.
 
 ### The five real 2006-era slayer masters
 
-Exactly the classic five exist, no more and no less: Turael (Burthorpe, no requirements), Mazchna
-(Canifis, combat 20), Vannaka (under Edgeville, combat 40), Chaeldar (Zanaris, combat 70), and Duradel
-(Shilo Village, combat 100 + 50 Slayer). Their task pools live in `configs/slayer_master_tasks.dbrow`
-(which tasks each master can assign) and `configs/slayer_tasks.dbrow` (weight/min-kills/max-kills per
-task, ~157 entries total across all five). No Krystilia, no Nieve/Steve, no Konar, no post-2011 master
-of any kind exists anywhere in the tree — consistent with the project's stated era.
+Exactly the classic five: Turael (Burthorpe, no requirement), Mazchna (Canifis, combat 20), Vannaka
+(under Edgeville, combat 40), Chaeldar (Zanaris, combat 70), Duradel (Shilo Village, combat 100 + 50
+Slayer). A Slayer cape skips every combat requirement. No Krystilia, no Nieve/Steve, no Konar.
 
-### Wilderness monsters already assignable, right now, through those five masters
+Their pools are `configs/slayer_master_tasks.dbrow` (which tasks each master gives) and
+`configs/slayer_tasks.dbrow` (weight and kill range per row): **170 rows, 77 distinct tasks**. Every
+master also carries a **Rewards right-click** that opens the window directly.
 
-This is the part worth sitting with: 2006's real slayer masters already send players into the
-Wilderness for certain tasks, and that assignment logic is already built and enabled in this codebase.
-Specifically:
+### The reward economy the original said did not exist
 
-- **Green dragons** — Vannaka only (weight 6, 40–80 kill count). Not offered by Chaeldar or Duradel in
-  this implementation.
-- **Black demons** — Chaeldar (weight 10, 110–170) and Duradel (weight 8, 130–200). Note black demons
-  also spawn in Brimhaven Dungeon in this era, so the task isn't wilderness-exclusive, but wilderness
-  black demons are a legitimate way to complete it.
-- **Black dragons** — Duradel only (weight 9, 10–20 — a much lower kill-count range than the bulk
-  tasks, more boss-hunt than grind).
-- **Earth Warriors** (the classic wilderness dungeon monster) — Mazchna and Vannaka.
+It does now, and this is the single biggest correction to the document: 8 unlocks, 11 task
+extensions, 4 items to buy, 3 helmet-recolour cosmetics, cancel at 30 points and block at 100, all
+spent through one generated window. The original's line — *"no points gate it, which is itself
+period-accurate, since OSRS's Slayer Reward Points system didn't launch until 2011"* — is simply no
+longer the state of the tree.
 
-All four are currently enabled and assignable with no wilderness-specific restriction or bonus logic —
-they're just tasks that happen to send a player into the wilderness, exactly as they did in real 2006
-OSRS. This is, in the strictest sense, already "wilderness slayer" for this project's target era.
+### How much of Slayer already happens in the Wilderness
 
-### What's conspicuously NOT in the task pools
+The original said four tasks. Measured against the build's own Wilderness rectangles
+(`area_wilderness/configs`, x 2944-3391 z 3520-3967 on the surface, plus the Edgeville dungeon
+section), **24 of the 77 tasks have monsters standing inside them**:
 
-Ankou, Dark Warriors, Bandits/Rogues/Highwaymen, Chaos Druids, Spiritual creatures, Lava dragons, and
-Mammoths are not wired into any of the five masters' task tables, even though several of them are
-period-appropriate 2006 wilderness monsters and one (Chaos Druid) already has full combat AI built in
-this codebase (`content/scripts/npc/scripts/chaos_druid.rs2` — bind spell, confuse debuff, freeze-on-hit
-— it's combat-ready, just not currently a slayer target). Revenants are correctly absent everywhere:
-they didn't exist until 2008, so their absence is accurate, not a gap. A `highwayman.rs2` combat AI file
-also exists but isn't wired into slayer either.
+| | tasks |
+|---|---|
+| **Wilderness-defining** (most or all of the monster lives there) | green dragons, red dragons, earth warriors, black demons, black dragons, hellhounds, greater and lesser demons |
+| **Also completable there** (the monster lives elsewhere too) | spiders, skeletons, rats, ice warriors, ice giants, hobgoblins, zombies, ghosts, scorpions, wolves, bears, hill giants, moss giants, fire giants, dwarves, bats |
 
-### The wilderness substrate already built
+Red dragons joined on 7 October behind the **Seeing Red** unlock (Duradel); four of the build's red
+dragons stand in the Wilderness and the rest are in Brimhaven Dungeon. So "wilderness slayer, 2006
+flavour" is already a real thing a player can choose to do — considerably more of one than the
+original recorded.
 
-Separately from slayer, `area_wilderness/` already has a fair amount of infrastructure a wilderness
-slayer feature (of either flavor) would lean on: wilderness-level detection (`wilderness_level()`,
-computed from z-coordinate, one level per 8 tiles), a `%wilderness` zone flag set on entry/exit, the
-full six-obelisk random-teleport network, King Black Dragon as a complete wilderness boss encounter,
-Bandit Camp NPCs, the Lava Maze treasure chest, wilderness interface overlays, and a full PK skull
-system (`skill_combat/scripts/pvp/pk_skull.rs2`) plus a parallel PvP combat stack (melee/ranged/magic/
-specials, all separate from the PvE combat files). What's *not* there: any multi-combat-zone scripting
-authored in these files (multi-combat is presumably inherited passively from the original 377 map
-cache's per-square flags rather than scripted here), any slayer-points variable or reward shop, any
-risk-based bonus loot table, and no dedicated wilderness slayer master NPC or dialogue at all. The only
-"rewards" economy in Slayer right now is the flat, always-available Slayer Equipment shop (gem, mirror
-shield, leaf-bladed spear, broad arrows, rock hammer, facemask, earmuffs, etc.) — no points gate it,
-which is itself period-accurate, since OSRS's Slayer Reward Points system didn't launch until 2011.
+### What is NOT in the task pools, corrected
 
-## What the real Wilderness Slayer (Krystilia) actually is, for reference
+Chaos druids, dark warriors, rogues and highwaymen all exist as npcs with combat behaviour and are
+not slayer targets. **Ankou and lava dragons do not exist in this build at all** — no npc config, no
+pack id — so wiring them in would be an import job, not a data edit. The original listed them
+alongside the others as though they were merely unwired. Revenants and mammoths are correctly absent
+as post-2006 content.
 
-For comparison, since the ask was to include everything:
+### The wilderness substrate
 
-**Who and where.** Krystilia — "a witch who likes chaos, she looks dangerous" — stands in the Edgeville
-jail, northeast of the bank. Reachable by fairy ring, amulet of glory, or Paddewwa teleport; players can
-also pay 5,000,000gp to set their respawn point to Edgeville for faster re-entry after dying.
+`~wilderness_level(coord)` (one level per 8 tiles, read from two rectangles with an exclusion table
+for the underground pockets), the `%wilderness` zone flag, the six-obelisk network, the PK skull
+system, a full PvP combat stack, the King Black Dragon, Bandit Camp, the Lava Maze chest. Multi-way
+combat comes from the map's own flags rather than from script.
 
-**Requirements.** Just level 1 Slayer (trivial to get). She'll assign literally any monster on her list
-regardless of the player's combat level — there's no combat-level gating the way Mazchna/Vannaka/
-Chaeldar/Duradel have. A player can only hold one task at a time between her and the regular masters —
-taking a Turael task cancels a wilderness streak in progress.
+### And a rule that now guards the task tables
 
-**The catch that defines the whole system.** Only kills that happen while the player is physically
-standing in the Wilderness count toward the task. This is what makes it a genuinely different kind of
-slayer task rather than just "some of the monsters happen to be up north" — the entire point is forcing
-extended, repeated time-at-risk in a PvP-enabled zone, since every kill is a kill made while skullable
-and visible to other players hunting slayer-task PKs.
+`tools/slayer_battery.py` fails unless **every task a master can hand out either has a monster that
+counts and is spawned somewhere, or is refused outright**. That rule was written after an audit found
+three tasks whose monsters counted for nothing; it is what would keep a sixth master's table honest
+from its first commit.
 
-**Points economy.** No points at all for the first four tasks (a soft anti-farming ramp); from the 5th
-task onward, 25 points per task, with milestone bonuses at 10th (125), 50th (375), 100th (625), 250th
-(875), and 1,000th (1,250) tasks. Blocking an unwanted task costs 100 points. Points spend in a
-dedicated Wilderness Slayer rewards shop (separate from the regular Slayer Equipment shop) — full
-pricing wasn't something I could pull completely from the wiki source this pass, but the shop is
-real and distinct.
+## What the real Wilderness Slayer (Krystilia) actually is
 
-**Unique mechanics and drops.** Wilderness-slayer kills have their own chance at Larran's key (opens
-Larran's chest, a wilderness-exclusive loot table) and at "Slayer's enchantment," on top of whatever
-that monster's normal drop table gives. The task list itself is large — 40+ monster types including
-abyssal demons, dust devils, greater demons, lava dragons, and the Wilderness God Wars Dungeon bosses —
-several gated behind quests (Priest in Peril, Desert Treasure I, Death Plateau) or skill levels up to 85
-Slayer, with the God Wars Dungeon tasks additionally requiring 60 Agility or 60 Strength to reach.
+**Who and where.** Krystilia stands in the Edgeville jail, northeast of the bank.
 
-None of this — the NPC, the points, the shop, the unique drops, the "only wilderness kills count"
-rule — has any equivalent in a 2006 client.
+**Requirements.** Level 1 Slayer. She assigns any monster on her list regardless of combat level —
+no gating of the Mazchna/Vannaka/Chaeldar/Duradel kind. One task at a time across all masters, so
+taking a Turael task cancels a wilderness streak.
+
+**The catch that defines it.** Only kills made while the player is physically in the Wilderness count.
+That is the feature: extended, repeated time skulled and visible to anyone hunting slayer-task PKers.
+
+**Points.** Nothing for the first four tasks, then 25 a task, with milestones at the 10th (125), 50th
+(375), 100th (625), 250th (875) and 1,000th (1,250). Blocking costs 100. They spend in a dedicated
+wilderness rewards shop, separate from the ordinary one.
+
+**Unique drops.** Larran's key (opening Larran's chest, a wilderness-only loot table) and Slayer's
+enchantment, rolled on top of each monster's own table. Her list runs to 40+ monsters, several gated
+behind quests or Slayer levels up to 85.
 
 ## Options
 
-**Option A — Do nothing further; this is already "done."** The four wilderness-flagged tasks
-(green dragons, black demons, black dragons, earth warriors) that Vannaka/Chaeldar/Duradel/Mazchna
-already assign, exactly as they did in 2006, already constitute this server's wilderness slayer content.
-Zero additional work, zero accuracy risk, nothing to design. The tradeoff is that it's a thin feature —
-four tasks out of ~157, no wilderness-specific identity, nothing that reads as "wilderness slayer" to a
-player the way it would on live OSRS even in 2006.
+**Option A — Do nothing; it is already there.** Twenty-four tasks can be completed in the Wilderness,
+eight of them essentially wilderness-only, and a player chooses when to take that risk. Zero work.
+The tradeoff is the same as before: no wilderness *identity* — nothing that reads as a feature.
 
-**Option B — Broaden the existing masters' wilderness task pool, still period-accurate.** Add
-wilderness monsters that were plausibly assignable by the real 2006 masters but aren't currently wired
-in — Chaos Druids (combat AI already built), Ankou, Dark Warriors, Bandits/Rogues — as new entries in
-`slayer_tasks.dbrow`/`slayer_master_tasks.dbrow` under whichever of the five masters actually offered
-them historically. This stays inside the project's own accuracy premise, but it needs the same
-discipline as the rest of this project: each addition should be checked against a real 2006-era task-
-list source (the OSRS wiki's task tables usually note when a task was added) before assuming it belongs,
-rather than added because it "feels right" for a wilderness monster to be a slayer target. Moderate
-work, low risk, and it's the option that most directly answers "give players more to do in the
-wilderness via slayer" without leaving the 2006 target.
+**Option B — Broaden the five masters' pools.** Chaos druids, dark warriors, rogues and highwaymen
+exist and could be wired in; ankou and lava dragons would have to be imported first.
 
-**Option C — Build Krystilia and the real Wilderness Slayer system as deliberate bonus content.** This
-means an NPC, a full task table (40+ entries with their weights and quest/level gates), the points
-economy, the separate rewards shop, the "only wilderness kills count" tracking, and the Larran's key/
-Slayer's enchantment unique drops. It's a real, substantial feature — probably comparable in scope to
-the Dagannoth Kings/Horror from the Deep build already underway — and it explicitly is not 2006 content,
-so it would need to be framed to players as an intentional addition rather than presented as authentic,
-the same way this project has been careful to exclude other post-2006 changes elsewhere. The wilderness
-substrate already built (zone detection, skull system, PvP stack, obelisks) covers a real chunk of the
-groundwork; what's missing is entirely new: the master, the task/points/shop data, and the unique loot.
+> **A design objection the original did not make, and I would weigh it heavily.** Putting more
+> wilderness monsters into the existing masters' tables takes away the player's *choice* to opt into
+> risk. OSRS keeps that choice explicit precisely by putting them behind a separate master. With 24
+> tasks already completable in the Wilderness by choice, B adds little and can actively annoy — a
+> Turael task that forces a trip past level 20 is a worse experience than no task at all.
 
-**Option D — A custom wilderness bounty/task system, not a recreation of Krystilia.** Same spirit as
-Option C (more reason to fight in the wilderness, task-driven), but built as the server's own thing
-rather than an attempt to reproduce a specific 2013–2017 Jagex feature stage-for-stage — e.g., a
-wilderness-only bonus applied to tasks already assignable by the real five masters when completed at
-risk, rather than a whole separate master and points shop. Less work than Option C, doesn't claim
-authenticity it doesn't have, but is a bigger design commitment than Option B since it's inventing new
-server-specific mechanics rather than just re-enabling more of the real 2006 task list.
+**Option C — Build Krystilia.** Much cheaper than the original estimated, because the expensive parts
+were built for the ordinary masters in the meantime:
+
+| Piece | State |
+|---|---|
+| the master and her task table | data — `slayer_new_target` switches on the npc and reads a dbrow; a sixth table is rows, and the battery keeps it honest |
+| points, streak, milestones | `%slayer_points`, `%slayer_streak`, `%slayer_tasks_done`, `%slayer_task_master` all exist and are saved; her ramp is arithmetic on them |
+| "only wilderness kills count" | one condition in `~check_progress_task`, using `~wilderness_level(coord)`, which exists |
+| the rewards window / shop | generated from enums; a tab or a second row set is data plus a regenerate |
+| **Larran's key and chest, Slayer's enchantment** | **the real remaining work**: new items, a loot table and a chest |
+
+**Option D — A custom wilderness bounty system.** Same loop, built as this server's own thing rather
+than a recreation: a bonus on tasks already assignable when they are completed at risk, say. Less
+work than C and no claim to authenticity, but it is a design commitment rather than a port.
 
 ## Where this leaves it
 
-Options A and B stay inside the project's own stated premise and are the lower-risk, lower-effort paths;
-A needs nothing, B is a bounded content pass using assets (Chaos Druid AI, the wilderness zone/skull
-substrate) that already exist. Options C and D are both real feature builds on the order of a boss/quest
-addition, and both require an explicit decision to add non-2006 (or invented) content on purpose — worth
-being deliberate about given how much of this project's effort elsewhere has gone into excluding exactly
-that kind of anachronism. Happy to scope any of the four in more detail, or start on B or C, once you've
-picked a direction.
+The accuracy argument that split A/B from C/D has mostly dissolved — the skill already runs OSRS's
+own reward system, so the honest question is whether the *risk loop* is wanted, not whether it is
+period.
+
+**Recommended: a reduced C.** Krystilia as a sixth master, paying into the economy that already
+exists, with the wilderness-kills-only rule, and Larran's chest deferred to a second pass. That buys
+the identity and the loop for a fraction of the build, and the deferred half is self-contained.
+Option D is the same build with this server's own rewards if a recreation is not wanted.
+
+Two things to get right early, both learned the hard way in the week this was reviewed:
+
+1. **Unlock bits.** Every tab of the rewards window writes one `%slayer_unlocks`. Three unlocks added
+   on 7 October took bits the helmet recolours already owned, so an 80-point unlock handed over a
+   1,000-point one. The battery compares the tables now; a new master's unlocks must take new bits.
+2. **The battery rule.** A master may never be able to assign a task that nothing in the game counts.
+   Krystilia's table should be written against that rule from the first commit rather than audited
+   into shape later.
