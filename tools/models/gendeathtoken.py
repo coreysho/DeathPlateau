@@ -235,6 +235,13 @@ COAT = [
     ('obj_black_elegant_legs_manwear', 'npc_undertaker_legs', 0, 0, 0.55, ()),
     ('obj_black_cane_manwear', 'npc_undertaker_cane', 0, 0, 0.70, ()),
     ('obj_black_wizard_hat_g_manhead', 'npc_undertaker_hat_head', 0, 0, 0.55, ()),
+    # His beard, in the body and in the chathead, goes steel grey. It is one colour in the cache -
+    # a dark brown the client lights up to tan - and a tan beard is the only warm thing on a man
+    # whose whole design is black cloth with one gold band.
+    ('idk_man_jaw_long', 'npc_undertaker_beard', 0, 0, 4.5, ()),
+    ('idk_man_jaw_long_head', 'npc_undertaker_beard_head', 0, 0, 4.5, ()),
+    # and boots, because he was standing in Edgeville barefoot
+    ('obj_ikov_bootsoflightness_manwear', 'npc_undertaker_boots', 0, 0, 0.45, ()),
 ]
 
 
@@ -247,8 +254,14 @@ VET = [
     ('obj_macro_mime_legs_manwear', 'npc_veteran_legs', 0, 0, 0.55),
     ('obj_red_cape_manwear', 'npc_veteran_cape', 0, 6, 0.55),
     ('obj_ikov_bootsoflightness_manwear', 'npc_veteran_boots', 0, 0, 0.45),
-    ('obj_viking_helmet_manwear', 'npc_veteran_helm', 0, 1, 0.62),
 ]
+# NO HEAD IN THAT LIST, ON PURPOSE. It used to hold obj_viking_helmet_manwear under the name
+# npc_veteran_helm, on the strength of the name - and that model is NOT a helmet. The unpacker names
+# a model after the first config that happened to reference it, and this one is the short-haired
+# MAN'S HEAD (all.idk: man_head_shorthair model1). Tinting it hue 0 sat 1 at 0.62 did exactly what
+# it says: it took a living man's face and made it grey. The npc now uses the cache head untinted
+# and obj_pickpocket_guide_man as the chathead that goes with it, which is the pairing all.idk
+# already states. A debugname is a label somebody's tool wrote, not a description - render it.
 
 
 def cut_side(m, keep_negative=True, thresh=6, upper=None):
