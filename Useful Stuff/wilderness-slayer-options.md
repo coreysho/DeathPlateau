@@ -1,5 +1,17 @@
 # Wilderness Slayer: options for this server
 
+> **Second review, 9 October 2026, and this one changes the answer's cost rather than its
+> reasoning.** The Death token, the Undertaker and the one-armed veteran shipped on 8 October, for
+> the separate reason that the Wilderness had no currency of its own. Between them they are the half
+> of Option C this document called "the real remaining work". **The Undertaker is Larran's chest**,
+> and he is better than one, because a shop is a chest you get to choose from. What is left of
+> Option C is now almost entirely data.
+>
+> The objection has moved too, and the new one is sharper than the old. It is no longer *is this
+> period* or *is this expensive*. It is **her task table would be thin** — see "The table is the
+> real cost" below. Recommendation is unchanged in direction and changed in order: **build the task
+> table first, the master second.**
+>
 > **Reviewed and corrected 8 October 2026.** The original was written before the Slayer reward
 > system existed, and its central argument rested on that absence. The facts below are re-measured
 > against the tree as it stands today; the four options survive, their costs and their tradeoffs do
@@ -136,22 +148,83 @@ were built for the ordinary masters in the meantime:
 than a recreation: a bonus on tasks already assignable when they are completed at risk, say. Less
 work than C and no claim to authenticity, but it is a design commitment rather than a port.
 
+## The table is the real cost (added 9 October 2026)
+
+Everything mechanical about a sixth master is small, and measured rather than estimated:
+
+| Piece | What it actually is |
+|---|---|
+| the master | one `case` in `slayer_new_target`'s `switch_npc`, which has five today |
+| her task table | one `slayer_task_table` dbrow plus one `slayer_master_task` row per task |
+| her points | one `case` in `slayer_task_points`'s `switch_int`; streak, milestones and `%slayer_task_master` already work for whoever assigned |
+| wilderness kills only | one condition in `[queue,progress_task]` — **beside `~death_token_roll`, which already asks that exact question** |
+| her reward shop | built, placed and in character: the Undertaker |
+| her currency | built: the Death token |
+
+So the build is a day of data work. **What is not a day of data work is making her worth visiting.**
+
+Measured 8 October: 24 of the 77 tasks have monsters standing inside the build's Wilderness
+rectangles, **but only eight are wilderness-defining** — green dragons, red dragons, earth warriors,
+black demons, greater demons, lesser demons, black dragons, hellhounds. The other sixteen are rats,
+bats, bears, spiders, skeletons and the like: monsters nobody would ever travel north for. OSRS's
+Krystilia assigns from forty-plus. **A master with eight real tasks and sixteen pieces of filler is
+a master whose assignment you reroll**, and rerolling is the one thing a slayer master must not
+make you want to do.
+
+### What would fill it, re-checked 9 October
+
+Five npcs stand in the Wilderness today with **no `param=slayer_category` at all**, which means a
+kill on them counts for nothing anywhere:
+
+* `chaos_druid`, `chaos_druid_warrior`
+* `dark_warrior`
+* `rogue`
+* `highwayman`, `highwayman2`
+
+Tagging them is the same small job the zygomites, mogres and fever spiders got on 8 October: a
+param, a task constant, a `slayer_req` row if it should be gated, and the battery keeps it honest.
+That takes her from eight to roughly thirteen real tasks without importing anything.
+
+**Ankou and lava dragons still do not exist** — no npc config, no pack id — and ankou is the one
+worth importing. `revenant` likewise absent, and correctly so.
+
+**This work is worth doing whether or not she is ever built**, which is the test worth applying to
+any prerequisite: more wilderness monsters that count towards Slayer is a good change on its own,
+and it is Option B minus Option B's objection, because it adds *targets* without forcing anyone's
+Turael task north.
+
+## One decision to take now rather than later
+
+**Do not make the Death token her currency.** It currently drops on any slayer task kill made in the
+Wilderness, that rule shipped, and narrowing it would take something away from players who already
+have it. Have her pay **a lump of tokens on task completion** instead, on top of the per-kill drip.
+Choosing her is then rewarded, the existing rule never changes under anyone, and the token keeps
+meaning "you did slayer up there" rather than "you used the right master".
+
 ## Where this leaves it
 
-The accuracy argument that split A/B from C/D has mostly dissolved — the skill already runs OSRS's
-own reward system, so the honest question is whether the *risk loop* is wanted, not whether it is
-period.
+The accuracy argument that split A/B from C/D dissolved on 8 October; the cost argument dissolved on
+the 9th, when the reward half turned out to have been built for another reason. What is left is the
+honest design question, and it is worth stating plainly because it is the one that should decide it.
 
-**Recommended: a reduced C.** Krystilia as a sixth master, paying into the economy that already
-exists, with the wilderness-kills-only rule, and Larran's chest deferred to a second pass. That buys
-the identity and the loop for a fraction of the build, and the deferred half is self-contained.
-Option D is the same build with this server's own rewards if a recreation is not wanted.
+**A wilderness-only master is normally justified by risk, and risk needs a population.** On a quiet
+server it fails in one of two directions: nobody hunts, so her tasks are ordinary tasks with a
+longer walk and free points; or two or three people hunt constantly, and the content is dead for
+everyone else. Neither is a disaster, but **neither is the reason to build her.**
 
-Two things to get right early, both learned the hard way in the week this was reviewed:
+**The reason to build her is identity and a ladder**: a named person who sends you north, a list
+worth finishing, and a shop with something on the shelves at the end of it. That is a smaller claim
+than "a risk loop", and it is one this server can actually deliver on. It also changes the design:
+lean the cost on travel and time rather than on danger, keep the rewards cosmetic, and balance
+nothing around being ganked.
 
-1. **Unlock bits.** Every tab of the rewards window writes one `%slayer_unlocks`. Three unlocks added
-   on 7 October took bits the helmet recolours already owned, so an 80-point unlock handed over a
-   1,000-point one. The battery compares the tables now; a new master's unlocks must take new bits.
-2. **The battery rule.** A master may never be able to assign a task that nothing in the game counts.
-   Krystilia's table should be written against that rule from the first commit rather than audited
-   into shape later.
+**Recommended, in this order:**
+
+1. **Tag the five monsters that already stand there and count for nothing.** Good on its own, and it
+   is what makes step 3 worth doing.
+2. **Import ankou.** The one genuinely missing wilderness slayer monster worth having.
+3. **Build Krystilia** as a sixth master: her table, her points case, the wilderness-kills-only
+   condition, and a lump of Death tokens on completion. The Undertaker is her reward shop.
+4. **Larran's key and chest: don't.** The Undertaker already is that, and two wilderness loot
+   dispensers in one town is one too many. If the key is wanted later it should open something of
+   his.
