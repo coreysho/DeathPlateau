@@ -133,6 +133,13 @@ class Merged:
         if any(p.finfo is not None for p in parts):
             s.finfo = np.concatenate([p.finfo if p.finfo is not None
                                       else np.zeros(p.fcount, np.int32) for p in parts])
+        # ob2render.render reads .alpha, and a translucent npc - the Ankou, a ghost - used to crash
+        # the whole preview on an AttributeError before drawing a single frame. Merged carries the
+        # parts' alpha where any has it, so a see-through figure poses like any other.
+        s.alpha = None
+        if any(getattr(p, 'alpha', None) is not None for p in parts):
+            s.alpha = np.concatenate([p.alpha if getattr(p, 'alpha', None) is not None
+                                      else np.zeros(p.fcount, np.int32) for p in parts])
         s.vcount = int(sum(p.vcount for p in parts)); s.fcount = int(len(s.fa))
         s.tcount = 0
     def height(s): return int(max(0, -int(s.vy.min())))
