@@ -2,6 +2,13 @@
 
 Checked 9 October 2026 against the wiki's table and against what this build actually has.
 
+> **BUILT, 9 October 2026.** All three questions at the bottom were answered: **lava scale out**,
+> **the 2,960 coin line keeps Old School's 7/128**, and **no lava dragon head** - the draconic
+> visage shipped the same day and fills that slot with the real thing. Lava dragon bones were
+> built as proposed (`bone_exp,850`, dragon bones recoloured). The table is
+> `scripts/drop_tables/scripts/lava_dragon.rs2`; the viewer's rows and the browser interface are
+> regenerated from it. What follows is the reasoning, kept as the record of why.
+
 ---
 
 ## The good news: most of it already exists
