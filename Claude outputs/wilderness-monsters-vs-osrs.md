@@ -12,11 +12,15 @@ page, with every release date checked against the wiki infobox rather than remem
 
 These would be **import jobs** (`importosrsnpc.py`), not map edits.
 
+> **Two of these were built on 9 October 2026 and are struck from the list: the Ankou (imported
+> from the rev 474 cache, 21 of them in the Forgotten Cemetery) and the Lava dragon (built from
+> this build's own dragon mesh, 8 on the isle). What follows is the list as it stands after that.**
+
 | Monster | OSRS released | Note |
 |---|---|---|
-| **Ankou** | monster is pre-2006; its Wilderness home is not | **The one I would actually import.** A 2006-era monster in a post-2006 place, so the model and the idea both fit the era rule. |
-| Lava dragon | 13 Mar 2014 | *Rejuvenating the Wilderness* |
 | Ent (level 101) | 13 Mar 2014 | the Woodcutting Guild ent is a different, 2016 monster |
+| ~~Ankou~~ | — | **built 9 Oct 2026**, from the 474 cache |
+| ~~Lava dragon~~ | 13 Mar 2014 | **built 9 Oct 2026**, from this build's own dragon |
 | Runite golem | 13 Mar 2014 | guards the Resource Area's runite rocks, which also do not exist here |
 | Callisto, and Artio | 13 Mar 2014 / 2023 rework | |
 | Venenatis, Spindel, Venenatis' spiderling | 13 Mar 2014 / 2023 rework | |
@@ -66,7 +70,8 @@ This is by far the cheaper half of the list.
 
 For completeness, the census found these monsters inside the rectangles (spawn counts in brackets):
 
-green dragons (24), red dragons (4), black dragons (2), hellhounds (5), greater demons (7), lesser
+green dragons (24), **lava dragons (8)**, black dragons (2), **ankou (21)**, hellhounds (5),
+greater demons (7), lesser
 demons (8), black demons (3), earth warriors (11), chaos druids (11), elder chaos druids (8), dark
 warriors (15), rogues (22), thugs (18), bandits (10 across two kinds), black knights (11), chaos
 dwarves (11), magic axes (9), pirates (12), ice warriors (26), ice giants (9), hill giants (12),
@@ -80,8 +85,11 @@ The **King Black Dragon** is built and scripted (`area_wilderness/scripts/king_b
 but lives at 2269,4697 — his own lair map, outside the Wilderness rectangles, exactly as in
 RuneScape.
 
-**Red dragons are ours, not OSRS's.** Four stand in the Wilderness here; Old School keeps them in
-Brimhaven and the Catacombs. Worth knowing before anyone "corrects" it.
+**The Wilderness red dragons are gone as of 9 October 2026.** Lava Dragon Isle was Red Dragon Isle
+until 13 March 2014, and Old School replaced the red dragons with lava dragons - two of its eight
+lava dragon spawns are, to the tile, two of the red dragon spawns this build had. The same swap has
+now been made here, so **no red dragon stands in the Wilderness any more** and the red dragon
+Slayer task is completed in Brimhaven Dungeon, where the other six live.
 
 ---
 

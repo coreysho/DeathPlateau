@@ -171,6 +171,13 @@ Krystilia assigns from forty-plus. **A master with eight real tasks and sixteen 
 a master whose assignment you reroll**, and rerolling is the one thing a slayer master must not
 make you want to do.
 
+> **Updated 9 October 2026, and the list has moved.** Ankou and Lava dragons were built and placed,
+> each with a `slayer_category` of its own. **Red dragons came off the list the same day**: Lava
+> Dragon Isle was Red Dragon Isle until 13 March 2014, Old School replaced the red dragons there,
+> and so has this build - the task is now completed in Brimhaven Dungeon, where the other six
+> stand. So the wilderness-defining count is **nine**, two of them brand new and neither assignable
+> until a master exists.
+
 ### What would fill it, re-checked 9 October
 
 Five npcs stand in the Wilderness today with **no `param=slayer_category` at all**, which means a
@@ -185,8 +192,10 @@ Tagging them is the same small job the zygomites, mogres and fever spiders got o
 param, a task constant, a `slayer_req` row if it should be gated, and the battery keeps it honest.
 That takes her from eight to roughly thirteen real tasks without importing anything.
 
-**Ankou and lava dragons still do not exist** — no npc config, no pack id — and ankou is the one
-worth importing. `revenant` likewise absent, and correctly so.
+**Ankou and lava dragons exist as of 9 October 2026** — both placed in the Wilderness at Old
+School's own coordinates, both carrying a `slayer_category` that no master assigns yet, which is
+exactly the state a monster should be in while it waits for one. `revenant` is still absent, and
+correctly so.
 
 **This work is worth doing whether or not she is ever built**, which is the test worth applying to
 any prerequisite: more wilderness monsters that count towards Slayer is a good change on its own,
@@ -222,7 +231,7 @@ nothing around being ganked.
 
 1. **Tag the five monsters that already stand there and count for nothing.** Good on its own, and it
    is what makes step 3 worth doing.
-2. **Import ankou.** The one genuinely missing wilderness slayer monster worth having.
+2. ~~**Import ankou.**~~ **Done, 9 October 2026**, along with the lava dragons.
 3. **Build Krystilia** as a sixth master: her table, her points case, the wilderness-kills-only
    condition, and a lump of Death tokens on completion. The Undertaker is her reward shop.
 4. **Larran's key and chest: don't.** The Undertaker already is that, and two wilderness loot
