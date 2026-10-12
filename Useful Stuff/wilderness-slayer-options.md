@@ -1,5 +1,36 @@
 # Wilderness Slayer: options for this server
 
+> # DECIDED, 12 October 2026: NO WILDERNESS SLAYER MASTER.
+>
+> Corey's call, in his own words: *"i dont think we need a wildy slayer master."* **Option A** —
+> the twenty-four tasks already completable up there are the Wilderness's share of Slayer, and the
+> player chooses when to take that risk. Krystilia is not being built, now or later, unless this is
+> revisited.
+>
+> Everything below is kept as the reasoning that led here, not as a plan. The two reviews were
+> right that she got cheaper; the decision is that cheap was never the question.
+>
+> **What the decision leaves open, and what I would do with each:**
+>
+> * **Ankou and Lava dragons** were built on 9 October carrying `param=slayer_category` with no
+>   master to assign them — staged for a master that is not coming. They are not broken (the battery
+>   forbids the opposite case, a task a master gives that nothing counts for), just dormant.
+>   **Recommendation: give them to Duradel as unlock-only rows**, the way red dragons and aviansies
+>   already work behind Seeing Red and Watch the Birdie. That keeps the opt-in-to-risk choice the
+>   document argues for all the way through — you only ever get the task if you bought the unlock —
+>   and it is the one route by which those two monsters become Slayer content at all.
+> * **Larran's key and Slayer's enchantment** now have no home. The last review already said don't,
+>   and the decision settles it: **drop them.** The Undertaker is the wilderness reward dispenser.
+> * **The Death token is now the whole of the Wilderness Slayer identity.** There is no master, no
+>   points ramp and no second table — there is a currency that only drops up there and a shop that
+>   only takes it. That raises the stakes on the shop's list rather than lowering them, and it is
+>   why the shelf is being built out properly (see `Claude outputs/death-token-shop-decided.md`).
+>
+> **Also decided the same day: the shop sells status, never power.** No combat numbers, nothing
+> usable against another player. That rule is what the shop document is now built on, and it has one
+> immediate casualty — the Scroll of imbuing, the single row on the shelf today.
+
+
 > **Second review, 9 October 2026, and this one changes the answer's cost rather than its
 > reasoning.** The Death token, the Undertaker and the one-armed veteran shipped on 8 October, for
 > the separate reason that the Wilderness had no currency of its own. Between them they are the half
