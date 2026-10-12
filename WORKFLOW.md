@@ -33,15 +33,31 @@ minute each, and `importosrs.py` then imported an item (Skills necklace, obj
 not have to happen on the Windows box.
 
 What a cloud session does NOT get is persistence: the container is reclaimed
-after a while and `caches/` is gitignored, so the four commands run once per
-session. To avoid that, put them in the environment's **Setup script** (the
-cloud environment menu in the session's title bar, then Edit) and every new
-session starts with the caches already in place.
+after a while and `caches/` is gitignored, so the fetch runs once per session.
+To avoid that, put `bash tools/fetch-caches.sh` in the environment's **Setup
+script** (the cloud environment menu in the session's title bar, then Edit) and
+every new session starts with the caches already in place.
 
 | folder | OpenRS2 cache | what |
 |---|---|---|
 | `caches/474` | runescape #237 | rev 474, Oct 2007: `disk.zip`, plus `keys.json` saved as `keys-237.json` (the XTEA keys `import474map.py` needs) |
 | `caches/osrs` | runescape #2710 | OSRS, 16 Sep 2026: `disk.zip`, converted with `tools/models/disk2flat.py` |
+
+`tools/fetch-caches.sh` is those four commands, made idempotent and committed, so the
+cloud environment's **Setup script** can be one line:
+
+```
+bash tools/fetch-caches.sh
+```
+
+Measured both ways, 12 October: **33 seconds** from an empty `caches/` to ready
+(both downloads, the unzips and the 24-index conversion), and **13 milliseconds**
+when the caches are already there - which is the case that matters, because a
+setup script runs unattended and the Windows box already has them. Each of the
+three steps checks for its own output, so nothing re-downloads. Verified by
+importing out of the result afterwards, not just by the script exiting 0.
+
+The commands it runs, if you would rather do it by hand:
 
 ```
 curl -o 474.zip  https://archive.openrs2.org/caches/runescape/237/disk.zip
