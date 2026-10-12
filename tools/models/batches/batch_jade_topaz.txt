@@ -1,0 +1,35 @@
+# Jade and red topaz jewellery. Both gems existed in this build only as gems and
+# bolt tips; Old School makes rings, necklaces, bracelets and amulets from them.
+# NO BRACELETS: the 377 cache has no bracelet mould and no bracelet item, so the
+# slot does not exist here and the four bracelet pieces are left out.
+#
+# Old School casts these in SILVER at a furnace. This build has one gem-jewellery
+# window (skill_crafting/interfaces/crafting_jewelry.if) and these are its seventh
+# and eighth gems, cast in gold with the others.
+Jade ring=jade_ring
+Jade necklace=jade_necklace
+Jade amulet (u)=unstrung_jade_amulet
+Jade amulet=strung_jade_amulet
+Topaz ring=topaz_ring
+Topaz necklace=topaz_necklace
+Topaz amulet (u)=unstrung_topaz_amulet
+Topaz amulet=strung_topaz_amulet
+# And what Lvl-2 and Lvl-3 Enchant turn them into.
+Ring of returning(5)=ring_of_returning_5
+Ring of returning(4)=ring_of_returning_4
+Ring of returning(3)=ring_of_returning_3
+Ring of returning(2)=ring_of_returning_2
+Ring of returning(1)=ring_of_returning_1
+Necklace of passage(5)=necklace_of_passage_5
+Necklace of passage(4)=necklace_of_passage_4
+Necklace of passage(3)=necklace_of_passage_3
+Necklace of passage(2)=necklace_of_passage_2
+Necklace of passage(1)=necklace_of_passage_1
+Amulet of chemistry=amulet_of_chemistry
+Efaritay's aid=efaritays_aid
+Necklace of faith=necklace_of_faith
+Burning amulet(5)=burning_amulet_5
+Burning amulet(4)=burning_amulet_4
+Burning amulet(3)=burning_amulet_3
+Burning amulet(2)=burning_amulet_2
+Burning amulet(1)=burning_amulet_1

@@ -1,0 +1,21 @@
+# The three enchanted necklaces this build had no answer for, plus the amulet the
+# Fountain of Rune pays out. See Claude outputs/suggestions-assessment.md.
+#
+# Skills necklace: four teleports, the dragonstone necklace's Old School purpose.
+# (6) and (5) exist in the cache because Old School's Fountain of Rune charges it
+# past four; nothing here does, so they are not imported.
+Skills necklace(4)=skills_necklace_4
+Skills necklace(3)=skills_necklace_3
+Skills necklace(2)=skills_necklace_2
+Skills necklace(1)=skills_necklace_1
+# Digsite pendant: five teleports in Old School, to three places. Only the Dig Site
+# exists here.
+Digsite pendant (5)=digsite_pendant_5
+Digsite pendant (4)=digsite_pendant_4
+Digsite pendant (3)=digsite_pendant_3
+Digsite pendant (2)=digsite_pendant_2
+Digsite pendant (1)=digsite_pendant_1
+# Phoenix necklace: one use, heals 30% below 20% hitpoints.
+Phoenix necklace=phoenix_necklace
+# Amulet of eternal glory: a glory with no charge counter. 1/250 at the fountain.
+Amulet of eternal glory=amulet_of_eternal_glory
