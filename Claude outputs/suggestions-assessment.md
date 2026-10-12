@@ -1,5 +1,50 @@
 # The suggestion list, measured against the tree
 
+> ## BUILT, 12 October 2026: eight of these are done.
+>
+> On branch `claude/awesome-bohr-h61pym` in **Content** and **Engine**. 37 items imported from OSRS,
+> 13 enchant rows, one hand-placed loc, one farming rule, and 113 checks passing against the real
+> engine and the real map (`engine/tools/sim/jewellery.ts`).
+>
+> | # | Built | Notes against what this document predicted |
+> |---|---|---|
+> | 4 | Emerald necklace → **Binding necklace** | One line, as predicted |
+> | 5 | Ruby necklace → **Digsite pendant** | One destination; Fossil Island and Lithkren do not exist here |
+> | 6 | Diamond necklace → **Phoenix necklace** | Heals 30% below 20% HP, off the ring-of-life hook |
+> | 7 | Dragonstone necklace → **Skills necklace** | **Four** guilds, not six — see the correction below |
+> | 8 | **Amulet of nature** | The whole chain was already in the cache, as predicted. No yield bonus |
+> | 18 | **Autoweed** at 65 Farming | One early return in `~farming_regrow_weeds` |
+> | 2 | **Jade and red topaz jewellery** | Much cheaper than predicted — see the correction below |
+> | 11 | **Amulet of eternal glory** + Fountain of Rune | 1/250, placed at Wilderness 48 |
+>
+> **Three things this document got wrong, corrected by building it:**
+>
+> 1. **Old School DOES have jade and topaz jewellery.** This document said "there are none in Old
+>    School either, so there is nothing to import". Wrong: jade gives the ring of returning, necklace
+>    of passage, flamtaer bracelet and amulet of chemistry; topaz gives Efaritay's aid, the necklace
+>    of faith, the bracelet of slaughter and the burning amulet. All of it was in the OSRS cache. So
+>    #2 was never "net-new art" — it was an import plus a window, and it is built. (No bracelets: the
+>    377 cache has no bracelet mould and no bracelet item, so that slot does not exist here.)
+> 2. **The skills necklace cannot teleport to the Farming Guild.** This document twice said it
+>    would, and called it "the one that puts a Farming Guild teleport in the game". The Farming Guild
+>    and the Woodcutting Guild are both in Great Kourend, which this build does not have at all. It
+>    goes to the four guilds that exist — Fishing, Mining, Crafting, Cooking. **If shortening a herb
+>    run is the actual goal, that is still an unbuilt item** (#9), and it is a patch-run ring rather
+>    than this necklace.
+> 3. **Glories could already be recharged.** The Fountain of Heroes has done it all along
+>    (`areas_heroes_guild/scripts/fountain_of_heroes.rs2`). The Fountain of Rune is not fixing a
+>    broken chain; it is there because the eternal glory has to come from somewhere, and because a
+>    reason to carry jewellery into deep Wilderness is the Death token's own argument.
+>
+> **What the 113 checks caught that reading the code did not:** the three crafting strips were
+> 7-slot inventories, so the new slot 7 threw the moment the gem window opened; and
+> `map_findsquare(coord, 0, 2, ...)` picks a tile at *random* from the ring, which moved a
+> destination that was already fine.
+>
+> **Still open from the original list:** everything else, unchanged — including #9 (the patch-run
+> ring), #1 (Pest Control), #12, #15 and #21's wave-skip. The order below still stands for those.
+
+
 **12 October 2026.** Twenty-two suggestions, checked against what is actually in
 `coreysho/DeathPlateau-Content@377-wip`, `-Engine@377-wip` and `-Client@dev-logging` rather than
 against memory of either this build or Old School. Nothing here is implemented; this is the
