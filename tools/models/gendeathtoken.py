@@ -271,6 +271,16 @@ COAT = [
     ('obj_black_cane_womanwear', 'obj_undertaker_cane_womanwear', 0, 0, 0.70, ()),
     ('obj_ikov_bootsoflightness', 'obj_undertaker_boots', 0, 0, 0.45, ()),
     ('obj_ikov_bootsoflightness_womanwear', 'obj_undertaker_boots_womanwear', 0, 0, 0.45, ()),
+    # The cape. Not part of the four-piece bonus - that is the hat, coat, trousers and boots, the
+    # things you can fight in - so this is pure look.
+    #
+    # 0.6 AND NOT 0.42. The first guess reasoned that a cape is a big flat area and wanted the
+    # heaviest tint of the set to stop it reading grey. Backwards: at 0.42 the red cape's own
+    # shading collapsed and the icon was a black lozenge with no folds in it. A cape needs MORE
+    # range than a sleeve, not less, because its shape is the only thing telling you what it is.
+    ('obj_red_cape', 'obj_undertaker_cape', 0, 0, 0.6, ()),
+    ('obj_red_cape_manwear', 'obj_undertaker_cape_manwear', 0, 0, 0.6, ()),
+    ('obj_red_cape_womanwear', 'obj_undertaker_cape_womanwear', 0, 0, 0.6, ()),
 ]
 
 
