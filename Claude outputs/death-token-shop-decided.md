@@ -183,10 +183,70 @@ Why this is the right shape:
 `~wilderness_level(coord)` rather than rely on that, because `findhero` is true for any PvP kill
 anywhere and the next PvP zone somebody adds will not come with a warning.
 
-**Open question for Corey:** does the piece being **destroyed** sit right, or should it drop to the
-victim as it does today with the killer still paid? Destroyed is the version that makes the set a
-statement and the economy a sink; dropped is gentler and makes the bounty pure profit with no loss
-behind it.
+### DECIDED: destroyed — and the reason is boosting
+
+**Corey, 12 October:** *"destroy it; if we allow them to pick it up again, that could bring in
+boosting to the game. eg, someone has the item, gets killed by their friend for 50 tokens, then
+picks it up and they kill them again, over and over."*
+
+He is right, and it is worse than friends — the same account can do it with an alt. Dropping the
+piece back to the victim makes the cycle **free**, and a free cycle that pays 50 tokens is a token
+printer with a kill animation.
+
+**Destroying it makes the cycle cost 200 and pay 50.** That is the whole defence, and it is
+arithmetic rather than policy:
+
+| | victim | killer | net |
+|---|---|---|---|
+| one boost cycle, 200-token hat | −200 | +50 | **−150 tokens burned** |
+
+So the invariant underneath this design, which matters more than the specific quarter:
+
+> ## The bounty must always be **strictly less** than the shop price.
+> At a quarter it is a 75% tax on moving a token between accounts, which is the only thing boosting
+> could achieve — tokens are untradeable, so a killer being paid is the sole route from one account
+> to another, and this makes that route lose three tokens for every one it moves. **Set a bounty at
+> or above the shop price and the pair prints tokens for free.** This belongs in
+> `tools/slayer_battery.py` as a rule that fails on `pvp_token_bounty >= cost`, not in a comment
+> somebody can read past.
+
+### Two implementation traps, both found by reading rather than guessing
+
+**1. `param=destroy_death` does not destroy anything.** The name is aspirational. It is read in
+exactly three places — twice in `move_priciest_item_on_hero_to_death` and once in the Items Kept on
+Death screen — and all three use it only to mean *"not eligible to be one of the items you keep"*.
+An item carrying it still falls through to `both_dropslot` and drops like everything else.
+
+So the cosmetics need **both halves**:
+
+* `param=destroy_death,^true`, so a piece can never be one of the three an unskulled player keeps,
+  and **Protect Item can never save one**. Without it the stake is conditional, and conditional is
+  where the next exploit lives. (It also makes the Items Kept on Death screen tell the truth.)
+* an explicit branch in the death loops that **deletes** the piece instead of dropping it. There is
+  already a precedent sitting in both loops to copy — the god capes:
+  ```
+  if (oc_category(inv_getobj(worn, $i)) = armour_godcape) {
+      mes(oc_param(inv_getobj(worn, $i), lose_cape_message));
+      inv_delslot(worn, $i);
+  }
+  ```
+  Same shape, plus the bounty.
+
+**2. The bounty and the destruction must be the same action.** Pay only where the delete actually
+happened — never from a separate pass over what the player *was* wearing. Any gap between "work out
+what to pay" and "destroy the thing" is a gap where a piece survives and the bounty is paid anyway,
+which is the free cycle again by another road.
+
+### Scope
+
+* **Destroy and pay only in the Wilderness** (`~wilderness_level(coord) > 0`). Dying to a goblin in
+  Lumbridge must not cost a 1,000-token suit.
+* **Destroy on any Wilderness death, pay only when there is a killer.** A green dragon takes the hat
+  too; nobody gets paid for it. Consistent, and it keeps the rule easy to say: *what you wear up
+  there, you can lose up there.*
+* Test the Wilderness rather than `findhero`. The duel arena already branches to
+  `@player_death_duel` before this path, but the next PvP zone somebody adds will not come with a
+  warning.
 
 ## What I would build first
 
@@ -194,7 +254,8 @@ behind it.
    and icon cameras. It fills the shelf, it is pure status, and it makes the npc and the reward the
    same idea.
 2. **The bounty**, in the same commit as the outfit — a cosmetic that cannot be lost is a taunt, and
-   the outfit is the first thing worth losing.
+   the outfit is the first thing worth losing. With the battery rule in the same commit, because the
+   invariant is one typo away from a token printer.
 3. **Head-stuffing**, because the heads are sitting there asking for it.
 4. **The Gravedigger helmet recolour**, which is the thing people will actually chase.
 
