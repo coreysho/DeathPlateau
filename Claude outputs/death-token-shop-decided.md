@@ -34,6 +34,7 @@ rate — **0.17 tokens a kill at level 1, 0.49 past 30**, so 35–50 an hour sha
 
 | Row | Tokens | Rides |
 |---|---|---|
+| Scroll of imbuing | 100 | already stocked — see the named exception below |
 | A dirge (music track) | 200 | `music.dbrow` + a varp |
 | Undertaker's hat | 200 | the npc's own `npc_undertaker_hat` model |
 | Undertaker's coat | 200 | `npc_undertaker_coat`, `_coat2` |
@@ -68,24 +69,35 @@ rate — **0.17 tokens a kill at level 1, 0.49 past 30**, so 35–50 an hour sha
 
 ---
 
+## The one named exception: the Scroll of imbuing stays
+
+**Corey's call, 12 October: *"i still want the imbue scroll in the shop"*.** I had it coming off for
+failing rule 1, and it is staying. Writing down why it is defensible, so the rule survives the
+exception rather than being quietly abandoned:
+
+* **It is not new power.** The scroll is already a drop — from on-task kills and, far more often,
+  from superiors. The shop is a *second route* to a thing that exists, not a source of something
+  that otherwise would not.
+* **It is untradeable, and so is everything it makes.** No laundry: an imbued ring cannot be sold,
+  so the shop's price never becomes anybody else's price.
+* **It is slayer content being bought with a slayer currency**, which is the one place a combat
+  item has a claim to being on these shelves at all.
+
+> **The exception has to stay narrow or it eats the rule.** "Already a drop, untradeable, slayer's
+> own" is the test it passes. Anything that fails any one of those three is still out — which is why
+> *imbue at the counter* stays off the list below, even though it is the same effect: that one has no
+> drop behind it, so it would be a new route to power rather than a second one.
+
 ## What comes OFF the shelf
 
-**The Scroll of imbuing — the single row on the shelf today — fails rule 1.** Imbued rings and an
-imbued black mask are combat upgrades, and three of the four rings are worn in PvP. It has to go.
-
-> **It should not go until something replaces it.** `death_token_shop.inv` ships one row precisely
-> because an empty window with a Trade option is worse than no option — Grace's config says the same
-> thing about hers. So: the first status rows land, and the scroll comes off in the same commit. It
-> loses nothing; the scroll is already a drop from on-task kills and from superiors.
-
-Also ruled out by the rule, from the two idea documents:
+Ruled out, from the two idea documents:
 
 | Idea | Which rule |
 |---|---|
 | Muddy key, clue scrolls, scroll boxes | 3 — they pay out tradeable loot |
 | The casket, as originally conceived | 3 — same, unless its table is cosmetics only |
 | Barrows repair for tokens | 1 — cheaper combat sustain |
-| Imbue at the counter | 1 — the scroll's problem without the scroll |
+| Imbue at the counter | 1 — the scroll's effect with no drop behind it; see the exception above |
 | Prayer flask | 1 and 2 |
 | Reduced run-energy drain while skulled | 2 — mobility in a PvP zone |
 | Purchasable drop-rate boost | 1 |
@@ -112,13 +124,80 @@ wilderness flavour. **Recommend: none of the three.**
 
 ---
 
+---
+
+## Killing a player who is wearing it — what they drop, and what I would change
+
+**Corey asked: what is the reward for killing someone wearing the cosmetic set in the Wilderness?**
+Measured rather than guessed, and the answer today is **nothing at all.** The engine decides it, in
+`Engine-TS/src/engine/script/handlers/InvOps.ts`, `BOTH_DROPSLOT`:
+
+```
+if (!objType.tradeable) {
+    // untradeables still drop to the primary player
+    World.addObj(dropObj, fromPlayer.hash64, duration);
+} else {
+    World.addObj(dropObj, toPlayer.hash64, duration);
+}
+```
+
+On a PvP death this build drops **everything** — there is no untradeable-is-destroyed rule here, only
+four items in the whole obj table carry `param=destroy_death`, and the god capes are special-cased by
+hand. Tradeables drop assigned to the **killer**; untradeables drop assigned to the **victim**. So an
+Undertaker's hat lands at the dead player's feet, flagged to them, and they walk back and collect it.
+The killer gets a message, a kill on their counter, and not one token.
+
+**That is a hole, and it is the hole that matters**, because with no Wilderness Slayer master this
+shop is the entire wilderness identity. A cosmetic that cannot be lost is a taunt with no stake
+behind it.
+
+### The fix: the Undertaker pays a finder's fee
+
+A param on each token-bought cosmetic — call it `pvp_token_bounty` — and two lines in
+`pvp_death_lose_items`:
+
+* if the victim dies **in the Wilderness** wearing it, the piece is **destroyed** rather than
+  dropped, and
+* the **killer is paid that many Death tokens**, with a line telling them the Undertaker will take
+  the deceased's effects off their hands.
+
+**A quarter of the shop price** is my suggestion: a 200-token hat pays 50, the full five-piece set
+pays 250. The victim re-buys at full price, so every kill **burns 150 tokens net** — the mechanism
+is a sink with a faucet attached, not a money printer.
+
+Why this is the right shape:
+
+* **It is the only other way to get a token.** Slay for them, or take them off somebody who did.
+  That is a whole second economy for one param and two lines.
+* **It stays inside the rule.** The reward is cosmetic currency. Nothing bought with it can be
+  pointed at a player, and the bounty itself changes no combat number.
+* **It is opt-in risk, which is exactly what we kept when we turned down the master.** Nobody is
+  ever *sent* into the Wilderness; a player wearing 1,000 tokens of black suit up there has chosen
+  to be worth hunting. That is the risk loop Krystilia was supposed to create, arrived at from the
+  other end.
+* **It gives PKers a reason to care about slayers**, which is the ecology the Wilderness has never
+  had here.
+
+**Scope it to the Wilderness explicitly.** The duel arena is already safe — `death.rs2` branches to
+`@player_death_duel` before the PvP item path — but the bounty should test
+`~wilderness_level(coord)` rather than rely on that, because `findhero` is true for any PvP kill
+anywhere and the next PvP zone somebody adds will not come with a warning.
+
+**Open question for Corey:** does the piece being **destroyed** sit right, or should it drop to the
+victim as it does today with the killer still paid? Destroyed is the version that makes the set a
+statement and the economy a sink; dropped is gentler and makes the bounty pure profit with no loss
+behind it.
+
 ## What I would build first
 
 1. **The Undertaker's outfit, five pieces.** The models exist; this is obj configs, wearpos lines
    and icon cameras. It fills the shelf, it is pure status, and it makes the npc and the reward the
    same idea.
-2. **The scroll comes off in that same commit.**
+2. **The bounty**, in the same commit as the outfit — a cosmetic that cannot be lost is a taunt, and
+   the outfit is the first thing worth losing.
 3. **Head-stuffing**, because the heads are sitting there asking for it.
 4. **The Gravedigger helmet recolour**, which is the thing people will actually chase.
+
+The Scroll of imbuing stays on the shelf throughout.
 
 Then the kits, the cape, the max cape variant, the log page and the deep-stock shelf.
