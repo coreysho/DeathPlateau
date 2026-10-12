@@ -12,7 +12,7 @@
 > | 5 | Ruby necklace → **Digsite pendant** | One destination; Fossil Island and Lithkren do not exist here |
 > | 6 | Diamond necklace → **Phoenix necklace** | Heals 30% below 20% HP, off the ring-of-life hook |
 > | 7 | Dragonstone necklace → **Skills necklace** | **Four** guilds, not six — see the correction below |
-> | 8 | **Amulet of nature** | The whole chain was already in the cache, as predicted. No yield bonus |
+> | 8 | **Amulet of nature** | The whole chain was already in the cache, as predicted. **+3% yield when worn**, added on Corey's word after this document argued against it |
 > | 18 | **Autoweed** at 65 Farming | One early return in `~farming_regrow_weeds` |
 > | 2 | **Jade and red topaz jewellery** | Much cheaper than predicted — see the correction below |
 > | 11 | **Amulet of eternal glory** + Fountain of Rune | 1/250, placed at Wilderness 48 |
@@ -40,6 +40,15 @@
 > 7-slot inventories, so the new slot 7 threw the moment the gem window opened; and
 > `map_findsquare(coord, 0, 2, ...)` picks a tile at *random* from the ring, which moved a
 > destination that was already fine.
+>
+> **One recommendation in this document was overruled, and it was right to be.** The entry for #8
+> argued that a yield bonus on the amulet of nature was "a balance change rather than an item",
+> because it would be a third stacking multiplier on top of magic secateurs (+10%) and the Farming
+> cape (+5%). Corey asked for it anyway and it is built at **3%, worn only** — below the cape,
+> because the cape costs 99 Farming and the amulet costs 27 Magic, and worn rather than carried so
+> that it costs the neck slot. Both halves of the argument survive in the code: the size is one
+> constant with the ordering written beside it, and the sim holds that carrying it in the pack does
+> nothing.
 >
 > **Still open from the original list:** everything else, unchanged — including #9 (the patch-run
 > ring), #1 (Pest Control), #12, #15 and #21's wave-skip. The order below still stands for those.
