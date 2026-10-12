@@ -1,10 +1,11 @@
 # The suggestion list, measured against the tree
 
-> ## BUILT, 12 October 2026: eight of these are done.
+> ## BUILT, 12 October 2026: eleven of these are done.
 >
 > On branch `claude/awesome-bohr-h61pym` in **Content** and **Engine**. 37 items imported from OSRS,
-> 13 enchant rows, one hand-placed loc, one farming rule, and 113 checks passing against the real
-> engine and the real map (`engine/tools/sim/jewellery.ts`).
+> 13 enchant rows, one hand-placed loc, one farming rule, nine recolours, one instanced minigame
+> and 27 measured teleport destinations. **269 checks** passing against the real engine and the
+> real map: `jewellery.ts` 120, `pestsolo.ts` 45, `graceful.ts` 47, `farmtele.ts` 57.
 >
 > | # | Built | Notes against what this document predicted |
 > |---|---|---|
@@ -18,6 +19,7 @@
 > | 11 | **Amulet of eternal glory** + Fountain of Rune | 1/250, placed at Wilderness 48 |
 > | 20 | **Graceful recolours** | Built. Nine colours, one per rooftop course, 50 marks a kit from Grace. Marks finally have a sink |
 > | 1 | **Pest Control, solo** | Built. 54 npcs given stats from the OSRS cache, every coordinate scanned off the island's collision. The "PC event" half is still not built — there is no world-event scheduler |
+> | 9 | **The patch-run teleport**, on Explorer's ring 4 | Built. 27 destinations — one per farming site, not per patch — on the ring's own `Teleport` option, which had nothing behind it. 57 checks (`engine/tools/sim/farmtele.ts`) |
 >
 > **Three things this document got wrong, corrected by building it:**
 >
@@ -30,9 +32,9 @@
 > 2. **The skills necklace cannot teleport to the Farming Guild.** This document twice said it
 >    would, and called it "the one that puts a Farming Guild teleport in the game". The Farming Guild
 >    and the Woodcutting Guild are both in Great Kourend, which this build does not have at all. It
->    goes to the four guilds that exist — Fishing, Mining, Crafting, Cooking. **If shortening a herb
->    run is the actual goal, that is still an unbuilt item** (#9), and it is a patch-run ring rather
->    than this necklace.
+>    goes to the four guilds that exist — Fishing, Mining, Crafting, Cooking. Shortening a herb run
+>    needed its own item, and #9 is now that item — not a new ring, but the farm menu on Explorer's
+>    ring 4.
 > 3. **Glories could already be recharged.** The Fountain of Heroes has done it all along
 >    (`areas_heroes_guild/scripts/fountain_of_heroes.rs2`). The Fountain of Rune is not fixing a
 >    broken chain; it is there because the eternal glory has to come from somewhere, and because a
@@ -71,9 +73,18 @@
 > **Also: the agility plugin (#19) is already implemented** — Corey's, not from this list. The entry
 > below is stale.
 >
-> **Still open from the original list:** everything else, unchanged — including #9 (the patch-run
-> ring), #12, #15, #16 (whip colours) and #21's wave-skip. The **PC event** half of #1 is dropped
-> on Corey's word. The order below still stands for those.
+> **#9 did not need a new ring.** The entry below proposed one. Explorer's ring 4 was already in
+> the build with `iop3=Teleport` and nothing behind it, so the farm menu went there instead. Two
+> things that only came out of building it: the **arrival tiles are measured, not chosen** — each
+> is the standable tile, out of what the engine's own collision map allows, that minimises the
+> longest walk to the patches at that site, and the sim re-measures all 27 on every run so a map
+> import that shifts a patch fails the test instead of landing somebody in a hedge; and the
+> **Entrana hops patch needed a gate**, because a teleport there would otherwise have been the one
+> way onto the island in a rune platebody. It reuses the Port Sarim monk's own search.
+>
+> **Still open from the original list:** everything else, unchanged — #12, #15, #16 (whip colours)
+> and #21's wave-skip. The **PC event** half of #1 is dropped on Corey's word. The order below
+> still stands for those.
 
 
 **12 October 2026.** Twenty-two suggestions, checked against what is actually in
