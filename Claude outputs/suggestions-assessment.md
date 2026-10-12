@@ -16,6 +16,7 @@
 > | 18 | **Autoweed** at 65 Farming | One early return in `~farming_regrow_weeds` |
 > | 2 | **Jade and red topaz jewellery** | Much cheaper than predicted — see the correction below |
 > | 11 | **Amulet of eternal glory** + Fountain of Rune | 1/250, placed at Wilderness 48 |
+> | 20 | **Graceful recolours** | Built. Nine colours, one per rooftop course, 50 marks a kit from Grace. Marks finally have a sink |
 > | 1 | **Pest Control, solo** | Built. 54 npcs given stats from the OSRS cache, every coordinate scanned off the island's collision. The "PC event" half is still not built — there is no world-event scheduler |
 >
 > **Three things this document got wrong, corrected by building it:**
@@ -60,9 +61,19 @@
 > and a Void Knight that both wandered off their tiles for want of a `wanderrange`. Every one was
 > found by running the game, not by reading it.
 >
+> **Two corrections from building the recolours.** This document said the job was "a stock list and
+> one op line" — that is true of the *shop*, and the shop was indeed two lines, but the colours
+> themselves could not be imported at all: all fourteen of Old School's house gracefuls share one
+> worn model and carry no recolour fields, so there was nothing in the cache to copy and the
+> palettes had to be authored against the meshes. It also said to ride the ornament-kit framework;
+> nine colours met its three slots, so the pairing is a two-param lookup instead.
+>
+> **Also: the agility plugin (#19) is already implemented** — Corey's, not from this list. The entry
+> below is stale.
+>
 > **Still open from the original list:** everything else, unchanged — including #9 (the patch-run
-> ring), the **PC event** half of #1 (it needs a world-event scheduler, which this build still has
-> none of), #12, #15 and #21's wave-skip. The order below still stands for those.
+> ring), #12, #15, #16 (whip colours) and #21's wave-skip. The **PC event** half of #1 is dropped
+> on Corey's word. The order below still stands for those.
 
 
 **12 October 2026.** Twenty-two suggestions, checked against what is actually in
