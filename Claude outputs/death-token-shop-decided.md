@@ -108,6 +108,16 @@ Ruled out, from the two idea documents:
 
 ## Two judgement calls, with my reading
 
+> **CORRECTION, 12 October, after Corey asked whether you have to wear the cane to earn more.**
+> You do not - there is no bonus of any kind today, the outfit is purely cosmetic and nothing in the
+> game reads it. But the question exposes a fault in the proposal below, so it is recorded before
+> anybody builds it: **a FULL-SET bonus must not include the cane.** The cane takes your weapon hand
+> and carries no combat params at all - not even `attackrate` - so wearing it means fighting with
+> nothing. You cannot earn a token without killing, so a bonus you can only hold while unable to
+> kill is worth exactly zero. If a set bonus is wanted, hang it on the four pieces you can fight in
+> - hat, coat, trousers, boots - and leave the cane as the pure flex: no benefit, full bounty, worn
+> by somebody saying they do not need a weapon. Per-piece would work too; "full set" would not.
+
 **1. Economy perks — the outfit's set bonus, Deeper Pockets, Death's Handshake.**
 These change how fast you earn *tokens* and nothing else. They cannot be pointed at another player.
 **My reading: they pass**, and the outfit set bonus in particular is the thing that makes a 1,000-
