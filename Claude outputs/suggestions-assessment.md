@@ -507,24 +507,22 @@ do nothing useful" — for a fraction of the work.
 
 ## One practical constraint, worth recording
 
-**A cloud session cannot do OSRS or 474 imports.** `WORKFLOW.md` records that `caches/` is
-gitignored — tens of megabytes, present only on the machine that downloaded them — and this
-container has no `caches/` directory at all. So anything routed through `importosrs.py`,
-`import474.py` or `animconvosrs.py` has to be done on your machine, or the caches have to be pulled
-from OpenRS2 first (`archive.openrs2.org` on the network allowlist, with the exact commands in
-`WORKFLOW.md`).
+**CORRECTED, same day: a cloud session can do OSRS and 474 imports after all.** The first version
+of this section said it could not, on the grounds that `caches/` is gitignored and this container
+started without it. That was true and beside the point — the caches are one download away:
 
-That splits this list cleanly:
+* **archive.openrs2.org is already reachable** from the cloud environment. No allowlist change was
+  needed.
+* The four commands in `WORKFLOW.md` are the whole job. 31 MB and 182 MB down, well under a minute
+  each; `disk2flat.py` then converts the OSRS disk store in about a minute.
+* **Verified by doing it**: `importosrs.py caches/osrs --item "Skills necklace" --dry-run` returned
+  obj 11113 with 3 models round-trip verified and its wearpos out of the cache.
 
-| Needs the cache | Does not |
-|---|---|
-| Skills necklace, phoenix necklace, digsite pendant art | Emerald → binding necklace (one line) |
-| Eternal glory | Amulet of nature (both items already in the 377 cache) |
-| Nail beast | Whip colours (`obj_abyssal_whip.ob2` is in the repo) |
-| Royal seed pod | Graceful recolours (all six pieces exist) |
-| Jade/topaz jewellery | Autoweed, patch times, Jad shortcut, agility plugin, vote shop |
+So nothing on this list is gated on being at the Windows box. The one real caveat is
+**persistence**: the container is reclaimed eventually and `caches/` is gitignored, so the download
+repeats once per session unless the commands go in the environment's Setup script.
 
-Everything in the right-hand column can be built from here.
+`WORKFLOW.md` now records the measured sizes and this result.
 
 ---
 

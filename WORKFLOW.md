@@ -19,10 +19,24 @@ Each has two remotes: `origin` is the fork, `upstream` is LostCityRS, so
 `git fetch upstream` still pulls the project's own updates.
 
 `caches/` holds the source caches for asset imports (474, OSRS). It is
-gitignored - tens of MB - so it exists only on the machine that downloaded it.
+gitignored, so it exists only on the machine that downloaded it. Measured, not
+"tens of MB": `caches/474` is 44 MB, `caches/osrs` 257 MB as flatcache, plus
+219 MB for the `caches/osrs-disk` intermediate, which can be deleted once
+`disk2flat.py` has run.
 
-Both come from the OpenRS2 archive (archive.openrs2.org), which is also how a
-cloud session gets them once that host is on its network allowlist:
+Both come from the OpenRS2 archive (archive.openrs2.org). **A cloud session can
+do this, and the commands below are all of it** - confirmed 12 October 2026:
+archive.openrs2.org is already reachable from the cloud environment with no
+allowlist change, the two downloads are 31 MB and 182 MB and took well under a
+minute each, and `importosrs.py` then imported an item (Skills necklace, obj
+11113, 3 models round-trip verified) out of the result. So an import round does
+not have to happen on the Windows box.
+
+What a cloud session does NOT get is persistence: the container is reclaimed
+after a while and `caches/` is gitignored, so the four commands run once per
+session. To avoid that, put them in the environment's **Setup script** (the
+cloud environment menu in the session's title bar, then Edit) and every new
+session starts with the caches already in place.
 
 | folder | OpenRS2 cache | what |
 |---|---|---|
