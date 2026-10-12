@@ -16,6 +16,7 @@
 > | 18 | **Autoweed** at 65 Farming | One early return in `~farming_regrow_weeds` |
 > | 2 | **Jade and red topaz jewellery** | Much cheaper than predicted — see the correction below |
 > | 11 | **Amulet of eternal glory** + Fountain of Rune | 1/250, placed at Wilderness 48 |
+> | 1 | **Pest Control, solo** | Built. 54 npcs given stats from the OSRS cache, every coordinate scanned off the island's collision. The "PC event" half is still not built — there is no world-event scheduler |
 >
 > **Three things this document got wrong, corrected by building it:**
 >
@@ -50,8 +51,18 @@
 > constant with the ordering written beside it, and the sim holds that carrying it in the pack does
 > nothing.
 >
+> **This document's cost estimate for Pest Control was right about the shape and wrong about the
+> risk.** It called it "a week of work, not an afternoon" and recommended solo first; solo took an
+> afternoon, and the work was not where the estimate pointed. The scripting was ordinary. What cost
+> the time was four bugs that no compile can see — a `p_finduid` in a timer that already holds
+> protected access, a `~mesbox` that paused before the cleanup so the game could not end itself,
+> `instance_delete` leaving its npcs behind so the next game counted eight portals, and a portal
+> and a Void Knight that both wandered off their tiles for want of a `wanderrange`. Every one was
+> found by running the game, not by reading it.
+>
 > **Still open from the original list:** everything else, unchanged — including #9 (the patch-run
-> ring), #1 (Pest Control), #12, #15 and #21's wave-skip. The order below still stands for those.
+> ring), the **PC event** half of #1 (it needs a world-event scheduler, which this build still has
+> none of), #12, #15 and #21's wave-skip. The order below still stands for those.
 
 
 **12 October 2026.** Twenty-two suggestions, checked against what is actually in
