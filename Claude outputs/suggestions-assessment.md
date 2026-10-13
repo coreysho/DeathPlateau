@@ -1,11 +1,12 @@
 # The suggestion list, measured against the tree
 
-> ## BUILT, 12 October 2026: eleven of these are done.
+> ## BUILT, 12-13 October 2026: eleven done, and half of a twelfth.
 >
 > On branch `claude/awesome-bohr-h61pym` in **Content** and **Engine**. 37 items imported from OSRS,
-> 13 enchant rows, one hand-placed loc, one farming rule, nine recolours, one instanced minigame
-> and 27 measured teleport destinations. **269 checks** passing against the real engine and the
-> real map: `jewellery.ts` 120, `pestsolo.ts` 45, `graceful.ts` 47, `farmtele.ts` 57.
+> 13 enchant rows, one hand-placed loc, one farming rule, nine recolours, one instanced minigame,
+> 27 measured teleport destinations and a vote currency. **338 checks** passing against the real
+> engine and the real map: `jewellery.ts` 120, `voteshop.ts` 66, `farmtele.ts` 57, `graceful.ts` 50,
+> `pestsolo.ts` 45.
 >
 > | # | Built | Notes against what this document predicted |
 > |---|---|---|
@@ -20,6 +21,7 @@
 > | 20 | **Graceful recolours** | Built. Nine colours, one per rooftop course, 50 marks a kit from Grace. Marks finally have a sink |
 > | 1 | **Pest Control, solo** | Built. 54 npcs given stats from the OSRS cache, every coordinate scanned off the island's collision. The "PC event" half is still not built — there is no world-event scheduler |
 > | 9 | **The patch-run teleport**, on Explorer's ring 4 | Built. 27 destinations — one per farming site, not per patch — on the ring's own `Teleport` option, which had nothing behind it. 57 checks (`engine/tools/sim/farmtele.ts`) |
+> | 14 | **The vote shop** — half of it | Built: vote tickets, the one-way redeem into bound vote points, and the Vote clerk at the Edgeville bank selling Explorer's ring 4 for 50 points. **Claiming is not built** — that still needs a vote site chosen, which is the blocker this document named. 66 checks (`engine/tools/sim/voteshop.ts`) |
 >
 > **Three things this document got wrong, corrected by building it:**
 >
@@ -73,6 +75,32 @@
 > **Also: the agility plugin (#19) is already implemented** — Corey's, not from this list. The entry
 > below is stale.
 >
+> **#14's model, since this document did not propose one.** Corey's: *"should receive vote tickets
+> that are tradeable. you should be able to redeem them from your inventory if you plan to use them
+> instead of selling them."* So there are two things and they are deliberately different. A **vote
+> ticket** is a stackable, tradeable item — bankable, sellable to another player, losable. A **vote
+> point** is a varp: what a redeemed ticket becomes, one for one, with no slot, no trade and no way
+> back. The one-way redeem is what makes it a choice rather than a formality; without it the reward
+> shop would just be a gp shop with extra steps.
+>
+> **This document's own warning about #14 does not bite, and that was designed for.** It said *"a
+> vote currency that buys anything tradeable is a vote currency that sets your economy's prices.
+> Cosmetics, or nothing."* The one thing on the shelf is untradeable, `~can_sell_obj` refuses every
+> item at a points shop (so no purchase can ever be reversed into points), and the ticket carries a
+> new `shop_will_not_buy` param because five of this build's shops are `allstock=yes` and would
+> otherwise have bought vote tickets for gp at a fixed rate — which is exactly the faucet the
+> warning is about, arriving by the back door.
+>
+> **Two bugs the vote shop's sim found, and one of them was in a shop that shipped yesterday.** A
+> purchase leaves a shop slot holding the obj at count 0 rather than emptying it, and restocking
+> called `inv.add`, which for a **non-stackable** item looks for a *null* slot — so it skipped that
+> placeholder and restocked into some unrelated square further down the grid, or, in a shop with no
+> spare slots, did nothing at all. Grace's nine graceful recolour kits were in the second case: each
+> colour was buyable **exactly once per world**, forever. Their restock rate was also 0, which makes
+> the engine's `tick % stockrate == 0` a NaN comparison that can never be true. Both are fixed —
+> `World.processCleanup` now tops the slot up directly, which also stops every bought-out general
+> store slowly shuffling its own shelves — and both are now asserted.
+>
 > **#9 did not need a new ring.** The entry below proposed one. Explorer's ring 4 was already in
 > the build with `iop3=Teleport` and nothing behind it, so the farm menu went there instead. Two
 > things that only came out of building it: the **arrival tiles are measured, not chosen** — each
@@ -82,9 +110,13 @@
 > **Entrana hops patch needed a gate**, because a teleport there would otherwise have been the one
 > way onto the island in a rune platebody. It reuses the Port Sarim monk's own search.
 >
-> **Still open from the original list:** everything else, unchanged — #12, #15, #16 (whip colours)
-> and #21's wave-skip. The **PC event** half of #1 is dropped on Corey's word. The order below
-> still stands for those.
+> **Explorer's ring 4 has a source now.** Yesterday's entry said the ring worked but was
+> unobtainable, because the achievement diary that should hand it out is not implemented. The vote
+> shop is that source, and the two features were built a day apart for each other.
+>
+> **Still open from the original list:** #14's claiming half, plus #12, #15, #16 (whip colours) and
+> #21's wave-skip, unchanged. The **PC event** half of #1 is dropped on Corey's word. The order
+> below still stands for those.
 
 
 **12 October 2026.** Twenty-two suggestions, checked against what is actually in
@@ -123,7 +155,7 @@ Three things turned up that change the shape of the list, so they go first:
 | 11 | Eternal glory | Three new pieces for one amulet | Your 1/250 instinct is right — OSRS is 1/25,000 |
 | 12 | Nail beasts → wildy slayer | **Recommend no** | 2007 import, and the wildy master was decided against |
 | 13 | Best RuneLite plugins | Doable, framework exists | Pick against what `PluginContext` already exposes |
-| 14 | Vote shop + claiming | Doable; blocked on a decision | Engine already runs Fastify and Prisma |
+| 14 | Vote shop + claiming | **Shop built**; claiming still blocked on a decision | Engine already runs Fastify and Prisma |
 | 15 | Diary items, royal seed pod | **Already there / weakest fit** | 48 items exist unobtainable; seed pod is 2016 |
 | 16 | Custom whip colours | **Data-only** | Recolour fields + the ornament-kit framework |
 | 17 | Queen's secateurs upgrade | **Already in game, already spent** | A Fairy Tale I deletes them for the magic pair |
