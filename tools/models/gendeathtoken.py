@@ -232,9 +232,16 @@ def death_token(xy=SKULL_XY, depth=SKULL_DEPTH, proud=SKULL_PROUD):
 # is what "one touch of colour" was supposed to mean. Picked off a four-value sheet from the real
 # icon renderer, not from the number looking sensible.
 GOLD = hsl(9, 4, 48)
-# The band's own colour in the untinted mesh, matched exactly rather than by hue range: the cone is
-# hue 37 and the band is this, and an exact match cannot creep onto the cone the way a range can.
-BAND = hsl(0, 0, 24)
+# THE ONE TOUCH OF COLOUR EACH PIECE IS ALLOWED, by the exact source colour it carries in the cache
+# rather than by a hue range - an exact match cannot creep onto the rest of the mesh the way a range
+# can, which is the mistake the hat's first version made. Keyed by a word in the output name:
+#   hat    the band round the crown, hue 0 saturation 0 lightness 24 (the cone is hue 37)
+#   cape   the clasp at the throat, hue 5 saturation 7 lightness 16. NOT hue 10 saturation 7
+#          lightness 64, which is the brightest colour on the mesh and the obvious guess: that is
+#          the HEM, and picking it put a brass stripe along the bottom of the cape and left the
+#          clasp black. Found by painting each of the mesh's four colours in turn and rendering -
+#          926 is a hidden back face, 7700 the body, 11200 the hem, 6032 the clasp.
+BRASS = {'hat': hsl(0, 0, 24), 'cape': hsl(5, 7, 16)}
 COAT = [
     ('obj_black_wizard_hat_g_manwear', 'npc_undertaker_hat', 0, 0, 0.55, ()),
     ('obj_black_elegant_shirt_manwear', 'npc_undertaker_coat', 0, 0, 0.60, ()),
@@ -345,10 +352,12 @@ def main():
         # So the branch never fired, on any of the five, and the config comment promising a gold
         # band had been describing nothing since the day it was written. Rendering it is what
         # found that - the hue test was never run against the colours it was testing for.
-        if 'hat' in name:
+        for word, srccol in BRASS.items():
+            if word not in name:
+                continue
             src = part(src_name_of[name])
             for i in range(m['fcount']):
-                if src['colour'][i] == BAND:
+                if src['colour'][i] == srccol:
                     m['colour'][i] = GOLD
         made.append(write(m, name))
     for src, name, hue, sat, ls in VET:
