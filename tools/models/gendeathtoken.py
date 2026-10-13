@@ -227,7 +227,14 @@ def death_token(xy=SKULL_XY, depth=SKULL_DEPTH, proud=SKULL_PROUD):
 
 # ---------------------------------------------------------------- the Undertaker
 # (source part, new name, hue, sat, lightness scale, colours left alone)
-GOLD = hsl(10, 7, 86)
+# Brass, not highlighter. hsl(10,7,86) was the first guess and it turned the whole brim a flat
+# saturated yellow at 32 pixels; this is dull enough to read as a metal band on a black hat, which
+# is what "one touch of colour" was supposed to mean. Picked off a four-value sheet from the real
+# icon renderer, not from the number looking sensible.
+GOLD = hsl(9, 4, 48)
+# The band's own colour in the untinted mesh, matched exactly rather than by hue range: the cone is
+# hue 37 and the band is this, and an exact match cannot creep onto the cone the way a range can.
+BAND = hsl(0, 0, 24)
 COAT = [
     ('obj_black_wizard_hat_g_manwear', 'npc_undertaker_hat', 0, 0, 0.55, ()),
     ('obj_black_elegant_shirt_manwear', 'npc_undertaker_coat', 0, 0, 0.60, ()),
@@ -242,6 +249,38 @@ COAT = [
     ('idk_man_jaw_long_head', 'npc_undertaker_beard_head', 0, 0, 4.5, ()),
     # and boots, because he was standing in Edgeville barefoot
     ('obj_ikov_bootsoflightness_manwear', 'npc_undertaker_boots', 0, 0, 0.45, ()),
+
+    # ---- THE OUTFIT A PLAYER CAN WEAR -------------------------------------------------------
+    # The npc's parts are *_manwear meshes: a coat moulded to a torso. They are what the player
+    # wears, but they are NOT what the item looks like in a pack slot or lying on the floor - that
+    # is the source item's own `model=`, a different mesh - and they are not what a woman wears.
+    # So every piece needs its item mesh and its woman-shaped mesh tinted to match, at the SAME
+    # light scale as the man's, or the same hat is two colours depending on who is wearing it.
+    #
+    # The icon cameras come straight off the source items' obj configs, because the mesh is the
+    # same mesh: a repaint cannot need a different camera from the thing it repaints.
+    ('obj_black_wizard_hat_g', 'obj_undertaker_hat', 0, 0, 0.55, ()),
+    ('obj_black_wizard_hat_g_womanwear', 'obj_undertaker_hat_womanwear', 0, 0, 0.55, ()),
+    ('obj_black_wizard_hat_g_womanhead', 'obj_undertaker_hat_womanhead', 0, 0, 0.55, ()),
+    ('obj_black_elegant_shirt', 'obj_undertaker_coat', 0, 0, 0.60, ()),
+    ('obj_black_elegant_shirt_womanwear', 'obj_undertaker_coat_womanwear', 0, 0, 0.60, ()),
+    ('obj_black_elegant_shirt_womanwear2', 'obj_undertaker_coat_womanwear2', 0, 0, 0.60, ()),
+    ('obj_black_elegant_legs', 'obj_undertaker_legs', 0, 0, 0.55, ()),
+    ('obj_black_elegant_legs_womanwear', 'obj_undertaker_legs_womanwear', 0, 0, 0.55, ()),
+    ('obj_black_cane', 'obj_undertaker_cane', 0, 0, 0.70, ()),
+    ('obj_black_cane_womanwear', 'obj_undertaker_cane_womanwear', 0, 0, 0.70, ()),
+    ('obj_ikov_bootsoflightness', 'obj_undertaker_boots', 0, 0, 0.45, ()),
+    ('obj_ikov_bootsoflightness_womanwear', 'obj_undertaker_boots_womanwear', 0, 0, 0.45, ()),
+    # The cape. Not part of the four-piece bonus - that is the hat, coat, trousers and boots, the
+    # things you can fight in - so this is pure look.
+    #
+    # 0.6 AND NOT 0.42. The first guess reasoned that a cape is a big flat area and wanted the
+    # heaviest tint of the set to stop it reading grey. Backwards: at 0.42 the red cape's own
+    # shading collapsed and the icon was a black lozenge with no folds in it. A cape needs MORE
+    # range than a sleeve, not less, because its shape is the only thing telling you what it is.
+    ('obj_red_cape', 'obj_undertaker_cape', 0, 0, 0.6, ()),
+    ('obj_red_cape_manwear', 'obj_undertaker_cape_manwear', 0, 0, 0.6, ()),
+    ('obj_red_cape_womanwear', 'obj_undertaker_cape_womanwear', 0, 0, 0.6, ()),
 ]
 
 
@@ -293,13 +332,23 @@ def main():
             print('   missing part:', src)
             continue
         m = tint(part(src), hue, sat, light_scale=ls, skip=skip)
-        # the hat keeps its gold band: the brightest faces are the trim, and an undertaker's hat
-        # with a gold band is the one touch of colour he is allowed
+        # THE HAT'S BAND GOES GOLD, which is the one touch of colour he is allowed. 'hat' in the
+        # name catches all five meshes on purpose - the npc's, its chathead, and the worn item's
+        # three - because the band has to survive on every one of them or the hat changes colour
+        # when you take it off.
+        #
+        # FIXED 12 October 2026, and the old version is worth recording because it looked right.
+        # This used to take "the trim's yellows", faces whose original hue was 7..14, on the
+        # assumption that a hat called black_wizard_hat_g had gold on it. It has not: the mesh is a
+        # BLUE hat (hue 37) with a BLACK band (hsl 0,0,24), and the (g) in its name comes from a
+        # recolour pair in its obj config that does not match any colour the mesh actually contains.
+        # So the branch never fired, on any of the five, and the config comment promising a gold
+        # band had been describing nothing since the day it was written. Rendering it is what
+        # found that - the hue test was never run against the colours it was testing for.
         if 'hat' in name:
             src = part(src_name_of[name])
             for i in range(m['fcount']):
-                h = (src['colour'][i] >> 10) & 0x3F
-                if 7 <= h <= 14:          # the trim's yellows, in the part's ORIGINAL colours
+                if src['colour'][i] == BAND:
                     m['colour'][i] = GOLD
         made.append(write(m, name))
     for src, name, hue, sat, ls in VET:
