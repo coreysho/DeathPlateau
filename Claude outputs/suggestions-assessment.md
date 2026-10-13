@@ -4,9 +4,11 @@
 >
 > On branch `claude/awesome-bohr-h61pym` in **Content** and **Engine**. 37 items imported from OSRS,
 > 13 enchant rows, one hand-placed loc, one farming rule, nine recolours, one instanced minigame,
-> 27 measured teleport destinations and a vote currency. **338 checks** passing against the real
-> engine and the real map: `jewellery.ts` 120, `voteshop.ts` 66, `farmtele.ts` 57, `graceful.ts` 50,
-> `pestsolo.ts` 45.
+> 27 measured teleport destinations and a vote currency. **343 checks** passing against the real
+> engine and the real map: `jewellery.ts` 120, `voteshop.ts` 69, `farmtele.ts` 57, `graceful.ts` 52,
+> `pestsolo.ts` 45. Merged up to `377-wip` (content `75d8dfb9`, engine `d8da1e4`, this repo
+> `93c679b`) — the Undertaker's outfit, cape, Gravedigger kit, max cape and collection log page, and
+> the worn-model depth-sort work.
 >
 > | # | Built | Notes against what this document predicted |
 > |---|---|---|
@@ -21,7 +23,7 @@
 > | 20 | **Graceful recolours** | Built. Nine colours, one per rooftop course, 50 marks a kit from Grace. Marks finally have a sink |
 > | 1 | **Pest Control, solo** | Built. 54 npcs given stats from the OSRS cache, every coordinate scanned off the island's collision. The "PC event" half is still not built — there is no world-event scheduler |
 > | 9 | **The patch-run teleport**, on Explorer's ring 4 | Built. 27 destinations — one per farming site, not per patch — on the ring's own `Teleport` option, which had nothing behind it. 57 checks (`engine/tools/sim/farmtele.ts`) |
-> | 14 | **The vote shop** — half of it | Built: vote tickets, the one-way redeem into bound vote points, and the Vote clerk at the Edgeville bank selling Explorer's ring 4 for 50 points. **Claiming is not built** — that still needs a vote site chosen, which is the blocker this document named. 66 checks (`engine/tools/sim/voteshop.ts`) |
+> | 14 | **The vote shop** — half of it | Built: vote tickets, the one-way redeem into bound vote points, and the Vote clerk at the Edgeville bank selling Explorer's ring 4 for 50 points. **Claiming is not built** — that still needs a vote site chosen, which is the blocker this document named. 69 checks (`engine/tools/sim/voteshop.ts`) |
 >
 > **Three things this document got wrong, corrected by building it:**
 >
@@ -91,8 +93,8 @@
 > otherwise have bought vote tickets for gp at a fixed rate — which is exactly the faucet the
 > warning is about, arriving by the back door.
 >
-> **Two bugs the vote shop's sim found, and one of them was in a shop that shipped yesterday.** A
-> purchase leaves a shop slot holding the obj at count 0 rather than emptying it, and restocking
+> **Two bugs the vote shop's sim found, and one of them was in a shop that shipped the day before.**
+> A purchase leaves a shop slot holding the obj at count 0 rather than emptying it, and restocking
 > called `inv.add`, which for a **non-stackable** item looks for a *null* slot — so it skipped that
 > placeholder and restocked into some unrelated square further down the grid, or, in a shop with no
 > spare slots, did nothing at all. Grace's nine graceful recolour kits were in the second case: each
@@ -100,6 +102,14 @@
 > the engine's `tick % stockrate == 0` a NaN comparison that can never be true. Both are fixed —
 > `World.processCleanup` now tops the slot up directly, which also stops every bought-out general
 > store slowly shuffling its own shelves — and both are now asserted.
+>
+> **Corey had hit the same wall on the Undertaker's shelf, hours earlier and from the other side.**
+> `377-wip` fixed it in config — a thousand a row at restock rate 1 with `stackall=yes`, on the
+> grounds that *"a shop whose stock is the limit is a race; the limit here is meant to be how many
+> tokens you have earned"*. That reasoning applies verbatim to a vote reward and to a mark-priced
+> recolour kit, so the vote shop and Grace's shelf now carry the same idiom on top of the engine
+> fix. The engine fix is still the thing that makes `stackall=no` shops restock at all; the idiom is
+> what removes the one-tick race between two players buying at once.
 >
 > **#9 did not need a new ring.** The entry below proposed one. Explorer's ring 4 was already in
 > the build with `iop3=Teleport` and nothing behind it, so the farm menu went there instead. Two
