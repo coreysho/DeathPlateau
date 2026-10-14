@@ -99,16 +99,19 @@ def notices():
              keep_pri=True)
 
     def quad(x0, y0, x1, y1, z, colour, pri=0, both=True):
-        # THE FRONT WINDING IS THE FIRST PAIR, and it is the pair that carries the priority. A face
-        # the client culls cannot be drawn in the wrong order, so the back pair stays at 0 and is
-        # sorted by depth as before: from behind, the board's own back panel still covers it.
+        # THE FRONT WINDING IS THE SECOND PAIR - (2,1,0) and (3,2,0) - and it is the pair that
+        # carries the priority. MEASURED IN THE GAME, not reasoned about: a board whose two pairs
+        # were painted red and blue and photographed through the real client came back blue, and the
+        # first version of this fix did nothing because it had put the priority on the red one. A
+        # face the client culls cannot be drawn in the wrong order, so the other pair stays at 0 and
+        # is sorted by depth as before: from behind, the board's own back panel still covers it.
         v = m['vcount']
         for x, y in ((x0, y0), (x1, y0), (x1, y1), (x0, y1)):
             m['vx'].append(x); m['vy'].append(y); m['vz'].append(z)
         m['vcount'] += 4
-        faces = [((0, 1, 2), pri), ((0, 2, 3), pri)]
+        faces = [((2, 1, 0), pri), ((3, 2, 0), pri)]
         if both:
-            faces += [((2, 1, 0), 0), ((3, 2, 0), 0)]
+            faces += [((0, 1, 2), 0), ((0, 2, 3), 0)]
         for (a, b, c), pr in faces:
             m['fa'].append(v + a); m['fb'].append(v + b); m['fc'].append(v + c)
             m['colour'].append(colour); m['pri'].append(pr)
@@ -133,8 +136,8 @@ def notices():
             right = cx + w // 2 - pad - (10 if i == lines - 1 else 0)
             quad(cx - w // 2 + pad, y, right, y + 2, FRONT_Z - 3, INK, P_INK)
         quad(cx - 2, cy - h // 2 + 1, cx + 2, cy - h // 2 + 5, FRONT_Z - 4, PIN, P_PIN)
-    # Front only: the medallion is read from the front, and a back winding would print the letters
-    # mirrored on the back of the crest, where the dome's own rear does not cover them.
+    # Front only: the medallion is read from the front, and the other winding would print the
+    # letters mirrored on the back of the crest, where the dome's own rear does not cover them.
     for x0, y0, x1, y1 in LETTERS:
         quad(x0, y0, x1, y1, PLAQUE_Z, LETTER, P_NOTE, both=False)
     return m
