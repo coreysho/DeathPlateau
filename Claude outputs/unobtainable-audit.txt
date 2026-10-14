@@ -1,0 +1,353 @@
+ITEMS WITH NO WAY TO GET ONE - 14 October 2026
+================================================================================
+
+Asked for after a correct hunch: "I'm almost positive the seed box, arkan blade and most slayer
+helmets aren't obtainable." All three are right.
+
+HOW TO GET THIS LIST YOURSELF
+
+    cd content && python tools/obtainable.py --soft
+
+--soft is the flag that matters. The bare run prints only counts for the big bucket; --all prints
+the 377 cache's own 1,996 unreachable objs instead, which is a different and much less interesting
+list. I read --all first and concluded the tool had missed the seed box and the Arkan blade. It had
+not - they were in --soft all along, and the mistake was mine.
+
+WHAT THE TOOL IS AND IS NOT SURE OF
+
+obtainable.py splits no-source objs three ways:
+
+  NOTHING ANYWHERE MENTIONS THESE (4)   nothing names them at all. Four Lunar Diplomacy items.
+  BUILT WITH NO SOURCE ON PURPOSE (85)  declared in slayerhelmspec.json, petspec.json and
+                                        nosourcespec.json - including ELEVEN of the fourteen slayer
+                                        helmet colours, whose head-dropping monsters are not in this
+                                        era. Only black, green and red can be made. So "most slayer
+                                        helmets are not obtainable" is true, and it is a decision
+                                        rather than a bug.
+  MENTIONED, BUT NEVER GIVEN OUT (206)  something names them, so a route MAY exist through a call
+                                        the scanner cannot follow. This is the bucket below, and it
+                                        is a mix.
+
+The tool calls that last bucket "worth a glance, not a bug list", and that hedge is doing real work
+in both directions. Hand-checked:
+
+  REACHABLE - the scanner simply cannot follow how
+    trident_of_the_seas      inv_setslot in trident.rs2, after the Kraken's own drop
+    abyssal_tentacle         inv_setslot in abyssal_tentacle.rs2
+    dragonfire_shield        inv_setslot in dragonfire_shield.rs2, built from the visage
+    armadyl_godsword         return(armadyl_godsword) out of godsword.rs2, joining a hilt
+    barrows_teleport         ~barrows_reward_add from the Barrows chest
+
+  GENUINELY UNOBTAINABLE - built, wired, and no route in
+    seed_box     a whole storage system: fill, empty, check, open, close, destroy. The ONLY thing
+                 that hands one over is ~storage_swap(seed_box, ..) on the OPEN box - so you need a
+                 seed box to get a seed box. A closed loop is not a source.
+    arkan_blade  a level 60 attack requirement and a special attack in BOTH the PvM and PvP tables,
+                 and nothing anywhere gives one.
+    mith_grapple gwd_encampments.rs2 checks whether you are carrying one. Nothing sells, drops or
+                 makes one.
+    xerician_hat a level 20 magic and defence gate, and nothing else at all.
+    granite_body in poh_store.enum, which is the COSTUME ROOM'S STORAGE list - that says you may
+                 keep one, not that you may get one. Same for granite_helm.
+
+The pattern worth noticing: a cluster of equipment has stats, level requirements and in one case a
+special attack written for it, and no source. Those are not cache leftovers; somebody built them.
+
+WHAT TO DO WITH THE REST
+
+The 206 below are grouped by the config that defines them, with the scripts that name each one.
+Separating "reachable" from "hole" is a per-item read - the two lists above took about a dozen
+greps. Start where it matters: equipment and rewards, not the hundred-odd board game pieces, which
+dominate by count and are placed by their own minigame.
+
+================================================================================
+
+Something names these, so they are probably reachable through a label argument or a
+call this cannot follow - the godswords are joined by @godsword_join(.., .., <result>).
+Worth a glance, not a bug list.
+
+scripts\areas\area_barrows\configs\barrows.obj  (1)
+     8384  barrows_teleport                     Barrows teleport           barrows_chest.rs2, barrows_teleport.rs2
+
+scripts\areas\area_kraken_cove\configs\kraken.obj  (2)
+     8470  trident_of_the_seas                  Trident of the Seas        trident.rs2
+     8476  abyssal_tentacle                     Abyssal tentacle           abyssal_tentacle.rs2, player_melee.rs2, player_special_attack.rs2
+
+scripts\areas\area_zulrah\configs\zulrah_uniques.obj  (1)
+    10504  trident_of_the_swamp                 Trident of the Swamp       swamp_trident.rs2, trident.rs2
+
+scripts\bosses\godwars\configs\gwd_grapple.obj  (1)
+    10742  mith_grapple                         Mith grapple               gwd_encampments.rs2
+
+scripts\bosses\godwars\configs\gwd_items.obj  (7)
+     8129  godsword_shards_1_2                  Godsword shards 1 & 2      godsword.rs2
+     8130  godsword_shards_1_3                  Godsword shards 1 & 3      godsword.rs2
+     8131  godsword_shards_2_3                  Godsword shards 2 & 3      godsword.rs2
+     8133  armadyl_godsword                     Armadyl godsword           godsword.rs2, player_special_attack.rs2, pvp_special_attack.rs2
+     8134  bandos_godsword                      Bandos godsword            godsword.rs2, player_special_attack.rs2, pvp_special_attack.rs2
+     8135  saradomin_godsword                   Saradomin godsword         godsword.rs2, player_special_attack.rs2, pvp_special_attack.rs2
+     8136  zamorak_godsword                     Zamorak godsword           godsword.rs2, player_special_attack.rs2, pvp_special_attack.rs2
+
+scripts\dragonfire_shield\configs\dragonfire_shield.obj  (1)
+    11216  dragonfire_shield                    Dragonfire shield          dragonfire_shield.rs2, equip.rs2, oziach.rs2
+
+scripts\general\configs\gear_474.obj  (2)
+     8055  granite_body                         Granite body               tier50.rs2
+     8056  granite_helm                         Granite helm               tier50.rs2
+
+scripts\general\configs\osrs_items.obj  (1)
+     8107  seed_box                             Seed box                   storage_items.rs2
+
+scripts\general\configs\osrs_items_2.obj  (4)
+     8417  arkan_blade                          Arkan blade                player_special_attack.rs2, pvp_special_attack.rs2, tier60.rs2
+     8418  xerician_hat                         Xerician hat               tier20.rs2
+     8419  xerician_top                         Xerician top               tier20.rs2
+     8420  xerician_robe                        Xerician robe              tier20.rs2
+
+scripts\macro events\configs\antimacro.obj  (47)
+     6199  macro_quiz_mystery_box               Mystery box                macro_event_quiz.rs2
+     6209  evil_bob_net                         Small fishing net          macro_event_evil_bob.rs2
+     7005  macro_cube_circle1                   ?                          macro_event_strange_box.rs2
+     7006  macro_cube_hexagon1                  ?                          macro_event_strange_box.rs2
+     7007  macro_cube_square1                   ?                          macro_event_strange_box.rs2
+     7008  macro_cube_star1                     ?                          macro_event_strange_box.rs2
+     7009  macro_cube_triangle1                 ?                          macro_event_strange_box.rs2
+     7010  macro_cube_01                        ?                          macro_event_strange_box.rs2
+     7011  macro_cube_11                        ?                          macro_event_strange_box.rs2
+     7012  macro_cube_21                        ?                          macro_event_strange_box.rs2
+     7013  macro_cube_31                        ?                          macro_event_strange_box.rs2
+     7014  macro_cube_41                        ?                          macro_event_strange_box.rs2
+     7015  macro_cube_51                        ?                          macro_event_strange_box.rs2
+     7016  macro_cube_61                        ?                          macro_event_strange_box.rs2
+     7017  macro_cube_71                        ?                          macro_event_strange_box.rs2
+     7018  macro_cube_81                        ?                          macro_event_strange_box.rs2
+     7019  macro_cube_91                        ?                          macro_event_strange_box.rs2
+     7020  macro_cube_circle2                   ?                          macro_event_strange_box.rs2
+     7021  macro_cube_hexagon2                  ?                          macro_event_strange_box.rs2
+     7022  macro_cube_square2                   ?                          macro_event_strange_box.rs2
+     7023  macro_cube_star2                     ?                          macro_event_strange_box.rs2
+     7024  macro_cube_triangle2                 ?                          macro_event_strange_box.rs2
+     7025  macro_cube_02                        ?                          macro_event_strange_box.rs2
+     7026  macro_cube_12                        ?                          macro_event_strange_box.rs2
+     7027  macro_cube_22                        ?                          macro_event_strange_box.rs2
+     7028  macro_cube_32                        ?                          macro_event_strange_box.rs2
+     7029  macro_cube_42                        ?                          macro_event_strange_box.rs2
+     7030  macro_cube_52                        ?                          macro_event_strange_box.rs2
+     7031  macro_cube_62                        ?                          macro_event_strange_box.rs2
+     7032  macro_cube_72                        ?                          macro_event_strange_box.rs2
+     7033  macro_cube_82                        ?                          macro_event_strange_box.rs2
+     7034  macro_cube_92                        ?                          macro_event_strange_box.rs2
+     7035  macro_cube_circle3                   ?                          macro_event_strange_box.rs2
+     7036  macro_cube_hexagon3                  ?                          macro_event_strange_box.rs2
+     7037  macro_cube_square3                   ?                          macro_event_strange_box.rs2
+     7038  macro_cube_star3                     ?                          macro_event_strange_box.rs2
+     7039  macro_cube_triangle3                 ?                          macro_event_strange_box.rs2
+     7040  macro_cube_03                        ?                          macro_event_strange_box.rs2
+     7041  macro_cube_13                        ?                          macro_event_strange_box.rs2
+     7042  macro_cube_23                        ?                          macro_event_strange_box.rs2
+     7043  macro_cube_33                        ?                          macro_event_strange_box.rs2
+     7044  macro_cube_43                        ?                          macro_event_strange_box.rs2
+     7045  macro_cube_53                        ?                          macro_event_strange_box.rs2
+     7046  macro_cube_63                        ?                          macro_event_strange_box.rs2
+     7047  macro_cube_73                        ?                          macro_event_strange_box.rs2
+     7048  macro_cube_83                        ?                          macro_event_strange_box.rs2
+     7049  macro_cube_93                        ?                          macro_event_strange_box.rs2
+
+scripts\minigames\boardgames\boardgames_draughts\configs\boardgames_draughts.obj  (12)
+     3869  boardgames_draughts_firerune_king    Board game piece           boardgames_draughts.rs2
+     3870  boardgames_draughts_waterrune_king   Board game piece           boardgames_draughts.rs2
+     3871  boardgames_draughts_earthrune_king   Board game piece           boardgames_draughts.rs2
+     3872  boardgames_draughts_airrune_king     Board game piece           boardgames_draughts.rs2
+     3873  boardgames_draughts_mindrune_king    Board game piece           boardgames_draughts.rs2
+     3874  boardgames_draughts_bodyrune_king    Board game piece           boardgames_draughts.rs2
+     3875  boardgames_draughts_naturerune_king  Board game piece           boardgames_draughts.rs2
+     3876  boardgames_draughts_chaosrune_king   Board game piece           boardgames_draughts.rs2
+     3877  boardgames_draughts_lawrune_king     Board game piece           boardgames_draughts.rs2
+     3878  boardgames_draughts_cosmicrune_king  Board game piece           boardgames_draughts.rs2
+     3879  boardgames_draughts_bloodrune_king   Board game piece           boardgames_draughts.rs2
+     3880  boardgames_draughts_soulrune_king    Board game piece           boardgames_draughts.rs2
+
+scripts\minigames\boardgames\boardgames_runelink\configs\boardgames_runelink.obj  (12)
+     3881  boardgames_runelink_firerune         Board game piece           boardgames.rs2
+     3882  boardgames_runelink_waterrune        Board game piece           boardgames.rs2
+     3883  boardgames_runelink_earthrune        Board game piece           boardgames.rs2
+     3884  boardgames_runelink_airrune          Board game piece           boardgames.rs2
+     3885  boardgames_runelink_mindrune         Board game piece           boardgames.rs2
+     3886  boardgames_runelink_bodyrune         Board game piece           boardgames.rs2
+     3887  boardgames_runelink_naturerune       Board game piece           boardgames.rs2
+     3888  boardgames_runelink_chaosrune        Board game piece           boardgames.rs2
+     3889  boardgames_runelink_lawrune          Board game piece           boardgames.rs2
+     3890  boardgames_runelink_cosmicrune       Board game piece           boardgames.rs2
+     3891  boardgames_runelink_bloodrune        Board game piece           boardgames.rs2
+     3892  boardgames_runelink_soulrune         Board game piece           boardgames.rs2
+
+scripts\minigames\game_castlewars\configs\castlewars.obj  (15)
+     4037  castlewars_saradomin_banner          Saradomin banner           castlewars.rs2, castlewars_controller.rs2, castlewars_death.rs2
+     4039  castlewars_zamorak_banner            Zamorak banner             castlewars.rs2, castlewars_controller.rs2, castlewars_death.rs2
+     4041  castlewars_cloak_saradomin           Hooded cloak               bank_bar.rs2, castlewars.enum, castlewars.rs2
+     4042  castlewars_cloak_zamorak             Hooded cloak               bank_bar.rs2, castlewars.enum, castlewars.rs2
+     4047  castlewars_climbing_rope             Climbing rope              castlewars.enum
+     4056  castlewars_no0                       ?                          castlewars.enum, castlewars_catapult.rs2
+     4057  castlewars_no1                       ?                          castlewars.enum
+     4058  castlewars_no2                       ?                          castlewars.enum
+     4059  castlewars_no3                       ?                          castlewars.enum
+     4060  castlewars_no4                       ?                          castlewars.enum
+     4061  castlewars_no5                       ?                          castlewars.enum
+     4062  castlewars_no6                       ?                          castlewars.enum
+     4063  castlewars_no7                       ?                          castlewars.enum
+     4064  castlewars_no8                       ?                          castlewars.enum
+     4065  castlewars_no9                       ?                          castlewars.enum
+
+scripts\minigames\game_trail\configs\ornament_results.obj  (4)
+    11184  armadyl_godsword_or                  Armadyl godsword (or)      ornament_kit.rs2, tier75.rs2
+    11185  bandos_godsword_or                   Bandos godsword (or)       ornament_kit.rs2
+    11186  saradomin_godsword_or                Saradomin godsword (or)    ornament_kit.rs2
+    11187  zamorak_godsword_or                  Zamorak godsword (or)      ornament_kit.rs2
+
+scripts\minigames\game_trail\configs\scroll_box.obj  (3)
+     8765  trail_scrollbox_easy                 Scroll box (easy)          trail_clue_helper.rs2
+     8766  trail_scrollbox_medium               Scroll box (medium)        trail_clue_helper.rs2
+     8767  trail_scrollbox_hard                 Scroll box (hard)          trail_clue_helper.rs2
+
+scripts\minigames\game_warriorsguild\configs\defenders.obj  (1)
+     7971  fighter_torso                        Fighter torso              tier40.rs2
+
+scripts\quests\quest_animmag\configs\animmag.obj  (4)
+    10304  animmag_blessed_axe                  Blessed axe                animmag_notes.rs2, animmag_trees.rs2
+    10305  animmag_research_notes               Research notes             animmag_notes.rs2, quest_animmag.rs2
+    10307  animmag_pattern                      A pattern                  animmag_notes.rs2, quest_animmag.rs2
+    10310  avas_attractor                       Ava's attractor            avas_device.rs2, quest_animmag.rs2
+
+scripts\quests\quest_death\configs\death.obj  (5)
+     3109  death_cannonball_red                 Stone ball                 quest_death.rs2
+     3110  death_cannonball_blue                Stone ball                 quest_death.rs2
+     3111  death_cannonball_yellow              Stone ball                 quest_death.rs2
+     3112  death_cannonball_purple              Stone ball                 quest_death.rs2
+     3113  death_cannonball_green               Stone ball                 quest_death.rs2
+
+scripts\quests\quest_eaglespeak\configs\eaglespeak.obj  (3)
+     9606  bird_book                            Bird book                  book.rs2, eaglespeak_camp.rs2, eaglespeak_items.rs2
+     9607  eagle_metal_feather                  Metal feather              eaglespeak_camp.rs2, eaglespeak_cave.rs2, eaglespeak_items.rs2
+     9612  feathered_journal                    Feathered journal          book.rs2, eaglespeak_items.rs2
+
+scripts\quests\quest_golem\configs\golem.obj  (4)
+     4615  golem_letter                         Letter                     golem_b.rs2, quest_golem.rs2
+     4619  golem_golemkey                       Strange implement          golem_golem.rs2
+     4623  golem_pen                            Phoenix quill pen          golem_phoenix.rs2, quest_golem.rs2
+     4624  golem_program                        Golem program              golem_golem.rs2, quest_golem.rs2
+
+scripts\quests\quest_lunar\configs\lunar_items.obj  (11)
+    10401  lunar_staff                          Lunar staff                lunar_dream.rs2, lunar_island.rs2, quest_lunar.rs2
+    10403  lunar_staff_pt2                      Lunar staff - pt2          lunar_island.rs2, runecraft_altars.rs2
+    10404  lunar_staff_pt3                      Lunar staff - pt3          lunar_island.rs2, runecraft_altars.rs2
+    10406  lunar_torso                          Lunar torso                lunar_dream.rs2, lunar_island.rs2, quest_lunar.rs2
+    10407  lunar_legs                           Lunar legs                 lunar_dream.rs2, lunar_island.rs2, quest_lunar.rs2
+    10408  lunar_gloves                         Lunar gloves               lunar_dream.rs2, lunar_island.rs2, quest_lunar.rs2
+    10409  lunar_boots                          Lunar boots                lunar_dream.rs2, lunar_island.rs2, quest_lunar.rs2
+    10422  lunar_guam_vial                      Guam vial                  lunar_island.rs2
+    10423  lunar_marr_vial                      Marr vial                  lunar_island.rs2
+    10424  lunar_guam_marr_vial                 Guam-marr vial             lunar_island.rs2
+    10426  lunar_kindling                       Kindling                   lunar_island.rs2
+
+scripts\skill_construction\configs\construction.obj  (1)
+     8191  saw                                  Saw                        agilityarena_clerk.rs2, ahoy_journal.rs2, all.npc
+
+scripts\skill_cooking\configs\cooking_inv\configs\cakes\cakes.obj  (1)
+     1953  pastry_dough                         Pastry dough               cooking_guide.rs2, dough.rs2, pies.rs2
+
+scripts\skill_cooking\configs\cooking_inv\configs\ugthanki_kebab\ugthanki_kebab.obj  (7)
+     1869  bowl_tomato                          Chopped tomato             pizza.rs2, ugthanki_kebab.rs2, ugthanki_kebab.struct
+     1871  bowl_onion                           Chopped onion              pizza.rs2, ugthanki_kebab.rs2, ugthanki_kebab.struct
+     1873  bowl_ugthanki                        Chopped ugthanki           pizza.rs2, ugthanki_kebab.rs2, ugthanki_kebab.struct
+     1875  bowl_oniontomato                     Onion & tomato             pizza.rs2, ugthanki_kebab.rs2, ugthanki_kebab.struct
+     1877  bowl_ugthankionion                   Ugthanki & onion           pizza.rs2, ugthanki_kebab.rs2, ugthanki_kebab.struct
+     1879  bowl_ugthankitomato                  Ugthanki & tomato          pizza.rs2, ugthanki_kebab.rs2, ugthanki_kebab.struct
+     1881  bowl_oniontomugthanki                Kebab mix                  ugthanki_kebab.rs2, ugthanki_kebab.struct
+
+scripts\skill_crafting\configs\jewellery\jade_topaz_slots.obj  (6)
+    11267  invis_ring7                          Jade ring                  jewellery.rs2
+    11268  invis_necklace7                      Jade necklace              jewellery.rs2
+    11269  invis_amulet7                        Jade amulet                jewellery.rs2
+    11270  invis_ring8                          Topaz ring                 jewellery.rs2
+    11271  invis_necklace8                      Topaz necklace             jewellery.rs2
+    11272  invis_amulet8                        Topaz amulet               jewellery.rs2
+
+scripts\skill_farming\configs\compost_bucket.obj  (1)
+     8373  bottomless_bucket_filled             Bottomless compost bucket  compost_bucket.rs2, farming_useitem.rs2, leprechaun.rs2
+
+scripts\skill_hunter\configs\hunter.obj  (4)
+     8483  hunter_jar_butterfly                 Butterfly jar (butterfly)  hunter_butterflies.rs2, hunter_guide.rs2
+     8484  hunter_jar_viceroy                   Butterfly jar (Viceroy)    hunter_butterflies.rs2, hunter_guide.rs2
+     8485  hunter_jar_bluemorpo                 Butterfly jar (Blue Morpho) hunter_butterflies.rs2, hunter_guide.rs2
+     8486  hunter_jar_swallowtail               Butterfly jar (Tiger Swallowtail) hunter_butterflies.rs2, hunter_guide.rs2
+
+scripts\skill_hunter\configs\hunter_implings.obj  (2)
+     9711  magic_butterfly_net                  Magic butterfly net        hunter_butterflies.rs2, hunter_implings.rs2, hunter_puro.rs2
+     9712  jar_generator                        Jar generator              hunter_implings.rs2, hunter_puro.rs2
+
+scripts\skill_hunter\configs\hunter_imps.obj  (2)
+     9303  kebbit_bolts                         Kebbit bolts               hunter_imps.rs2
+     9304  long_kebbit_bolts                    Long kebbit bolts          hunter_imps.rs2
+
+scripts\skill_hunter\configs\hunter_piscatoris.obj  (6)
+     8900  falconers_glove                      Falconer's glove           hunter_falconry.rs2
+     8901  falconers_glove_falcon               Falconer's glove           hunter_falconry.rs2, hunter_guide.rs2
+     8902  spotted_kebbit_fur                   Spotted kebbit fur         hunter_falconry.rs2, hunter_guide.rs2
+     8903  dark_kebbit_fur                      Dark kebbit fur            hunter_falconry.rs2, hunter_guide.rs2
+     8904  dashing_kebbit_fur                   Dashing kebbit fur         hunter_falconry.rs2, hunter_guide.rs2
+     8909  hunter_jar_ruby                      Butterfly jar (Ruby harvest) hunter_butterfly_share.rs2, hunter_guide.rs2, hunter_piscatoris.rs2
+
+scripts\skill_hunter\configs\hunter_rellekka.obj  (2)
+     9004  snowy_knight                         Snowy knight               hunter_butterfly_share.rs2, hunter_guide.rs2, hunter_rellekka.rs2
+     9005  sapphire_glacialis                   Sapphire glacialis         hunter_butterfly_share.rs2, hunter_guide.rs2, hunter_rellekka.rs2
+
+scripts\skill_hunter\configs\hunter_warlock.obj  (1)
+     9504  black_warlock                        Black warlock              hunter_butterfly_share.rs2, hunter_guide.rs2, hunter_warlock.rs2
+
+scripts\skill_magic\configs\home_teleport.obj  (1)
+     8608  hometele_stick                       Stick                      home_teleport_osrs.seq
+
+scripts\skill_runecraft\configs\runecraft.obj  (13)
+     5527  tiara_air                            Air tiara                  runecraft_tiaras.rs2, skillcape_perks.rs2
+     5529  tiara_mind                           Mind tiara                 runecraft_tiaras.rs2, skillcape_perks.rs2
+     5531  tiara_water                          Water tiara                runecraft_tiaras.rs2, skillcape_perks.rs2
+     5533  tiara_body                           Body tiara                 runecraft_tiaras.rs2, skillcape_perks.rs2
+     5535  tiara_earth                          Earth tiara                hunter_implings_loot.rs2, runecraft_tiaras.rs2, skillcape_perks.rs2
+     5537  tiara_fire                           Fire tiara                 runecraft_tiaras.rs2, skillcape_perks.rs2
+     5539  tiara_cosmic                         Cosmic tiara               runecraft_tiaras.rs2, skillcape_perks.rs2
+     5541  tiara_nature                         Nature tiara               hunter_implings_loot.rs2, runecraft_tiaras.rs2, skillcape_perks.rs2
+     5543  tiara_chaos                          Chaos tiara                runecraft_tiaras.rs2, skillcape_perks.rs2
+     5545  tiara_law                            Law tiara                  runecraft_tiaras.rs2, skillcape_perks.rs2
+     5547  tiara_death                          Death tiara                runecraft_tiaras.rs2, skillcape_perks.rs2
+     5549  tiara_blood                          Blood tiara                runecraft_tiaras.rs2, skillcape_perks.rs2
+     5551  tiara_soul                           Soul tiara                 runecraft_tiaras.rs2, skillcape_perks.rs2
+
+scripts\skillcapes\configs\skillcape_props.obj  (7)
+     8172  skillcape_prop_herblore              ?                          skillcape_emotes.seq
+     8173  skillcape_prop_crafting_r            ?                          skillcape_emotes.seq
+     8174  skillcape_prop_crafting_l            ?                          skillcape_emotes.seq
+     8175  skillcape_prop_cooking               ?                          skillcape_emotes.seq
+     8176  skillcape_prop_woodcutting           ?                          skillcape_emotes.seq
+     8177  skillcape_prop_defence_l             ?                          skillcape_emotes.seq
+     8178  skillcape_prop_defence_r             ?                          skillcape_emotes.seq
+
+scripts\skillcapes\configs\skillcapes.obj  (2)
+     8038  quest_point_cape                     Quest point cape           skillcape.enum, skillcape_equip.rs2, skillcape_perks.rs2
+     8039  quest_point_hood                     Quest point hood           skillcape_shop.rs2
+
+scripts\skilling_outfits\configs\outfits.obj  (4)
+     8065  farmers_strawhat                     Farmer's strawhat          farming_actions.rs2
+     8066  farmers_jacket                       Farmer's jacket            farming_actions.rs2
+     8067  farmers_trousers                     Farmer's boro trousers     farming_actions.rs2
+     8068  farmers_boots                        Farmer's boots             farming_actions.rs2
+
+scripts\storage_items\configs\storage_open.obj  (3)
+     8160  herb_sack_open                       Open herb sack             storage_items.rs2
+     8161  seed_box_open                        Open seed box              storage_items.rs2
+     8162  looting_bag_open                     Looting bag                storage_items.rs2
+
+scripts\storage_items\configs\thread_of_elidinis.obj  (1)
+     8374  thread_of_elidinis                   Thread of Elidinis         rune_pouch.rs2
+
+scripts\toxic_blowpipe\configs\blowpipe.obj  (1)
+     9952  toxic_blowpipe                       Toxic blowpipe             antivenom.rs2, blowpipe.rs2, consume.rs2
