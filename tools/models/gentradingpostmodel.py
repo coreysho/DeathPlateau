@@ -62,20 +62,57 @@ BACK = (-108, -199, 108, -97, 46)
 BOARD = 7690                           # the board's own darkest wood
 FRONT_Z = 25
 
+# THE NOTICES KEEP THEIR OWN PRIORITY LAYER, which is the one thing on this model that cannot be
+# left to the depth sort. Everything here is flat and nearly coplanar: the cork is 7 units behind a
+# notice, a notice 1 unit behind its ink. The client sorts faces by the depth of their CENTRE, in
+# whole units, so from a three-quarter view a cork tile beside a notice can be nearer than the
+# notice's centre and is painted over it - the notices came apart differently at every camera
+# angle, which is exactly what was reported. Priority settles it: the client draws bucket 0, then 1,
+# then 2, whatever the depth, so the cork can never cross a notice again.
+P_NOTE, P_INK, P_PIN = 1, 2, 3
+
+# THE CREST READS DP. The gold medallion is one flat plane at z=34 (crest() paints it), so the
+# letters are dark rectangles two units in front of it - blocky, because a 377 model has no texture
+# to write on. Measured against the medallion's own outline: it is widest at y=-220 (x -33..32) and
+# narrows to x -26..25 by y=-232, so letters inside x +-20 and y -232..-212 sit on gold everywhere.
+PLAQUE_Z = 32
+LETTER = hsl(7, 4, 10)                 # nearly black, the darkest wood on the board
+
+
+def glyphs():
+    """D and P as four bars each: stem, top, foot or waist, and the bowl's outer edge."""
+    def d(x):
+        return [(x, -232, x + 4, -212), (x + 4, -232, x + 12, -228),
+                (x + 4, -216, x + 12, -212), (x + 12, -228, x + 16, -216)]
+    def pp(x):
+        return [(x, -232, x + 4, -212), (x + 4, -232, x + 12, -228),
+                (x + 4, -222, x + 12, -218), (x + 12, -228, x + 16, -218)]
+    return d(-20) + pp(4)
+
+
+LETTERS = glyphs()
+
 
 def notices():
     m = dict(ver=2, vcount=0, fcount=0, vx=[], vy=[], vz=[], fa=[], fb=[], fc=[], colour=[], alpha=None,
-             textured=0, priority=255, pri=[], tris=[], vlab=None, flab=None, finfo=None)
+             textured=0, priority=255, pri=[], tris=[], vlab=None, flab=None, finfo=None,
+             keep_pri=True)
 
-    def quad(x0, y0, x1, y1, z, colour):
+    def quad(x0, y0, x1, y1, z, colour, pri=0, both=True):
+        # THE FRONT WINDING IS THE FIRST PAIR, and it is the pair that carries the priority. A face
+        # the client culls cannot be drawn in the wrong order, so the back pair stays at 0 and is
+        # sorted by depth as before: from behind, the board's own back panel still covers it.
         v = m['vcount']
         for x, y in ((x0, y0), (x1, y0), (x1, y1), (x0, y1)):
             m['vx'].append(x); m['vy'].append(y); m['vz'].append(z)
         m['vcount'] += 4
-        for a, b, c in ((0, 1, 2), (0, 2, 3), (2, 1, 0), (3, 2, 0)):
+        faces = [((0, 1, 2), pri), ((0, 2, 3), pri)]
+        if both:
+            faces += [((2, 1, 0), 0), ((3, 2, 0), 0)]
+        for (a, b, c), pr in faces:
             m['fa'].append(v + a); m['fb'].append(v + b); m['fc'].append(v + c)
-            m['colour'].append(colour); m['pri'].append(0)
-        m['fcount'] += 4
+            m['colour'].append(colour); m['pri'].append(pr)
+        m['fcount'] += len(faces)
 
     # the cork the notices are pinned to, over the star chart the board was built around. Behind
     # the frame's front bars (z=25), in front of the recessed chart (z=31 and deeper).
@@ -89,13 +126,17 @@ def notices():
     tiled(*BACKING, CORK)
     tiled(*BACK, BOARD)
     for cx, cy, w, h, lines in NOTICES:
-        quad(cx - w // 2, cy - h // 2, cx + w // 2, cy + h // 2, FRONT_Z - 2, PARCHMENT)
+        quad(cx - w // 2, cy - h // 2, cx + w // 2, cy + h // 2, FRONT_Z - 2, PARCHMENT, P_NOTE)
         pad, gap = 5, (h - 10) // max(1, lines)
         for i in range(lines):
             y = cy - h // 2 + 7 + i * gap
             right = cx + w // 2 - pad - (10 if i == lines - 1 else 0)
-            quad(cx - w // 2 + pad, y, right, y + 2, FRONT_Z - 3, INK)
-        quad(cx - 2, cy - h // 2 + 1, cx + 2, cy - h // 2 + 5, FRONT_Z - 4, PIN)
+            quad(cx - w // 2 + pad, y, right, y + 2, FRONT_Z - 3, INK, P_INK)
+        quad(cx - 2, cy - h // 2 + 1, cx + 2, cy - h // 2 + 5, FRONT_Z - 4, PIN, P_PIN)
+    # Front only: the medallion is read from the front, and a back winding would print the letters
+    # mirrored on the back of the crest, where the dome's own rear does not cover them.
+    for x0, y0, x1, y1 in LETTERS:
+        quad(x0, y0, x1, y1, PLAQUE_Z, LETTER, P_NOTE, both=False)
     return m
 
 
@@ -179,8 +220,9 @@ def merge(parts):
         # whatever their depth, so the parts' own priorities (the board 0-8, the coins 1-5, the
         # chest 0-1) painted the props over the board's back panel when seen from behind - you
         # could see straight through it. With one priority the client falls back to a pure depth
-        # sort, which is right from every side.
-        out['pri'] += [0] * p['fcount']
+        # sort, which is right from every side. The notices are the exception and say so with
+        # keep_pri: they are flat on the board and nothing but priority can hold them in front of it.
+        out['pri'] += p['pri'] if p.get('keep_pri') else [0] * p['fcount']
         alpha += p['alpha'] if p['alpha'] else [0] * p['fcount']
         fi = p.get('finfo') or [0] * p['fcount']
         # a textured face's info carries its texture triangle's index in the top six bits
