@@ -443,6 +443,11 @@ So an agility plugin can carry a generated coordinate table and draw with the ex
 `projectTile`/`isInScene`/overlay API, with no engine or client-core change at all — and the table
 can be generated from the constants rather than typed, so it cannot drift from the courses.
 
+**STRUCK, 14 October 2026.** The agility plugin was already implemented - Corey's own - so this
+recommendation was stale when written and stayed stale through two later repeats of it. The
+`getLocs()` observation below is left in place because it is still true of `PluginContext` and is
+the thing to read first if the broader plugin list is ever picked up; it is not an open item.
+
 **Recommendation:** build the agility plugin against the coordinate table. Separately, if you want
 the broader plugin list, adding `getLocs()` to `PluginContext` unlocks a whole class of them at once
 and is the single highest-leverage client change on this list.
@@ -657,6 +662,14 @@ repeats once per session unless the commands go in the environment's Setup scrip
 
 ## Suggested order
 
+> **CLOSED, 14 October 2026, except #14.** Everything below has shipped. Corey: *"vote claiming is
+> the only remaining thing and i will mention it when im ready to do it"* - so #14 waits on him
+> naming the vote site, because the callback contract is the site's and cannot be written against a
+> guess. The agility plugin and `getLocs()` are struck from the list: the plugin is Corey's own and
+> was already built, which the corrections block near the top of this document has said all along -
+> it was recommended twice afterwards anyway, from reading the verdict table and not that block.
+> The order below is kept as the record of what was done in what sequence.
+
 **First, one batch — a day's work between them, all data or near it:**
 
 1. Emerald necklace → binding necklace (one line)
@@ -670,8 +683,8 @@ repeats once per session unless the commands go in the environment's Setup scrip
 **Then, the things worth a proper sitting:**
 
 8. Skills necklace, and then a patch-run ring if herb runs are the real target
-9. The agility plugin, off a generated obstacle table
-10. `getLocs()` on `PluginContext`, which unlocks the rest of the plugin list
+9. ~~The agility plugin, off a generated obstacle table~~ - already implemented, Corey's own
+10. ~~`getLocs()` on `PluginContext`~~ - struck with it; it was only ever a way to reach #19
 11. Ankou and lava dragons as Duradel unlock-only rows — built content currently dormant
 12. Vote shop, once the site is chosen
 13. Wilderness manta/turtle spot, tuned as a sidegrade
