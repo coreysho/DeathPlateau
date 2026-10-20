@@ -339,9 +339,14 @@ Rat Catchers, Making History, Spirits of the Elid, Elemental Workshop, Rum Deal,
 Dream Mentor, Gertrude's Cat, Swan Song, and then the long ones (Desert Treasure, Monkey Madness,
 Recipe for Disaster, Temple of Ikov, Underground Pass, Legends Quest...).
 
-**In Aid of the Myreque is the same shape of problem as In Search of the Myreque was** and it is on
-the list above as PARTIAL. It was written from the varbits the same way and it is a different quest
-from the real one; it wants rebuilding from the cache rather than auditing.
+**In Aid of the Myreque is NOT the same shape of problem**, which is worth writing down because the
+first look at it said it was. Its Veliaf dialogue is invented prose, like everything else in this
+build, but its structure was taken from the cache's own multilocs and it follows the real
+walkthrough step for step: Florin's food chest, the cellar rubble, the store roof and wall, the bank
+booth and wall, the furnace, the blood tithe and Gadderanks, Ivan's escort to Paterdomus, Drezel,
+the library, Ivandis's tomb and the rod. It is PARTIAL because four sims cover parts of it and
+nothing walks it end to end. Invented dialogue is not the tell; a mechanic handed to the wrong
+character is.
 
 **`rng` is the fix for the flaky audits.** `questrun` now takes `rng: <number>` to pin the engine's
 own nextDouble for the length of a randomised step and `rng: null` to put it back. Curpile Fyod asks
