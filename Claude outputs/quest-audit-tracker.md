@@ -85,7 +85,7 @@ things. A flaky audit is a weak audit.
 | The Feud | quest_feud | 1357 | AUDITED | audit2 |
 | Fight Arena | quest_arena | 1208 | NOT AUDITED | |
 | Fishing Contest | quest_fishingcompo | 295 | WALKED | quest_fishingcompo_run.ts (20/20) |
-| Forgettable Tale... | quest_forget | 453 | NOT AUDITED | gaps known: the five boxes, room 1 listening, tunnel cutscenes 2 and 3 |
+| Forgettable Tale... | quest_forget | 453 | WALKED | quest_forget_run.ts (34/34) |
 | The Fremennik Trials | quest_viking | 3383 | NOT AUDITED | |
 | Garden of Tranquillity | quest_garden | 638 | NOT AUDITED | |
 | Gertrude's Cat | quest_fluffs | 625 | NOT AUDITED | |
@@ -217,6 +217,7 @@ where it stopped. **WALKED** in the tables above means that manifest passes ever
 | 46 | Haunted Mine | 40/40 | the glowing fungus did not exist, Treus Dayth was a mesbox, the reward was the wrong skill, and the Salve shard came out of a door |
 | 47 | Icthlarin's Little Helper | 38/38 | the Wanderer, the Sphinx, the Carpenter and the suntrap were all on the map and all silent; the level-91 guardian had no stats and no placement, so the quest had no fight in it |
 | 48 | Shadow of the Storm | 25/25 | the reward paid Crafting and Magic instead of ten thousand in a combat skill of your choice; Demon Slayer, The Golem and 30 Crafting were all unchecked; Agrith-Naar is genuinely not in the cache |
+| 49 | Forgettable Tale... | 34/34 | reading the twelfth mural did not finish the chapter - the stage only moved on a thirteenth walk through a cave mouth, and the way out was gated on that stage; the reward paid Mining and never handed over the stouts; Fishing Contest unchecked |
 
 **EVERY FREE QUEST NOW WALKS.** Eighteen of eighteen, each with a `questrun` manifest that plays it
 from start to finish on foot and passes every check.
@@ -299,7 +300,7 @@ refusals in a row.
 
 ## Where to pick this up
 
-**48 quests and miniquests walked.** All eighteen free quests, twenty-eight members' quests and two
+**49 quests and miniquests walked.** All eighteen free quests, twenty-nine members' quests and two
 miniquests. Every one has a file in `Engine-TS/tools/sim/` that plays it and passes every check;
 rerun any of them with `npx tsx tools/sim/<name>.ts`.
 
@@ -326,10 +327,18 @@ on a timer) and `heroes_candlestick.ts` (two players at once).
 
 ### What is left
 Everything still marked NOT AUDITED or AUDITED in the tables above. By size, the next ones are:
-Forgettable Tale, Eadgar's Ruse,
+Eadgar's Ruse,
 Holy Grail, In Search of the Myreque, Rat Catchers, Making History, Spirits of the Elid, Elemental
 Workshop, Rum Deal, Dwarf Cannon, Dream Mentor, Gertrude's Cat, Swan Song, and then the long ones
 (Desert Treasure, Monkey Madness, Recipe for Disaster, Temple of Ikov, Underground Pass...).
+
+Forgettable Tale is walked and complete, but it is a compressed version of the quest rather than
+the whole of it, and that is worth writing down: the four kelda seeds arrive as one packet from
+Elstan instead of individually from the Drunken Dwarf, the Rowdy dwarf, Khorvak and Gauss (the last
+two are in the cache and have no part in this flow); the hops patch and the fermenting vat are not
+built, so Veldaban takes an ordinary beer rather than Kelda stout; the cart-junction stone puzzles
+are twelve wall panels instead; and the kebab-and-beer memory-wipe finale is not there. Each of
+those is a quest's worth of work on its own.
 
 Two pieces of unfinished business from earlier in the pass:
 - **Black Knights' Fortress** has one unwalked leg: the grill room back round to the second
