@@ -121,7 +121,7 @@ things. A flaky audit is a weak audit.
 | Plague City | quest_elena | 903 | NOT AUDITED | |
 | Priest in Peril | quest_priestperil | 382 | WALKED | quest_priestperil_run.ts (47/47) |
 | Rag and Bone Man | quest_rag | 257 | WALKED | quest_rag_run.ts (43/43) |
-| Rat Catchers | quest_ratcatch | 493 | AUDITED | audit2 |
+| Rat Catchers | quest_ratcatch | 1000 | WALKED | quest_ratcatch_run.ts (73/73) |
 | Recipe for Disaster | quest_100 | 3022 | AUDITED | audit1 (ten sections) |
 | Recruitment Drive | quest_rd | 1330 | AUDITED | audit3 |
 | Regicide | quest_regicide | 1210 | NOT AUDITED | |
@@ -222,6 +222,7 @@ where it stopped. **WALKED** in the tables above means that manifest passes ever
 | 51 | Holy Grail | 30/30 | **there was no Holy Grail** - no map placed one, so the last step had nothing to pick up and nobody could finish it; the Crone is placed nowhere either, so her whole conversation is dead dialogue; 20 Attack unchecked |
 | 52 | In Search of the Myreque | 41/41 | **it was a different quest** - built once from the varbit names alone, so Veliaf asked the three questions, the three missing pieces were rungs of a ladder and the boatman had to be talked round. The real 2005 quest is all in the cache and none of it was wired: a level-97 Skeleton Hellhound with no statblock, Vanstrom Klause in five bodies, two climbable trees over four tiles of rope bridge, the doors in the earth behind the hollow tree, and the Myreque's chamber held once per plane with six of them on plane 3 and the four survivors on plane 0 |
 | 53 | In Aid of the Myreque | 81/81 | **it stopped at its second step** - the village leader's switch only knew ^m2_sent and you cannot reach her at ^m2_sent, so she never briefed anybody and the shop, the bank and the furnace are all gated on the stage she sets. Florin could not be talked to either: he stands three tiles inside his own gate and the gate is a wall. The Gadderanks fight was four lines of narration while the cache held an attackable Gadderanks, a wounded one with a fall-over animation and two Vampyre Juvinates; the rubble was one click while the cache held a three-stage bucket and a placed pile with no handler; the Gadderhammer was reachable from nowhere; and the four skill requirements were checked nowhere |
+| 54 | Rat Catchers | 73/73 | **seven of its ten chapters were in the cache and wired to nothing** - it was built as Jimmy Dazzler, four rat holes and a party, and its own constant file called two of the items it needed "unused". Phingspet and Grimesquit, Hooknosed Jack, Pox, the King rat, the Apothecary, Smokin' Joe, the Face, the snake charmer and eight notes on the Port Sarim docks are all placed and named. Even the varbits are the chapters. Also found: the warehouse ladder takes a click from three sides and not the north, and vc_note_number is three bits so the tune's counter could not count to eight |
 
 **EVERY FREE QUEST NOW WALKS.** Eighteen of eighteen, each with a `questrun` manifest that plays it
 from start to finish on foot and passes every check.
@@ -304,7 +305,7 @@ refusals in a row.
 
 ## Where to pick this up
 
-**53 quests and miniquests walked.** All eighteen free quests, thirty-three members' quests and two
+**54 quests and miniquests walked.** All eighteen free quests, thirty-four members' quests and two
 miniquests. Every one has a file in `Engine-TS/tools/sim/` that plays it and passes every check;
 rerun any of them with `npx tsx tools/sim/<name>.ts`.
 
@@ -312,6 +313,14 @@ rerun any of them with `npx tsx tools/sim/<name>.ts`.
 a FREE-TO-PLAY world and every `map_members` branch in content takes the other path. Members content
 needs `NODE_MEMBERS=true npx tsx tools/sim/<name>.ts` — Holy Grail's whistle door spawns no whistles
 without it, which reads as a broken obj spawn rather than a world flag.
+
+**THE RUNNER HAD A SILENT FALSE PASS IN IT, found on 20 October.** The `loc` step has always judged
+itself on what the handler said; `useLoc` never did - it reported ok on arrival alone and threw
+`want` away, so every useLoc assertion in every manifest written before this was decoration. Rat
+Catchers' King rat passed `want: 'size of a terrier'` three runs in a row while the handler it came
+from was not running at all. It is fixed, and the two Myreque manifests - the most recent ones with
+useLoc wants in them - were re-run against the stricter version and are still 41/41 and 81/81. The
+older manifests have not been re-run and should be, one at a time, as the pass goes back over them.
 
 ### The runner's own vocabulary, as it stands
 `go` `talk` `loc` `useLoc` `useNpc` `held` `use` `give` `setvar` `stage` `varis` `level` `wait`
@@ -336,9 +345,9 @@ on a timer) and `heroes_candlestick.ts` (two players at once).
 
 ### What is left
 Everything still marked NOT AUDITED or AUDITED in the tables above. By size, the next ones are:
-Rat Catchers, Making History, Spirits of the Elid, Elemental Workshop, Rum Deal, Dwarf Cannon,
-Dream Mentor, Gertrude's Cat, Swan Song, and then the long ones (Desert Treasure, Monkey Madness,
-Recipe for Disaster, Temple of Ikov, Underground Pass, Legends Quest...).
+Making History, Spirits of the Elid, Elemental Workshop, Rum Deal, Dwarf Cannon, Dream Mentor,
+Gertrude's Cat, Swan Song, and then the long ones (Desert Treasure, Monkey Madness, Recipe for
+Disaster, Temple of Ikov, Underground Pass, Legends Quest...).
 
 **In Aid of the Myreque was not the same shape of problem**, which is worth writing down because the
 first look at it said it was. Its structure was taken from the cache's own multilocs and it follows
