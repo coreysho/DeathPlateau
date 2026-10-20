@@ -130,7 +130,7 @@ things. A flaky audit is a weak audit.
 | Scorpion Catcher | quest_scorpcatcher | 170 | WALKED | quest_scorpcatcher_run.ts (28/28) |
 | Sea Slug Quest | quest_seaslug | 242 | WALKED | quest_seaslug_run.ts (57/57) |
 | Shades of Mort'ton | quest_mortton | 864 | PARTIAL | morttonwall (the walls only) |
-| Shadow of the Storm | quest_agrith | 451 | AUDITED | audit2 |
+| Shadow of the Storm | quest_agrith | 451 | WALKED | quest_agrith_run.ts (25/25) |
 | Sheep Herder | quest_sheepherder | 106 | WALKED | quest_sheepherder_run.ts (63/63) |
 | Shilo Village | quest_zombiequeen | 2171 | NOT AUDITED | |
 | Spirits of the Elid | quest_elid | 518 | NOT AUDITED | |
@@ -216,6 +216,7 @@ where it stopped. **WALKED** in the tables above means that manifest passes ever
 | 45 | Merlin's Crystal | 26/26 | nothing — Mordred is beaten down, not killed, which the fight step had to learn |
 | 46 | Haunted Mine | 40/40 | the glowing fungus did not exist, Treus Dayth was a mesbox, the reward was the wrong skill, and the Salve shard came out of a door |
 | 47 | Icthlarin's Little Helper | 38/38 | the Wanderer, the Sphinx, the Carpenter and the suntrap were all on the map and all silent; the level-91 guardian had no stats and no placement, so the quest had no fight in it |
+| 48 | Shadow of the Storm | 25/25 | the reward paid Crafting and Magic instead of ten thousand in a combat skill of your choice; Demon Slayer, The Golem and 30 Crafting were all unchecked; Agrith-Naar is genuinely not in the cache |
 
 **EVERY FREE QUEST NOW WALKS.** Eighteen of eighteen, each with a `questrun` manifest that plays it
 from start to finish on foot and passes every check.
@@ -298,7 +299,7 @@ refusals in a row.
 
 ## Where to pick this up
 
-**47 quests and miniquests walked.** All eighteen free quests, twenty-seven members' quests and two
+**48 quests and miniquests walked.** All eighteen free quests, twenty-eight members' quests and two
 miniquests. Every one has a file in `Engine-TS/tools/sim/` that plays it and passes every check;
 rerun any of them with `npx tsx tools/sim/<name>.ts`.
 
@@ -325,7 +326,7 @@ on a timer) and `heroes_candlestick.ts` (two players at once).
 
 ### What is left
 Everything still marked NOT AUDITED or AUDITED in the tables above. By size, the next ones are:
-Shadow of the Storm, Forgettable Tale, Eadgar's Ruse,
+Forgettable Tale, Eadgar's Ruse,
 Holy Grail, In Search of the Myreque, Rat Catchers, Making History, Spirits of the Elid, Elemental
 Workshop, Rum Deal, Dwarf Cannon, Dream Mentor, Gertrude's Cat, Swan Song, and then the long ones
 (Desert Treasure, Monkey Madness, Recipe for Disaster, Temple of Ikov, Underground Pass...).
