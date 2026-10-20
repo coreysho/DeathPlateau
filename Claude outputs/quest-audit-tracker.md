@@ -100,7 +100,7 @@ things. A flaky audit is a weak audit.
 | Holy Grail | quest_grail | 470 | WALKED | quest_grail_run.ts (30/30, needs NODE_MEMBERS=true) |
 | Horror from the Deep | quest_horror | 1858 | NOT AUDITED | |
 | Icthlarin's Little Helper | quest_icslittle | 422 | WALKED | quest_icslittle_run.ts (38/38) |
-| In Aid of the Myreque | quest_myreque2 | 1725 | PARTIAL | myrequecrate, myrequeescort, myrequerod, myrequevillage |
+| In Aid of the Myreque | quest_myreque2 | 1800 | WALKED | quest_myreque2_run.ts (81/81) |
 | In Search of the Myreque | quest_routequest | 700 | WALKED | quest_routequest_run.ts (41/41) |
 | Jungle Potion | quest_junglepotion | 190 | PARTIAL | tbwcleanup (the gate only) |
 | Legends Quest | quest_legends | 5847 | NOT AUDITED | the largest in the build |
@@ -221,6 +221,7 @@ where it stopped. **WALKED** in the tables above means that manifest passes ever
 | 50 | Eadgar's Ruse | 32/32 | Death Plateau was the one requirement of four nobody asked for; everything else in this one was already right |
 | 51 | Holy Grail | 30/30 | **there was no Holy Grail** - no map placed one, so the last step had nothing to pick up and nobody could finish it; the Crone is placed nowhere either, so her whole conversation is dead dialogue; 20 Attack unchecked |
 | 52 | In Search of the Myreque | 41/41 | **it was a different quest** - built once from the varbit names alone, so Veliaf asked the three questions, the three missing pieces were rungs of a ladder and the boatman had to be talked round. The real 2005 quest is all in the cache and none of it was wired: a level-97 Skeleton Hellhound with no statblock, Vanstrom Klause in five bodies, two climbable trees over four tiles of rope bridge, the doors in the earth behind the hollow tree, and the Myreque's chamber held once per plane with six of them on plane 3 and the four survivors on plane 0 |
+| 53 | In Aid of the Myreque | 81/81 | **it stopped at its second step** - the village leader's switch only knew ^m2_sent and you cannot reach her at ^m2_sent, so she never briefed anybody and the shop, the bank and the furnace are all gated on the stage she sets. Florin could not be talked to either: he stands three tiles inside his own gate and the gate is a wall. The Gadderanks fight was four lines of narration while the cache held an attackable Gadderanks, a wounded one with a fall-over animation and two Vampyre Juvinates; the rubble was one click while the cache held a three-stage bucket and a placed pile with no handler; the Gadderhammer was reachable from nowhere; and the four skill requirements were checked nowhere |
 
 **EVERY FREE QUEST NOW WALKS.** Eighteen of eighteen, each with a `questrun` manifest that plays it
 from start to finish on foot and passes every check.
@@ -303,7 +304,7 @@ refusals in a row.
 
 ## Where to pick this up
 
-**52 quests and miniquests walked.** All eighteen free quests, thirty-two members' quests and two
+**53 quests and miniquests walked.** All eighteen free quests, thirty-three members' quests and two
 miniquests. Every one has a file in `Engine-TS/tools/sim/` that plays it and passes every check;
 rerun any of them with `npx tsx tools/sim/<name>.ts`.
 
@@ -339,14 +340,20 @@ Rat Catchers, Making History, Spirits of the Elid, Elemental Workshop, Rum Deal,
 Dream Mentor, Gertrude's Cat, Swan Song, and then the long ones (Desert Treasure, Monkey Madness,
 Recipe for Disaster, Temple of Ikov, Underground Pass, Legends Quest...).
 
-**In Aid of the Myreque is NOT the same shape of problem**, which is worth writing down because the
-first look at it said it was. Its Veliaf dialogue is invented prose, like everything else in this
-build, but its structure was taken from the cache's own multilocs and it follows the real
-walkthrough step for step: Florin's food chest, the cellar rubble, the store roof and wall, the bank
-booth and wall, the furnace, the blood tithe and Gadderanks, Ivan's escort to Paterdomus, Drezel,
-the library, Ivandis's tomb and the rod. It is PARTIAL because four sims cover parts of it and
-nothing walks it end to end. Invented dialogue is not the tell; a mechanic handed to the wrong
-character is.
+**In Aid of the Myreque was not the same shape of problem**, which is worth writing down because the
+first look at it said it was. Its structure was taken from the cache's own multilocs and it follows
+the real walkthrough step for step. What it had instead was a dead switch case two steps in - the
+village leader only knew ^m2_sent and you cannot be standing in front of her at ^m2_sent - so the
+quest could not be played past Florin's gate, and nothing had ever walked it to find that out.
+Invented dialogue is not the tell; a mechanic handed to the wrong character is, and so is a stage
+nobody can be standing in when the script that reads it runs.
+
+**Two things in it are still short of the walkthrough and are written down rather than fixed:** the
+cellar rubble is cleared after Gadderanks rather than before the repairs (the stages are
+self-consistent in that order and reordering them would desync anybody mid-quest), and there is no
+silver-weapon requirement on the juvinates, because this build has no vampyre damage rules anywhere
+and adding them is a combat subsystem rather than a quest fix. Temple Trekking, which this quest
+unlocks, is parked with the non-quest backlog.
 
 **`rng` is the fix for the flaky audits.** `questrun` now takes `rng: <number>` to pin the engine's
 own nextDouble for the length of a randomised step and `rng: null` to put it back. Curpile Fyod asks
