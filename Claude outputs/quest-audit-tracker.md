@@ -145,7 +145,7 @@ things. A flaky audit is a weak audit.
 | Troll Romance | quest_troll_love | 688 | NOT AUDITED | |
 | Troll Stronghold | quest_troll | 857 | AUDITED | audit3 |
 | Underground Pass | quest_upass | 2442 | NOT AUDITED | |
-| Wanted! | quest_wanted | 413 | NOT AUDITED | locations 13-19 documented as unplaceable |
+| Wanted! | quest_wanted | 413 | WALKED | quest_wanted_run.ts (25/25, hand-rolled — the chase is random) |
 | Watch Tower | quest_itwatchtower | 2124 | AUDITED | audit1 |
 | Waterfall Quest | quest_waterfall | 888 | WALKED | quest_waterfall_run.ts (51/51) |
 | Witch's House | quest_ball | 343 | WALKED | quest_ball_run.ts (51/51) |
@@ -155,8 +155,8 @@ things. A flaky audit is a weak audit.
 
 | Thing | Dir | Lines | Status |
 |---|---|---|---|
-| Abyssal miniquest | miniquest_abyssal | 342 | WALKED — miniquest_abyssal_run.ts (19/19) |
-| Barcrawl | quest_barcrawl | 16 | WALKED — quest_barcrawl_run.ts (25/25) |
+| Abyssal miniquest | miniquest_abyssal | 342 | WALKED | miniquest_abyssal_run.ts (19/19) |
+| Barcrawl | quest_barcrawl | 16 | WALKED | quest_barcrawl_run.ts (25/25) |
 | Dragon Slayer (shared) | quest_dragon | 1027 | NOT AUDITED |
 
 ---
