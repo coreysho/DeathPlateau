@@ -99,7 +99,7 @@ things. A flaky audit is a weak audit.
 | Heroes Quest | quest_hero | 256 | WALKED | quest_hero_run.ts (35/35) + heroes_candlestick.ts (16/16, two players) |
 | Holy Grail | quest_grail | 470 | NOT AUDITED | |
 | Horror from the Deep | quest_horror | 1858 | NOT AUDITED | |
-| Icthlarin's Little Helper | quest_icslittle | 422 | NOT AUDITED | |
+| Icthlarin's Little Helper | quest_icslittle | 422 | WALKED | quest_icslittle_run.ts (38/38) |
 | In Aid of the Myreque | quest_myreque2 | 1725 | PARTIAL | myrequecrate, myrequeescort, myrequerod, myrequevillage |
 | In Search of the Myreque | quest_routequest | 474 | NOT AUDITED | |
 | Jungle Potion | quest_junglepotion | 190 | PARTIAL | tbwcleanup (the gate only) |
@@ -215,6 +215,7 @@ where it stopped. **WALKED** in the tables above means that manifest passes ever
 | 44 | Devious Minds | 22/22 | the monk checks none of the three quests the wiki lists as requirements |
 | 45 | Merlin's Crystal | 26/26 | nothing — Mordred is beaten down, not killed, which the fight step had to learn |
 | 46 | Haunted Mine | 40/40 | the glowing fungus did not exist, Treus Dayth was a mesbox, the reward was the wrong skill, and the Salve shard came out of a door |
+| 47 | Icthlarin's Little Helper | 38/38 | the Wanderer, the Sphinx, the Carpenter and the suntrap were all on the map and all silent; the level-91 guardian had no stats and no placement, so the quest had no fight in it |
 
 **EVERY FREE QUEST NOW WALKS.** Eighteen of eighteen, each with a `questrun` manifest that plays it
 from start to finish on foot and passes every check.
@@ -297,7 +298,7 @@ refusals in a row.
 
 ## Where to pick this up
 
-**46 quests and miniquests walked.** All eighteen free quests, twenty-six members' quests and two
+**47 quests and miniquests walked.** All eighteen free quests, twenty-seven members' quests and two
 miniquests. Every one has a file in `Engine-TS/tools/sim/` that plays it and passes every check;
 rerun any of them with `npx tsx tools/sim/<name>.ts`.
 
@@ -324,7 +325,7 @@ on a timer) and `heroes_candlestick.ts` (two players at once).
 
 ### What is left
 Everything still marked NOT AUDITED or AUDITED in the tables above. By size, the next ones are:
-Icthlarin's Little Helper, Shadow of the Storm, Forgettable Tale, Eadgar's Ruse,
+Shadow of the Storm, Forgettable Tale, Eadgar's Ruse,
 Holy Grail, In Search of the Myreque, Rat Catchers, Making History, Spirits of the Elid, Elemental
 Workshop, Rum Deal, Dwarf Cannon, Dream Mentor, Gertrude's Cat, Swan Song, and then the long ones
 (Desert Treasure, Monkey Madness, Recipe for Disaster, Temple of Ikov, Underground Pass...).
