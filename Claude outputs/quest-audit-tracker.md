@@ -101,7 +101,7 @@ things. A flaky audit is a weak audit.
 | Horror from the Deep | quest_horror | 1858 | NOT AUDITED | |
 | Icthlarin's Little Helper | quest_icslittle | 422 | WALKED | quest_icslittle_run.ts (38/38) |
 | In Aid of the Myreque | quest_myreque2 | 1725 | PARTIAL | myrequecrate, myrequeescort, myrequerod, myrequevillage |
-| In Search of the Myreque | quest_routequest | 474 | NOT AUDITED | |
+| In Search of the Myreque | quest_routequest | 700 | WALKED | quest_routequest_run.ts (41/41) |
 | Jungle Potion | quest_junglepotion | 190 | PARTIAL | tbwcleanup (the gate only) |
 | Legends Quest | quest_legends | 5847 | NOT AUDITED | the largest in the build |
 | Lost City | quest_zanaris | 248 | WALKED | quest_zanaris_run.ts (21/21) |
@@ -220,6 +220,7 @@ where it stopped. **WALKED** in the tables above means that manifest passes ever
 | 49 | Forgettable Tale... | 34/34 | reading the twelfth mural did not finish the chapter - the stage only moved on a thirteenth walk through a cave mouth, and the way out was gated on that stage; the reward paid Mining and never handed over the stouts; Fishing Contest unchecked |
 | 50 | Eadgar's Ruse | 32/32 | Death Plateau was the one requirement of four nobody asked for; everything else in this one was already right |
 | 51 | Holy Grail | 30/30 | **there was no Holy Grail** - no map placed one, so the last step had nothing to pick up and nobody could finish it; the Crone is placed nowhere either, so her whole conversation is dead dialogue; 20 Attack unchecked |
+| 52 | In Search of the Myreque | 41/41 | **it was a different quest** - built once from the varbit names alone, so Veliaf asked the three questions, the three missing pieces were rungs of a ladder and the boatman had to be talked round. The real 2005 quest is all in the cache and none of it was wired: a level-97 Skeleton Hellhound with no statblock, Vanstrom Klause in five bodies, two climbable trees over four tiles of rope bridge, the doors in the earth behind the hollow tree, and the Myreque's chamber held once per plane with six of them on plane 3 and the four survivors on plane 0 |
 
 **EVERY FREE QUEST NOW WALKS.** Eighteen of eighteen, each with a `questrun` manifest that plays it
 from start to finish on foot and passes every check.
@@ -302,7 +303,7 @@ refusals in a row.
 
 ## Where to pick this up
 
-**51 quests and miniquests walked.** All eighteen free quests, thirty-one members' quests and two
+**52 quests and miniquests walked.** All eighteen free quests, thirty-two members' quests and two
 miniquests. Every one has a file in `Engine-TS/tools/sim/` that plays it and passes every check;
 rerun any of them with `npx tsx tools/sim/<name>.ts`.
 
@@ -334,9 +335,18 @@ on a timer) and `heroes_candlestick.ts` (two players at once).
 
 ### What is left
 Everything still marked NOT AUDITED or AUDITED in the tables above. By size, the next ones are:
-In Search of the Myreque, Rat Catchers, Making History, Spirits of the Elid, Elemental
-Workshop, Rum Deal, Dwarf Cannon, Dream Mentor, Gertrude's Cat, Swan Song, and then the long ones
-(Desert Treasure, Monkey Madness, Recipe for Disaster, Temple of Ikov, Underground Pass...).
+Rat Catchers, Making History, Spirits of the Elid, Elemental Workshop, Rum Deal, Dwarf Cannon,
+Dream Mentor, Gertrude's Cat, Swan Song, and then the long ones (Desert Treasure, Monkey Madness,
+Recipe for Disaster, Temple of Ikov, Underground Pass, Legends Quest...).
+
+**In Aid of the Myreque is the same shape of problem as In Search of the Myreque was** and it is on
+the list above as PARTIAL. It was written from the varbits the same way and it is a different quest
+from the real one; it wants rebuilding from the cache rather than auditing.
+
+**`rng` is the fix for the flaky audits.** `questrun` now takes `rng: <number>` to pin the engine's
+own nextDouble for the length of a randomised step and `rng: null` to put it back. Curpile Fyod asks
+three of six questions at random and that is what it was added for; the bell in audit5 and the
+karambwan roll and the Garden of Tranquillity check in audit7 are the same problem.
 
 Forgettable Tale is walked and complete, but it is a compressed version of the quest rather than
 the whole of it, and that is worth writing down: the four kelda seeds arrive as one packet from
