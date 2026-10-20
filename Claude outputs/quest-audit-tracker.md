@@ -77,7 +77,7 @@ things. A flaky audit is a weak audit.
 | Dream Mentor | quest_dreammentor | 620 | NOT AUDITED | |
 | Druidic Ritual | quest_druid | 55 | WALKED | quest_druid_run.ts (17/17) |
 | Dwarf Cannon | quest_mcannon | 573 | NOT AUDITED | |
-| Eadgar's Ruse | quest_eadgar | 467 | AUDITED | audit3 |
+| Eadgar's Ruse | quest_eadgar | 467 | WALKED | quest_eadgar_run.ts (32/32) |
 | Eagles' Peak | quest_eaglespeak | 1386 | NOT AUDITED | |
 | Elemental Workshop | quest_elemental_workshop | 543 | NOT AUDITED | |
 | Enakhra's Lament | quest_enakh | 1187 | NOT AUDITED | |
@@ -218,6 +218,7 @@ where it stopped. **WALKED** in the tables above means that manifest passes ever
 | 47 | Icthlarin's Little Helper | 38/38 | the Wanderer, the Sphinx, the Carpenter and the suntrap were all on the map and all silent; the level-91 guardian had no stats and no placement, so the quest had no fight in it |
 | 48 | Shadow of the Storm | 25/25 | the reward paid Crafting and Magic instead of ten thousand in a combat skill of your choice; Demon Slayer, The Golem and 30 Crafting were all unchecked; Agrith-Naar is genuinely not in the cache |
 | 49 | Forgettable Tale... | 34/34 | reading the twelfth mural did not finish the chapter - the stage only moved on a thirteenth walk through a cave mouth, and the way out was gated on that stage; the reward paid Mining and never handed over the stouts; Fishing Contest unchecked |
+| 50 | Eadgar's Ruse | 32/32 | Death Plateau was the one requirement of four nobody asked for; everything else in this one was already right |
 
 **EVERY FREE QUEST NOW WALKS.** Eighteen of eighteen, each with a `questrun` manifest that plays it
 from start to finish on foot and passes every check.
@@ -300,7 +301,7 @@ refusals in a row.
 
 ## Where to pick this up
 
-**49 quests and miniquests walked.** All eighteen free quests, twenty-nine members' quests and two
+**50 quests and miniquests walked.** All eighteen free quests, thirty members' quests and two
 miniquests. Every one has a file in `Engine-TS/tools/sim/` that plays it and passes every check;
 rerun any of them with `npx tsx tools/sim/<name>.ts`.
 
@@ -327,7 +328,6 @@ on a timer) and `heroes_candlestick.ts` (two players at once).
 
 ### What is left
 Everything still marked NOT AUDITED or AUDITED in the tables above. By size, the next ones are:
-Eadgar's Ruse,
 Holy Grail, In Search of the Myreque, Rat Catchers, Making History, Spirits of the Elid, Elemental
 Workshop, Rum Deal, Dwarf Cannon, Dream Mentor, Gertrude's Cat, Swan Song, and then the long ones
 (Desert Treasure, Monkey Madness, Recipe for Disaster, Temple of Ikov, Underground Pass...).
