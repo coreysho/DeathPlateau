@@ -87,7 +87,7 @@ things. A flaky audit is a weak audit.
 | Fishing Contest | quest_fishingcompo | 295 | WALKED | quest_fishingcompo_run.ts (20/20) |
 | Forgettable Tale... | quest_forget | 453 | WALKED | quest_forget_run.ts (34/34) |
 | The Fremennik Trials | quest_viking | 3383 | NOT AUDITED | |
-| Garden of Tranquillity | quest_garden | 638 | WALKED | quest_garden_run.ts (86/86) |
+| Garden of Tranquillity | quest_garden | 638 | WALKED | quest_garden_run.ts (88/88) |
 | Gertrude's Cat | quest_fluffs | 625 | WALKED | quest_fluffs_run.ts (41/41) |
 | Ghosts Ahoy | quest_ahoy | 1173 | AUDITED | audit3 |
 | The Giant Dwarf | quest_giantdwarf | 343 | WALKED | quest_giantdwarf_run.ts (18/18) |
@@ -134,7 +134,7 @@ things. A flaky audit is a weak audit.
 | Sheep Herder | quest_sheepherder | 106 | WALKED | quest_sheepherder_run.ts (63/63) |
 | Shilo Village | quest_zombiequeen | 2171 | NOT AUDITED | |
 | Spirits of the Elid | quest_elid | 700 | WALKED | quest_elid_run.ts (50/50) |
-| Swan Song | quest_swansong | 628 | WALKED | quest_swansong_run.ts (104/104) |
+| Swan Song | quest_swansong | 628 | WALKED | quest_swansong_run.ts (109/109) |
 | Tai Bwo Wannai Trio | quest_tbwt | 652 | PARTIAL | tbwtsons (the three sons) |
 | Tears of Guthix | quest_tog | 426 | WALKED | quest_tog_run.ts (14/14, hand-rolled) |
 | Temple of Ikov | quest_ikov | 760 | NOT AUDITED | |
@@ -353,13 +353,17 @@ Three quests were not written as manifests at all, because what they test is ran
 on a timer) and `heroes_candlestick.ts` (two players at once).
 
 ### What is left
-**SWAN SONG IS DONE**, but two of the wiki's beats are deliberately NOT built, and both for the same
-reason - the cache does not have the npcs:
-- **the Draynor leg** (give the Wise Old Man 10 mist, 10 lava and 5 blood runes). `swan_wom_draynor`
-  exists as npc 3834 and is placed nowhere, and neither is the ordinary `wise_old_man`: this server
-  has no Wise Old Man in Draynor at all. The quest instead has him come to the colony himself, which
-  the multinpc tables support exactly - stage 25 does not exist in them, so the Draynor trip was
-  always meant to happen inside stage 20.
+**THE WISE OLD MAN IS PLACED NOW** (3088,3251, Draynor), on the owner's instruction, and the two
+quests that had been written around his absence have their missing legs:
+- **Garden of Tranquillity** unlocks the Ring of Charos through him - seven diplomacy questions, six
+  of them right, on the scenarios the wiki's transcript gives. 88/88.
+- **Swan Song** stops folding its own step. The letter goes out, you fetch him from Draynor with ten
+  mist runes, ten lava and five blood, and he takes the morning boat himself. 109/109.
+
+Npc 2253 was in the cache all along with a full model set, a walking stick, a head and op1=Talk-to,
+and was spawned in no map square at all. **When a quest leg looks unbuildable because its npc "does
+not exist", check whether it exists and is merely unplaced** - that is a jm2 line, not missing
+content. What remains genuinely unbuildable in Swan Song is only the other beat:
 - **the army chain** (Wizard Frumscone, then Malignius Mortifer, a brown apron, an airtight pot and
   the Crafting Guild pottery). Malignius does not exist in this cache at all, and neither does the
   airtight pot or a bone-seed pot. Arnold handing over the book and the packet out of the Wise Old
