@@ -133,7 +133,7 @@ things. A flaky audit is a weak audit.
 | Shadow of the Storm | quest_agrith | 451 | WALKED | quest_agrith_run.ts (25/25) |
 | Sheep Herder | quest_sheepherder | 106 | WALKED | quest_sheepherder_run.ts (63/63) |
 | Shilo Village | quest_zombiequeen | 2171 | NOT AUDITED | |
-| Spirits of the Elid | quest_elid | 518 | NOT AUDITED | |
+| Spirits of the Elid | quest_elid | 700 | WALKED | quest_elid_run.ts (50/50) |
 | Swan Song | quest_swansong | 628 | NOT AUDITED | |
 | Tai Bwo Wannai Trio | quest_tbwt | 652 | PARTIAL | tbwtsons (the three sons) |
 | Tears of Guthix | quest_tog | 426 | WALKED | quest_tog_run.ts (14/14, hand-rolled) |
@@ -224,6 +224,7 @@ where it stopped. **WALKED** in the tables above means that manifest passes ever
 | 53 | In Aid of the Myreque | 81/81 | **it stopped at its second step** - the village leader's switch only knew ^m2_sent and you cannot reach her at ^m2_sent, so she never briefed anybody and the shop, the bank and the furnace are all gated on the stage she sets. Florin could not be talked to either: he stands three tiles inside his own gate and the gate is a wall. The Gadderanks fight was four lines of narration while the cache held an attackable Gadderanks, a wounded one with a fall-over animation and two Vampyre Juvinates; the rubble was one click while the cache held a three-stage bucket and a placed pile with no handler; the Gadderhammer was reachable from nowhere; and the four skill requirements were checked nowhere |
 | 54 | Rat Catchers | 73/73 | **seven of its ten chapters were in the cache and wired to nothing** - it was built as Jimmy Dazzler, four rat holes and a party, and its own constant file called two of the items it needed "unused". Phingspet and Grimesquit, Hooknosed Jack, Pox, the King rat, the Apothecary, Smokin' Joe, the Face, the snake charmer and eight notes on the Port Sarim docks are all placed and named. Even the varbits are the chapters. Also found: the warehouse ladder takes a click from three sides and not the north, and vc_note_number is three bits so the tune's counter could not count to eight |
 | 55 | Making History | 39/39 | **the four documents were wired to the wrong people**, and the cache's own descriptions settle it: a journal out of a buried chest, a timeline out of a ghost, one letter sealed to the king and one sealed to Jorral. The old version handed the timeline out at the start, made the journal a keepsake, turned both letters into family heirlooms in Rellekka and had no King Lathas chapter at all. Erin's key, Dron's fourteen questions and Melina's sapphire amulet were all missing; Priest in Peril and The Restless Ghost were checked nowhere; the 750 coins were missing and there was invented Smithing XP; and six of twelve coordinate constants were arithmetic errors |
+| 56 | Spirits of the Elid | 50/50 | **four of its own items were wired to nothing** - two torn robes, the Ballad of Jareesh, Awusah's shoes and Awusah's soles, which are the needle-and-thread step, the shrine door's second condition and the genie's price. The cupboard handed out finished robes and the genie gave the statuette away for a kind word. All three golems had a level, an Attack op and no statblock, and the door walked you straight past a guardian that was still standing; 1,000 Magic XP was missing from the reward |
 
 **EVERY FREE QUEST NOW WALKS.** Eighteen of eighteen, each with a `questrun` manifest that plays it
 from start to finish on foot and passes every check.
@@ -306,7 +307,7 @@ refusals in a row.
 
 ## Where to pick this up
 
-**55 quests and miniquests walked.** All eighteen free quests, thirty-five members' quests and two
+**56 quests and miniquests walked.** All eighteen free quests, thirty-six members' quests and two
 miniquests. Every one has a file in `Engine-TS/tools/sim/` that plays it and passes every check;
 rerun any of them with `npx tsx tools/sim/<name>.ts`.
 
@@ -346,9 +347,22 @@ on a timer) and `heroes_candlestick.ts` (two players at once).
 
 ### What is left
 Everything still marked NOT AUDITED or AUDITED in the tables above. By size, the next ones are:
-Spirits of the Elid, Elemental Workshop, Rum Deal, Dwarf Cannon, Dream Mentor, Gertrude's Cat,
-Swan Song, and then the long ones (Desert Treasure, Monkey Madness, Recipe for Disaster, Temple of
-Ikov, Underground Pass, Legends Quest...).
+Elemental Workshop, Rum Deal, Dwarf Cannon, Dream Mentor, Gertrude's Cat, Swan Song, and then the
+long ones (Desert Treasure, Monkey Madness, Recipe for Disaster, Temple of Ikov, Underground Pass,
+Legends Quest...).
+
+**THE SAME THREE THINGS KEEP COSTING AN ENGINE BOOT EACH**, so they are written down here as well
+as in the commits:
+1. **An npc with a level, an Attack op and no statblock** is one a script is supposed to spawn, and
+   there have now been five of them (the Skeleton Hellhound, Gadderanks, the King rat, and all three
+   Elid golems). Give it a statblock before anything else.
+2. **A fight is over before the next step runs.** Anything spawned with huntmode aggressive_melee
+   inside a conversation is dead a few ticks later against a maxed sim player, so a following `fight`
+   step reports it missing while its death trigger has already fired. Assert the varbit, not the
+   fight.
+3. **A wall-straight door takes a click from exactly two tiles** - the ones it separates - and the
+   engine's own approach will happily walk you to a third and then refuse. `tools/sim/opfrom.ts`
+   sends the op from every tile within two and prints which ones ran a script.
 
 **FOUR OF THE FIVE QUESTS WALKED ON 20 OCTOBER WERE THE WRONG QUEST**, not a broken one: In Search
 of the Myreque, Rat Catchers and Making History were each built from the varbit names or the item
