@@ -134,7 +134,7 @@ things. A flaky audit is a weak audit.
 | Sheep Herder | quest_sheepherder | 106 | WALKED | quest_sheepherder_run.ts (63/63) |
 | Shilo Village | quest_zombiequeen | 2171 | NOT AUDITED | |
 | Spirits of the Elid | quest_elid | 700 | WALKED | quest_elid_run.ts (50/50) |
-| Swan Song | quest_swansong | 628 | NOT AUDITED | |
+| Swan Song | quest_swansong | 628 | FIXED, NOT WALKED | queen, rewards, bones |
 | Tai Bwo Wannai Trio | quest_tbwt | 652 | PARTIAL | tbwtsons (the three sons) |
 | Tears of Guthix | quest_tog | 426 | WALKED | quest_tog_run.ts (14/14, hand-rolled) |
 | Temple of Ikov | quest_ikov | 760 | NOT AUDITED | |
@@ -230,6 +230,7 @@ where it stopped. **WALKED** in the tables above means that manifest passes ever
 | 59 | Dwarf Cannon | 71/71 | **nothing wrong with it**, and deliberately so: the quest was reworked on 13 June 2006 and this server's map, npcs and cache are the older ones, so the cannon is repaired through its Inspect menu - pipe, barrel, axle, shaft - rather than the three-tool minigame the modern wiki describes. broken_multicannon carries op1=Inspect and nothing else and there is no safety switch, spring or gear anywhere in the cache, so the earlier session that built it from RSC replays was right. The only work was the manifest: Lawgof's camp is a 1294-tile pocket behind a double gate that shuts itself, and both that gate and the cannon shed's door have to be reopened on every crossing |
 | 60 | Dream Mentor | 86/86 | **two separate reasons it could not be played**. The Lunar Isle mine ladder carries forceapproach=west, the engine rotates that by the placement angle, and the entrance is placed at angle 2 - so the one legal side became the east, which is the one side with a wall on it. It refused a click from all twenty-four tiles within two. And ~dm_cyrisus_says used ~chatnpc, which suspends the script that calls it: that script is the one which counts each fear off and spawns the next, so The Everlasting did not appear until a chat window had been read in the middle of a fight with a level 343 monster. The Inadequacy's spawn tile also did not fit its 5x5 footprint |
 | 61 | Gertrude's Cat | 41/41 | **Gertrude would only talk about rats**. Rat Catchers hooks her conversation through ~ratcatch_gertrude_wants and that returned true whenever Rat Catchers had not been started, which is every player who has never done it - so the quest that starts with her could not begin. That hook came out of this pass's own Rat Catchers rebuild, so it is a regression this audit put in and this audit caught. Also [label,fluffs_boy_single], the haggle for when you find only one of the two boys, was never jumped to by anything: Shilop and Wilough wander Varrock square separately, so most of the time there was no menu and no way to pay |
+| 62 | Swan Song | FIXED, NOT YET WALKED | **the Sea Troll Queen was a paragraph**: level 170, an Attack op, her own ready/defend/attack/spellcast/death animations, and no statblock - the seventh npc in this pass with a level, an op and nothing behind it. The quest narrated her death with two mesboxes and 34 points of ~damage_self and the magi killed her for you. She now has the wiki's numbers and comes up out of the water at 2344,3646. 10,000 Prayer XP and 25,000 coins were missing from the reward and the Magic was 10,000 rather than 15,000. Seven bones, not five. The manifest is still to write |
 
 **EVERY FREE QUEST NOW WALKS.** Eighteen of eighteen, each with a `questrun` manifest that plays it
 from start to finish on foot and passes every check.
@@ -351,9 +352,23 @@ Three quests were not written as manifests at all, because what they test is ran
 on a timer) and `heroes_candlestick.ts` (two players at once).
 
 ### What is left
-Everything still marked NOT AUDITED or AUDITED in the tables above. By size, the next ones are:
-Swan Song, and then the long ones (Desert Treasure, Monkey Madness, Recipe for Disaster, Temple of
-Ikov, Underground Pass, Legends Quest...).
+**SWAN SONG IS HALF DONE.** Its content fixes are in and pushed; the manifest is not written. The
+walk has to cover Franklin's press (logs in the firebox, light it, five iron bars through it, five
+sheets on the five broken walls), Arnold's five cooked monkfish, the ambush, seven bones into the
+seed packet, and then the queen. Two of the wiki's beats are deliberately NOT built, and both for
+the same reason - the cache does not have the npcs:
+- **the Draynor leg** (give the Wise Old Man 10 mist, 10 lava and 5 blood runes). `swan_wom_draynor`
+  exists as npc 3834 and is placed nowhere, and neither is the ordinary `wise_old_man`: this server
+  has no Wise Old Man in Draynor at all. The quest instead has him come to the colony himself, which
+  the multinpc tables support exactly - stage 25 does not exist in them, so the Draynor trip was
+  always meant to happen inside stage 20.
+- **the army chain** (Wizard Frumscone, then Malignius Mortifer, a brown apron, an airtight pot and
+  the Crafting Guild pottery). Malignius does not exist in this cache at all, and neither does the
+  airtight pot or a bone-seed pot. Arnold handing over the book and the packet out of the Wise Old
+  Man's hand is as close as the cache allows.
+
+Then: everything still marked NOT AUDITED or AUDITED in the tables above - the long ones (Desert
+Treasure, Monkey Madness, Recipe for Disaster, Temple of Ikov, Underground Pass, Legends Quest...).
 
 **ONE QUEST'S HOOK INTO ANOTHER QUEST'S NPC IS WORTH CHECKING FROM A BLANK SAVE.** Rat Catchers'
 hook on Gertrude fired at `%ratcatch_var = ^ratcatch_not_started` - true for everybody who has not
