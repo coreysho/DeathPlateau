@@ -91,7 +91,7 @@ things. A flaky audit is a weak audit.
 | Gertrude's Cat | quest_fluffs | 625 | WALKED | quest_fluffs_run.ts (41/41) |
 | Ghosts Ahoy | quest_ahoy | 1173 | AUDITED | audit3 |
 | The Giant Dwarf | quest_giantdwarf | 343 | WALKED | quest_giantdwarf_run.ts (18/18) |
-| The Golem | quest_golem | 640 | AUDITED | audit2 |
+| The Golem | quest_golem | 640 | WALKED | quest_golem_run.ts (65/65) |
 | The Grand Tree | quest_grandtree | 1615 | NOT AUDITED | |
 | The Hand in the Sand | quest_handsand | 739 | NOT AUDITED | |
 | Haunted Mine | quest_hauntedmine | 422 | WALKED | quest_hauntedmine_run.ts (40/40) |
@@ -232,6 +232,7 @@ where it stopped. **WALKED** in the tables above means that manifest passes ever
 | 61 | Gertrude's Cat | 41/41 | **Gertrude would only talk about rats**. Rat Catchers hooks her conversation through ~ratcatch_gertrude_wants and that returned true whenever Rat Catchers had not been started, which is every player who has never done it - so the quest that starts with her could not begin. That hook came out of this pass's own Rat Catchers rebuild, so it is a regression this audit put in and this audit caught. Also [label,fluffs_boy_single], the haggle for when you find only one of the two boys, was never jumped to by anything: Shilop and Wilough wander Varrock square separately, so most of the time there was no menu and no way to pay |
 | 62 | Swan Song | 104/104 | **two reasons it could not be finished and one that it could not be started**. Herman Caranos was spawned on 2354,3683, a blocked tile inside the colony office, and the engine answered "I can't reach that!" from every clear tile around the building - so the three conversations that start the battle, report the queen and finish the quest were all unreachable from stage 90 on. The Sea Troll Queen was a paragraph: level 170, an Attack op, her own five animations, no statblock, and two mesboxes of ~damage_self in place of a fight. And the start checked none of its requirements - 100 quest points, One Small Favour, Garden of Tranquillity. 10,000 Prayer XP and 25,000 coins were missing from the reward, the Magic was 10,000 rather than 15,000, and the book wanted five bones not seven |
 | 63 | Garden of Tranquillity | 86/86 | **nothing wrong with the quest**; all the work was in the walk. The nine beds are 1x1 locs in 2x2 blocks with hedges between them, and hedge edges do not show in a walkability grid - the pink rose bed has a clear tile either side of it in the same row and no route between them. A watering costs a dose and the can changes its obj name with it, so the ninth bed cannot be watered out of watering_can_8. The Ring of Charos half of the wiki's version is not buildable: the ring is enchanted by the Wise Old Man, who is placed nowhere on this server |
+| 64 | The Golem | 65/65 | **the display cabinet key was unobtainable**. The curator's pickpocket was guarded by `%golem_a > ^golem_finished_b`, and that stage is exactly where the player stands when they need the key - Elissa names the museum and sets it, and the only stage above it is the one that wants the statuette already in hand. So the statuette never left Display Case 30 and the quest stopped three steps from the end. Also: the strange implement opens the golem's skull and the skull shut itself ten ticks later, which is six seconds to find the program in your inventory - it now shuts when the instructions go in |
 
 **EVERY FREE QUEST NOW WALKS.** Eighteen of eighteen, each with a `questrun` manifest that plays it
 from start to finish on foot and passes every check.
@@ -314,7 +315,7 @@ refusals in a row.
 
 ## Where to pick this up
 
-**63 quests and miniquests walked.** All eighteen free quests, forty-three members' quests and two
+**64 quests and miniquests walked.** All eighteen free quests, forty-four members' quests and two
 miniquests. Every one has a file in `Engine-TS/tools/sim/` that plays it and passes every check;
 rerun any of them with `npx tsx tools/sim/<name>.ts`.
 
@@ -371,13 +372,20 @@ content. What remains genuinely unbuildable in Swan Song is only the other beat:
 
 ### What is left
 Everything still marked NOT AUDITED or AUDITED in the tables above - forty-five of them, and NOT all
-long. By size, the smallest unwalked are: The Golem (640), Cabin Fever (664), Troll Romance (688),
+long. By size, the smallest unwalked are: Cabin Fever (664), Troll Romance (688),
 Mountain Daughter (710), Creature of Fenkenstrain (713), The Hand in the Sand (739), Temple of Ikov
 (760), Biohazard (797), Observatory Quest (849), Troll Stronghold (857), The Lost Tribe (874),
 Plague City (903), Hazeel Cult (984), Family Crest (994). The genuinely long ones - Legends Quest
 (5847), The Fremennik Trials (3383), The Tourist Trap (3120), Recipe for Disaster (3022), Throne of
 Miscellania (2729), Digsite (2647), Mourning's End Part 2 (2573), Underground Pass (2442), Desert
 Treasure (2288) - are best taken one at a time with a fresh context.
+
+**A LOC OFTEN STANDS ON THE BLOCKED TILE, NOT BESIDE IT.** Four of the last five manifests lost a
+run to a `go ... exact` aimed at the loc's own coordinate: Uzer's staircase is a 3x3 block of
+blocked tiles, the temple stairs sit in an alcove row where only one tile is cardinally beside them,
+Swan Song's crawl-hole blocks its own tile and lands you on the next one, and every farming patch in
+the palace garden is blocked by definition. `wherelocs.ts` gives the loc's coordinate, which is what
+the `at:` wants; the tile to stand on is a separate question and `blockfit.ts` answers it.
 
 **AN NPC ON A BLOCKED TILE IS NOT NECESSARILY REACHABLE, AND beside.ts DOES NOT SAY SO.** It lists
 the standable tiles around an npc and the pocket each belongs to, which is a different question from
