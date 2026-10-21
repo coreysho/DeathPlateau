@@ -107,7 +107,7 @@ things. A flaky audit is a weak audit.
 | Lost City | quest_zanaris | 248 | WALKED | quest_zanaris_run.ts (21/21) |
 | The Lost Tribe | quest_lost_tribe | 874 | NOT AUDITED | |
 | Lunar Diplomacy | quest_lunar | 1971 | NOT AUDITED | |
-| Making History | quest_makinghistory | 515 | NOT AUDITED | |
+| Making History | quest_makinghistory | 700 | WALKED | quest_makinghistory_run.ts (39/39) |
 | Merlin's Crystal | quest_arthur | 515 | WALKED | quest_arthur_run.ts (26/26) |
 | Monk's Friend | quest_drunkmonk | 142 | WALKED | quest_drunkmonk_run.ts (26/26) |
 | Monkey Madness | quest_mm | 1846 | PARTIAL | audit1 (Marim's gate only) |
@@ -223,6 +223,7 @@ where it stopped. **WALKED** in the tables above means that manifest passes ever
 | 52 | In Search of the Myreque | 41/41 | **it was a different quest** - built once from the varbit names alone, so Veliaf asked the three questions, the three missing pieces were rungs of a ladder and the boatman had to be talked round. The real 2005 quest is all in the cache and none of it was wired: a level-97 Skeleton Hellhound with no statblock, Vanstrom Klause in five bodies, two climbable trees over four tiles of rope bridge, the doors in the earth behind the hollow tree, and the Myreque's chamber held once per plane with six of them on plane 3 and the four survivors on plane 0 |
 | 53 | In Aid of the Myreque | 81/81 | **it stopped at its second step** - the village leader's switch only knew ^m2_sent and you cannot reach her at ^m2_sent, so she never briefed anybody and the shop, the bank and the furnace are all gated on the stage she sets. Florin could not be talked to either: he stands three tiles inside his own gate and the gate is a wall. The Gadderanks fight was four lines of narration while the cache held an attackable Gadderanks, a wounded one with a fall-over animation and two Vampyre Juvinates; the rubble was one click while the cache held a three-stage bucket and a placed pile with no handler; the Gadderhammer was reachable from nowhere; and the four skill requirements were checked nowhere |
 | 54 | Rat Catchers | 73/73 | **seven of its ten chapters were in the cache and wired to nothing** - it was built as Jimmy Dazzler, four rat holes and a party, and its own constant file called two of the items it needed "unused". Phingspet and Grimesquit, Hooknosed Jack, Pox, the King rat, the Apothecary, Smokin' Joe, the Face, the snake charmer and eight notes on the Port Sarim docks are all placed and named. Even the varbits are the chapters. Also found: the warehouse ladder takes a click from three sides and not the north, and vc_note_number is three bits so the tune's counter could not count to eight |
+| 55 | Making History | 39/39 | **the four documents were wired to the wrong people**, and the cache's own descriptions settle it: a journal out of a buried chest, a timeline out of a ghost, one letter sealed to the king and one sealed to Jorral. The old version handed the timeline out at the start, made the journal a keepsake, turned both letters into family heirlooms in Rellekka and had no King Lathas chapter at all. Erin's key, Dron's fourteen questions and Melina's sapphire amulet were all missing; Priest in Peril and The Restless Ghost were checked nowhere; the 750 coins were missing and there was invented Smithing XP; and six of twelve coordinate constants were arithmetic errors |
 
 **EVERY FREE QUEST NOW WALKS.** Eighteen of eighteen, each with a `questrun` manifest that plays it
 from start to finish on foot and passes every check.
@@ -305,7 +306,7 @@ refusals in a row.
 
 ## Where to pick this up
 
-**54 quests and miniquests walked.** All eighteen free quests, thirty-four members' quests and two
+**55 quests and miniquests walked.** All eighteen free quests, thirty-five members' quests and two
 miniquests. Every one has a file in `Engine-TS/tools/sim/` that plays it and passes every check;
 rerun any of them with `npx tsx tools/sim/<name>.ts`.
 
@@ -345,9 +346,17 @@ on a timer) and `heroes_candlestick.ts` (two players at once).
 
 ### What is left
 Everything still marked NOT AUDITED or AUDITED in the tables above. By size, the next ones are:
-Making History, Spirits of the Elid, Elemental Workshop, Rum Deal, Dwarf Cannon, Dream Mentor,
-Gertrude's Cat, Swan Song, and then the long ones (Desert Treasure, Monkey Madness, Recipe for
-Disaster, Temple of Ikov, Underground Pass, Legends Quest...).
+Spirits of the Elid, Elemental Workshop, Rum Deal, Dwarf Cannon, Dream Mentor, Gertrude's Cat,
+Swan Song, and then the long ones (Desert Treasure, Monkey Madness, Recipe for Disaster, Temple of
+Ikov, Underground Pass, Legends Quest...).
+
+**FOUR OF THE FIVE QUESTS WALKED ON 20 OCTOBER WERE THE WRONG QUEST**, not a broken one: In Search
+of the Myreque, Rat Catchers and Making History were each built from the varbit names or the item
+list without anybody checking where the cache puts things, and each came out plausible, playable and
+different. In Aid of the Myreque was the right quest and could not be played past its second step.
+The lesson for the rest of the pass is to probe the map before reading the implementation: every
+clickable loc in the quest's map squares, every npc spawn of its own name prefix, and the obj
+descriptions, which in Making History's case named the sender and recipient of both letters.
 
 **In Aid of the Myreque was not the same shape of problem**, which is worth writing down because the
 first look at it said it was. Its structure was taken from the cache's own multilocs and it follows
