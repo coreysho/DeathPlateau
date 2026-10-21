@@ -126,7 +126,7 @@ things. A flaky audit is a weak audit.
 | Recruitment Drive | quest_rd | 1330 | AUDITED | audit3 |
 | Regicide | quest_regicide | 1210 | NOT AUDITED | |
 | Roving Elves | quest_roving | 299 | WALKED | quest_roving_run.ts (19/19) |
-| Rum Deal | quest_deal | 546 | NOT AUDITED | |
+| Rum Deal | quest_deal | 490 | WALKED | quest_deal_run.ts (116/116) |
 | Scorpion Catcher | quest_scorpcatcher | 170 | WALKED | quest_scorpcatcher_run.ts (28/28) |
 | Sea Slug Quest | quest_seaslug | 242 | WALKED | quest_seaslug_run.ts (57/57) |
 | Shades of Mort'ton | quest_mortton | 864 | PARTIAL | morttonwall (the walls only) |
@@ -226,6 +226,7 @@ where it stopped. **WALKED** in the tables above means that manifest passes ever
 | 55 | Making History | 39/39 | **the four documents were wired to the wrong people**, and the cache's own descriptions settle it: a journal out of a buried chest, a timeline out of a ghost, one letter sealed to the king and one sealed to Jorral. The old version handed the timeline out at the start, made the journal a keepsake, turned both letters into family heirlooms in Rellekka and had no King Lathas chapter at all. Erin's key, Dron's fourteen questions and Melina's sapphire amulet were all missing; Priest in Peril and The Restless Ghost were checked nowhere; the 750 coins were missing and there was invented Smithing XP; and six of twelve coordinate constants were arithmetic errors |
 | 56 | Spirits of the Elid | 50/50 | **four of its own items were wired to nothing** - two torn robes, the Ballad of Jareesh, Awusah's shoes and Awusah's soles, which are the needle-and-thread step, the shrine door's second condition and the genie's price. The cupboard handed out finished robes and the genie gave the statuette away for a kind word. All three golems had a level, an Attack op and no statblock, and the door walked you straight past a guardian that was still standing; 1,000 Magic XP was missing from the reward |
 | 57 | Elemental Workshop I | 58/58 | **nothing wrong with the quest** - the first one in the pass that was already right end to end, bits and all. Both findings were in the runner: a `go` step that lands within two tiles said nothing about it, so "walk to 2715,3481 ok" meant a player standing outside a shut door and the bookcase took the blame; and the loc step spent drive()'s whole 600-tick guard on a fight an immune sim player and an aggressive npc cannot finish, outliving the 500-tick elemental it had just woken, three runs running |
+| 58 | Rum Deal | 116/116 | **the fifth quest in this pass that was a different quest** - the holy wrench repaired the vat's tap instead of exorcising the controls, the level-150 Evil Spirit was two mesboxes and ~damage_self, the sluglings were bought off Captain Donnie as though he were a bait merchant, the output tap produced nothing, Donnie never drank the rum or named Rabid Jack, the six Zombie Protesters and eight Brewers had no handler, and the reward was Cooking and Slayer XP and Slayer gloves the Slayer shop sells for fifty points. Three multilocs the old version never touched said what the quest is |
 
 **EVERY FREE QUEST NOW WALKS.** Eighteen of eighteen, each with a `questrun` manifest that plays it
 from start to finish on foot and passes every check.
@@ -308,7 +309,7 @@ refusals in a row.
 
 ## Where to pick this up
 
-**57 quests and miniquests walked.** All eighteen free quests, thirty-seven members' quests and
+**58 quests and miniquests walked.** All eighteen free quests, thirty-eight members' quests and
 two miniquests. Every one has a file in `Engine-TS/tools/sim/` that plays it and passes every check;
 rerun any of them with `npx tsx tools/sim/<name>.ts`.
 
@@ -348,8 +349,15 @@ on a timer) and `heroes_candlestick.ts` (two players at once).
 
 ### What is left
 Everything still marked NOT AUDITED or AUDITED in the tables above. By size, the next ones are:
-Rum Deal, Dwarf Cannon, Dream Mentor, Gertrude's Cat, Swan Song, and then the long ones (Desert
-Treasure, Monkey Madness, Recipe for Disaster, Temple of Ikov, Underground Pass, Legends Quest...).
+Dwarf Cannon, Dream Mentor, Gertrude's Cat, Swan Song, and then the long ones (Desert Treasure,
+Monkey Madness, Recipe for Disaster, Temple of Ikov, Underground Pass, Legends Quest...).
+
+**A MULTILOC TABLE IS THE QUEST'S OWN DESIGN DOCUMENT, AND IT IS IN THE CACHE.** Rum Deal was
+rebuilt out of three of them without guessing at anything: a multiloc with no op in any state is
+used WITH an item, a lever whose down state says "This lever can't be operated right now." is
+counting something, and a cupboard described as "Probably where the farming kit is stored" holds the
+rake and the dibber. Read `multivar`/`multiloc` lines and the children's `desc` and `op` before
+reading the quest script, not after.
 
 **A LOC TRIGGER CAN MATCH A CATEGORY, NOT ONLY A NAME.** `[oploc1,_door_closed]` is matched by
 every loc carrying `category=door_closed`, which is how 882 placements of 61 locs that have no
