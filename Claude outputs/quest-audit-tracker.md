@@ -74,7 +74,7 @@ things. A flaky audit is a weak audit.
 | Desert Treasure | quest_deserttreasure | 2288 | AUDITED | audit3 (two sections) |
 | Devious Minds | quest_devious | 339 | WALKED | quest_devious_run.ts (22/22) |
 | Digsite Quest | quest_itexam | 2647 | NOT AUDITED | |
-| Dream Mentor | quest_dreammentor | 620 | NOT AUDITED | |
+| Dream Mentor | quest_dreammentor | 620 | WALKED | quest_dreammentor_run.ts (86/86) |
 | Druidic Ritual | quest_druid | 55 | WALKED | quest_druid_run.ts (17/17) |
 | Dwarf Cannon | quest_mcannon | 573 | WALKED | quest_mcannon_run.ts (71/71) |
 | Eadgar's Ruse | quest_eadgar | 467 | WALKED | quest_eadgar_run.ts (32/32) |
@@ -228,6 +228,7 @@ where it stopped. **WALKED** in the tables above means that manifest passes ever
 | 57 | Elemental Workshop I | 58/58 | **nothing wrong with the quest** - the first one in the pass that was already right end to end, bits and all. Both findings were in the runner: a `go` step that lands within two tiles said nothing about it, so "walk to 2715,3481 ok" meant a player standing outside a shut door and the bookcase took the blame; and the loc step spent drive()'s whole 600-tick guard on a fight an immune sim player and an aggressive npc cannot finish, outliving the 500-tick elemental it had just woken, three runs running |
 | 58 | Rum Deal | 116/116 | **the fifth quest in this pass that was a different quest** - the holy wrench repaired the vat's tap instead of exorcising the controls, the level-150 Evil Spirit was two mesboxes and ~damage_self, the sluglings were bought off Captain Donnie as though he were a bait merchant, the output tap produced nothing, Donnie never drank the rum or named Rabid Jack, the six Zombie Protesters and eight Brewers had no handler, and the reward was Cooking and Slayer XP and Slayer gloves the Slayer shop sells for fifty points. Three multilocs the old version never touched said what the quest is |
 | 59 | Dwarf Cannon | 71/71 | **nothing wrong with it**, and deliberately so: the quest was reworked on 13 June 2006 and this server's map, npcs and cache are the older ones, so the cannon is repaired through its Inspect menu - pipe, barrel, axle, shaft - rather than the three-tool minigame the modern wiki describes. broken_multicannon carries op1=Inspect and nothing else and there is no safety switch, spring or gear anywhere in the cache, so the earlier session that built it from RSC replays was right. The only work was the manifest: Lawgof's camp is a 1294-tile pocket behind a double gate that shuts itself, and both that gate and the cannon shed's door have to be reopened on every crossing |
+| 60 | Dream Mentor | 86/86 | **two separate reasons it could not be played**. The Lunar Isle mine ladder carries forceapproach=west, the engine rotates that by the placement angle, and the entrance is placed at angle 2 - so the one legal side became the east, which is the one side with a wall on it. It refused a click from all twenty-four tiles within two. And ~dm_cyrisus_says used ~chatnpc, which suspends the script that calls it: that script is the one which counts each fear off and spawns the next, so The Everlasting did not appear until a chat window had been read in the middle of a fight with a level 343 monster. The Inadequacy's spawn tile also did not fit its 5x5 footprint |
 
 **EVERY FREE QUEST NOW WALKS.** Eighteen of eighteen, each with a `questrun` manifest that plays it
 from start to finish on foot and passes every check.
@@ -310,8 +311,8 @@ refusals in a row.
 
 ## Where to pick this up
 
-**59 quests and miniquests walked.** All eighteen free quests, thirty-nine members' quests and
-two miniquests. Every one has a file in `Engine-TS/tools/sim/` that plays it and passes every check;
+**60 quests and miniquests walked.** All eighteen free quests, forty members' quests and two
+miniquests. Every one has a file in `Engine-TS/tools/sim/` that plays it and passes every check;
 rerun any of them with `npx tsx tools/sim/<name>.ts`.
 
 **One flag to know about:** `NODE_MEMBERS=true` is commented out in `Engine-TS/.env`, so a sim boots
@@ -350,8 +351,17 @@ on a timer) and `heroes_candlestick.ts` (two players at once).
 
 ### What is left
 Everything still marked NOT AUDITED or AUDITED in the tables above. By size, the next ones are:
-Dream Mentor, Gertrude's Cat, Swan Song, and then the long ones (Desert Treasure, Monkey Madness,
-Recipe for Disaster, Temple of Ikov, Underground Pass, Legends Quest...).
+Gertrude's Cat, Swan Song, and then the long ones (Desert Treasure, Monkey Madness, Recipe for
+Disaster, Temple of Ikov, Underground Pass, Legends Quest...).
+
+**THREE PROBES NOW ANSWER THE THREE QUESTIONS A FAILED STEP ACTUALLY RAISES**, and all three were
+written because the answer was guessed at first:
+- `joinpocket.ts` - "NO WALKABLE ROUTE from A to B": floods both tiles and names the loc standing
+  where the two pockets touch. The line that names a loc is the door; the lines with no loc on
+  either tile are the building's walls, which the loc listing does not return.
+- `reachsides.ts` - "the op said nothing": the four neighbours with their wall flags, the rotated
+  forceapproach mask, and the engine's own reach test with the mask and without it.
+- `blockfit.ts` - "the npc was there and then it was not": where an NxN footprint fits.
 
 **"NO WALKABLE ROUTE" IS USUALLY A DOOR, AND `tools/sim/joinpocket.ts` NAMES IT.** It floods from
 both tiles and prints every pair of adjacent tiles where the two pockets touch, with the loc
