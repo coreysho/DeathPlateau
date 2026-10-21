@@ -88,7 +88,7 @@ things. A flaky audit is a weak audit.
 | Forgettable Tale... | quest_forget | 453 | WALKED | quest_forget_run.ts (34/34) |
 | The Fremennik Trials | quest_viking | 3383 | NOT AUDITED | |
 | Garden of Tranquillity | quest_garden | 638 | NOT AUDITED | |
-| Gertrude's Cat | quest_fluffs | 625 | NOT AUDITED | |
+| Gertrude's Cat | quest_fluffs | 625 | WALKED | quest_fluffs_run.ts (41/41) |
 | Ghosts Ahoy | quest_ahoy | 1173 | AUDITED | audit3 |
 | The Giant Dwarf | quest_giantdwarf | 343 | WALKED | quest_giantdwarf_run.ts (18/18) |
 | The Golem | quest_golem | 640 | AUDITED | audit2 |
@@ -229,6 +229,7 @@ where it stopped. **WALKED** in the tables above means that manifest passes ever
 | 58 | Rum Deal | 116/116 | **the fifth quest in this pass that was a different quest** - the holy wrench repaired the vat's tap instead of exorcising the controls, the level-150 Evil Spirit was two mesboxes and ~damage_self, the sluglings were bought off Captain Donnie as though he were a bait merchant, the output tap produced nothing, Donnie never drank the rum or named Rabid Jack, the six Zombie Protesters and eight Brewers had no handler, and the reward was Cooking and Slayer XP and Slayer gloves the Slayer shop sells for fifty points. Three multilocs the old version never touched said what the quest is |
 | 59 | Dwarf Cannon | 71/71 | **nothing wrong with it**, and deliberately so: the quest was reworked on 13 June 2006 and this server's map, npcs and cache are the older ones, so the cannon is repaired through its Inspect menu - pipe, barrel, axle, shaft - rather than the three-tool minigame the modern wiki describes. broken_multicannon carries op1=Inspect and nothing else and there is no safety switch, spring or gear anywhere in the cache, so the earlier session that built it from RSC replays was right. The only work was the manifest: Lawgof's camp is a 1294-tile pocket behind a double gate that shuts itself, and both that gate and the cannon shed's door have to be reopened on every crossing |
 | 60 | Dream Mentor | 86/86 | **two separate reasons it could not be played**. The Lunar Isle mine ladder carries forceapproach=west, the engine rotates that by the placement angle, and the entrance is placed at angle 2 - so the one legal side became the east, which is the one side with a wall on it. It refused a click from all twenty-four tiles within two. And ~dm_cyrisus_says used ~chatnpc, which suspends the script that calls it: that script is the one which counts each fear off and spawns the next, so The Everlasting did not appear until a chat window had been read in the middle of a fight with a level 343 monster. The Inadequacy's spawn tile also did not fit its 5x5 footprint |
+| 61 | Gertrude's Cat | 41/41 | **Gertrude would only talk about rats**. Rat Catchers hooks her conversation through ~ratcatch_gertrude_wants and that returned true whenever Rat Catchers had not been started, which is every player who has never done it - so the quest that starts with her could not begin. That hook came out of this pass's own Rat Catchers rebuild, so it is a regression this audit put in and this audit caught. Also [label,fluffs_boy_single], the haggle for when you find only one of the two boys, was never jumped to by anything: Shilop and Wilough wander Varrock square separately, so most of the time there was no menu and no way to pay |
 
 **EVERY FREE QUEST NOW WALKS.** Eighteen of eighteen, each with a `questrun` manifest that plays it
 from start to finish on foot and passes every check.
@@ -311,7 +312,7 @@ refusals in a row.
 
 ## Where to pick this up
 
-**60 quests and miniquests walked.** All eighteen free quests, forty members' quests and two
+**61 quests and miniquests walked.** All eighteen free quests, forty-one members' quests and two
 miniquests. Every one has a file in `Engine-TS/tools/sim/` that plays it and passes every check;
 rerun any of them with `npx tsx tools/sim/<name>.ts`.
 
@@ -351,8 +352,17 @@ on a timer) and `heroes_candlestick.ts` (two players at once).
 
 ### What is left
 Everything still marked NOT AUDITED or AUDITED in the tables above. By size, the next ones are:
-Gertrude's Cat, Swan Song, and then the long ones (Desert Treasure, Monkey Madness, Recipe for
-Disaster, Temple of Ikov, Underground Pass, Legends Quest...).
+Swan Song, and then the long ones (Desert Treasure, Monkey Madness, Recipe for Disaster, Temple of
+Ikov, Underground Pass, Legends Quest...).
+
+**ONE QUEST'S HOOK INTO ANOTHER QUEST'S NPC IS WORTH CHECKING FROM A BLANK SAVE.** Rat Catchers'
+hook on Gertrude fired at `%ratcatch_var = ^ratcatch_not_started` - true for everybody who has not
+done it - and silently took over the npc that starts Gertrude's Cat. A `~x_wants` proc that keys on
+"not started" claims the npc for ever, and these hooks are now all over the tree (Rat Catchers on
+Gertrude and the Apothecary, Making History on Erin and King Lathas, Dream Mentor on Jack and the
+Oneiromancer). The pattern to want is "while MY quest is at the step that needs this npc", never
+"while my quest has not begun". Walking a quest from a blank save is what finds these, which is the
+whole argument for the manifests.
 
 **THREE PROBES NOW ANSWER THE THREE QUESTIONS A FAILED STEP ACTUALLY RAISES**, and all three were
 written because the answer was guessed at first:
