@@ -79,7 +79,7 @@ things. A flaky audit is a weak audit.
 | Dwarf Cannon | quest_mcannon | 573 | NOT AUDITED | |
 | Eadgar's Ruse | quest_eadgar | 467 | WALKED | quest_eadgar_run.ts (32/32) |
 | Eagles' Peak | quest_eaglespeak | 1386 | NOT AUDITED | |
-| Elemental Workshop | quest_elemental_workshop | 543 | NOT AUDITED | |
+| Elemental Workshop | quest_elemental_workshop | 543 | WALKED | quest_elemental_run.ts (58/58) |
 | Enakhra's Lament | quest_enakh | 1187 | NOT AUDITED | |
 | Family Crest | quest_crest | 994 | NOT AUDITED | |
 | The Feud | quest_feud | 1357 | AUDITED | audit2 |
@@ -225,6 +225,7 @@ where it stopped. **WALKED** in the tables above means that manifest passes ever
 | 54 | Rat Catchers | 73/73 | **seven of its ten chapters were in the cache and wired to nothing** - it was built as Jimmy Dazzler, four rat holes and a party, and its own constant file called two of the items it needed "unused". Phingspet and Grimesquit, Hooknosed Jack, Pox, the King rat, the Apothecary, Smokin' Joe, the Face, the snake charmer and eight notes on the Port Sarim docks are all placed and named. Even the varbits are the chapters. Also found: the warehouse ladder takes a click from three sides and not the north, and vc_note_number is three bits so the tune's counter could not count to eight |
 | 55 | Making History | 39/39 | **the four documents were wired to the wrong people**, and the cache's own descriptions settle it: a journal out of a buried chest, a timeline out of a ghost, one letter sealed to the king and one sealed to Jorral. The old version handed the timeline out at the start, made the journal a keepsake, turned both letters into family heirlooms in Rellekka and had no King Lathas chapter at all. Erin's key, Dron's fourteen questions and Melina's sapphire amulet were all missing; Priest in Peril and The Restless Ghost were checked nowhere; the 750 coins were missing and there was invented Smithing XP; and six of twelve coordinate constants were arithmetic errors |
 | 56 | Spirits of the Elid | 50/50 | **four of its own items were wired to nothing** - two torn robes, the Ballad of Jareesh, Awusah's shoes and Awusah's soles, which are the needle-and-thread step, the shrine door's second condition and the genie's price. The cupboard handed out finished robes and the genie gave the statuette away for a kind word. All three golems had a level, an Attack op and no statblock, and the door walked you straight past a guardian that was still standing; 1,000 Magic XP was missing from the reward |
+| 57 | Elemental Workshop I | 58/58 | **nothing wrong with the quest** - the first one in the pass that was already right end to end, bits and all. Both findings were in the runner: a `go` step that lands within two tiles said nothing about it, so "walk to 2715,3481 ok" meant a player standing outside a shut door and the bookcase took the blame; and the loc step spent drive()'s whole 600-tick guard on a fight an immune sim player and an aggressive npc cannot finish, outliving the 500-tick elemental it had just woken, three runs running |
 
 **EVERY FREE QUEST NOW WALKS.** Eighteen of eighteen, each with a `questrun` manifest that plays it
 from start to finish on foot and passes every check.
@@ -307,8 +308,8 @@ refusals in a row.
 
 ## Where to pick this up
 
-**56 quests and miniquests walked.** All eighteen free quests, thirty-six members' quests and two
-miniquests. Every one has a file in `Engine-TS/tools/sim/` that plays it and passes every check;
+**57 quests and miniquests walked.** All eighteen free quests, thirty-seven members' quests and
+two miniquests. Every one has a file in `Engine-TS/tools/sim/` that plays it and passes every check;
 rerun any of them with `npx tsx tools/sim/<name>.ts`.
 
 **One flag to know about:** `NODE_MEMBERS=true` is commented out in `Engine-TS/.env`, so a sim boots
@@ -347,9 +348,16 @@ on a timer) and `heroes_candlestick.ts` (two players at once).
 
 ### What is left
 Everything still marked NOT AUDITED or AUDITED in the tables above. By size, the next ones are:
-Elemental Workshop, Rum Deal, Dwarf Cannon, Dream Mentor, Gertrude's Cat, Swan Song, and then the
-long ones (Desert Treasure, Monkey Madness, Recipe for Disaster, Temple of Ikov, Underground Pass,
-Legends Quest...).
+Rum Deal, Dwarf Cannon, Dream Mentor, Gertrude's Cat, Swan Song, and then the long ones (Desert
+Treasure, Monkey Madness, Recipe for Disaster, Temple of Ikov, Underground Pass, Legends Quest...).
+
+**A LOC TRIGGER CAN MATCH A CATEGORY, NOT ONLY A NAME.** `[oploc1,_door_closed]` is matched by
+every loc carrying `category=door_closed`, which is how 882 placements of 61 locs that have no
+content name of their own still open and shut. An hour went into "Elemental Workshop I cannot be
+started because its house has one door and that door has no handler", and the door was fine. What
+questrun cannot do is OPEN one - it walks on canTravel, so a shut door is a wall - and
+`~open_door`'s replacement expires after a few hundred ticks, so a room with one way out needs
+short steps while you are inside it.
 
 **THE SAME THREE THINGS KEEP COSTING AN ENGINE BOOT EACH**, so they are written down here as well
 as in the commits:
