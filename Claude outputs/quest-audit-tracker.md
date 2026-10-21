@@ -76,7 +76,7 @@ things. A flaky audit is a weak audit.
 | Digsite Quest | quest_itexam | 2647 | NOT AUDITED | |
 | Dream Mentor | quest_dreammentor | 620 | NOT AUDITED | |
 | Druidic Ritual | quest_druid | 55 | WALKED | quest_druid_run.ts (17/17) |
-| Dwarf Cannon | quest_mcannon | 573 | NOT AUDITED | |
+| Dwarf Cannon | quest_mcannon | 573 | WALKED | quest_mcannon_run.ts (71/71) |
 | Eadgar's Ruse | quest_eadgar | 467 | WALKED | quest_eadgar_run.ts (32/32) |
 | Eagles' Peak | quest_eaglespeak | 1386 | NOT AUDITED | |
 | Elemental Workshop | quest_elemental_workshop | 543 | WALKED | quest_elemental_run.ts (58/58) |
@@ -227,6 +227,7 @@ where it stopped. **WALKED** in the tables above means that manifest passes ever
 | 56 | Spirits of the Elid | 50/50 | **four of its own items were wired to nothing** - two torn robes, the Ballad of Jareesh, Awusah's shoes and Awusah's soles, which are the needle-and-thread step, the shrine door's second condition and the genie's price. The cupboard handed out finished robes and the genie gave the statuette away for a kind word. All three golems had a level, an Attack op and no statblock, and the door walked you straight past a guardian that was still standing; 1,000 Magic XP was missing from the reward |
 | 57 | Elemental Workshop I | 58/58 | **nothing wrong with the quest** - the first one in the pass that was already right end to end, bits and all. Both findings were in the runner: a `go` step that lands within two tiles said nothing about it, so "walk to 2715,3481 ok" meant a player standing outside a shut door and the bookcase took the blame; and the loc step spent drive()'s whole 600-tick guard on a fight an immune sim player and an aggressive npc cannot finish, outliving the 500-tick elemental it had just woken, three runs running |
 | 58 | Rum Deal | 116/116 | **the fifth quest in this pass that was a different quest** - the holy wrench repaired the vat's tap instead of exorcising the controls, the level-150 Evil Spirit was two mesboxes and ~damage_self, the sluglings were bought off Captain Donnie as though he were a bait merchant, the output tap produced nothing, Donnie never drank the rum or named Rabid Jack, the six Zombie Protesters and eight Brewers had no handler, and the reward was Cooking and Slayer XP and Slayer gloves the Slayer shop sells for fifty points. Three multilocs the old version never touched said what the quest is |
+| 59 | Dwarf Cannon | 71/71 | **nothing wrong with it**, and deliberately so: the quest was reworked on 13 June 2006 and this server's map, npcs and cache are the older ones, so the cannon is repaired through its Inspect menu - pipe, barrel, axle, shaft - rather than the three-tool minigame the modern wiki describes. broken_multicannon carries op1=Inspect and nothing else and there is no safety switch, spring or gear anywhere in the cache, so the earlier session that built it from RSC replays was right. The only work was the manifest: Lawgof's camp is a 1294-tile pocket behind a double gate that shuts itself, and both that gate and the cannon shed's door have to be reopened on every crossing |
 
 **EVERY FREE QUEST NOW WALKS.** Eighteen of eighteen, each with a `questrun` manifest that plays it
 from start to finish on foot and passes every check.
@@ -309,7 +310,7 @@ refusals in a row.
 
 ## Where to pick this up
 
-**58 quests and miniquests walked.** All eighteen free quests, thirty-eight members' quests and
+**59 quests and miniquests walked.** All eighteen free quests, thirty-nine members' quests and
 two miniquests. Every one has a file in `Engine-TS/tools/sim/` that plays it and passes every check;
 rerun any of them with `npx tsx tools/sim/<name>.ts`.
 
@@ -349,8 +350,16 @@ on a timer) and `heroes_candlestick.ts` (two players at once).
 
 ### What is left
 Everything still marked NOT AUDITED or AUDITED in the tables above. By size, the next ones are:
-Dwarf Cannon, Dream Mentor, Gertrude's Cat, Swan Song, and then the long ones (Desert Treasure,
-Monkey Madness, Recipe for Disaster, Temple of Ikov, Underground Pass, Legends Quest...).
+Dream Mentor, Gertrude's Cat, Swan Song, and then the long ones (Desert Treasure, Monkey Madness,
+Recipe for Disaster, Temple of Ikov, Underground Pass, Legends Quest...).
+
+**"NO WALKABLE ROUTE" IS USUALLY A DOOR, AND `tools/sim/joinpocket.ts` NAMES IT.** It floods from
+both tiles and prints every pair of adjacent tiles where the two pockets touch, with the loc
+standing on each - so the answer to "why can the player not get from the camp to the watchtower" is
+one line, not an engine boot spent guessing. Three of the last four manifests needed it: the Seers'
+house door, Lawgof's double gate, and the cannon shed. All three shut themselves again after a few
+hundred ticks, so a crossing made twice needs the click twice, and the second click is `soft`
+because the door is sometimes still standing open.
 
 **A MULTILOC TABLE IS THE QUEST'S OWN DESIGN DOCUMENT, AND IT IS IN THE CACHE.** Rum Deal was
 rebuilt out of three of them without guessing at anything: a multiloc with no op in any state is
