@@ -80,10 +80,10 @@ things. A flaky audit is a weak audit.
 | Eadgar's Ruse | quest_eadgar | 467 | WALKED | quest_eadgar_run.ts (32/32) |
 | Eagles' Peak | quest_eaglespeak | 1386 | NOT AUDITED | |
 | Elemental Workshop | quest_elemental_workshop | 543 | WALKED | quest_elemental_run.ts (58/58) |
-| Enakhra's Lament | quest_enakh | 1187 | NOT AUDITED | |
+| Enakhra's Lament | quest_enakh | 1187 | WALKED | quest_enakh_run.ts (86/86) |
 | Family Crest | quest_crest | 994 | WALKED | quest_crest_run.ts (76/76) |
 | The Feud | quest_feud | 1357 | WALKED | quest_feud_run.ts (146/146) |
-| Fight Arena | quest_arena | 1208 | NOT AUDITED | |
+| Fight Arena | quest_arena | 1208 | WALKED | quest_arena_run.ts (34/34) |
 | Fishing Contest | quest_fishingcompo | 295 | WALKED | quest_fishingcompo_run.ts (20/20) |
 | Forgettable Tale... | quest_forget | 453 | WALKED | quest_forget_run.ts (34/34) |
 | The Fremennik Trials | quest_viking | 3383 | NOT AUDITED | |
@@ -114,7 +114,7 @@ things. A flaky audit is a weak audit.
 | Mountain Daughter | quest_mdaughter | 710 | WALKED | quest_mdaughter_run.ts (123/123) |
 | Mourning's End Part 1 | quest_mourning | 1388 | AUDITED | audit1 |
 | Mourning's End Part 2 | quest_mourning2 | 2573 | AUDITED | audit2 |
-| Murder Mystery | quest_murder | 1253 | NOT AUDITED | |
+| Murder Mystery | quest_murder | 1253 | WALKED | quest_murder_run.ts (33/33) |
 | Nature Spirit | quest_druidspirit | 1373 | NOT AUDITED | |
 | Observatory Quest | quest_itgronigen | 849 | WALKED | quest_observatory_run.ts (49/49) |
 | One Small Favour | quest_onesmallfavour | — | NOT AUDITED | check: no directory of that name |
@@ -123,7 +123,7 @@ things. A flaky audit is a weak audit.
 | Rag and Bone Man | quest_rag | 257 | WALKED | quest_rag_run.ts (43/43) |
 | Rat Catchers | quest_ratcatch | 1000 | WALKED | quest_ratcatch_run.ts (73/73) |
 | Recipe for Disaster | quest_100 | 3022 | AUDITED | audit1 (ten sections) |
-| Recruitment Drive | quest_rd | 1330 | AUDITED | audit3 |
+| Recruitment Drive | quest_rd | 1330 | WALKED | quest_rd_run.ts (69/69) |
 | Regicide | quest_regicide | 1210 | NOT AUDITED | |
 | Roving Elves | quest_roving | 299 | WALKED | quest_roving_run.ts (19/19) |
 | Rum Deal | quest_deal | 490 | WALKED | quest_deal_run.ts (116/116) |
@@ -249,6 +249,10 @@ where it stopped. **WALKED** in the tables above means that manifest passes ever
 | 79 | Ghosts Ahoy | 168/168 | **no content fixes** - the 13 October rebuild holds end to end. The manifest was already written and already good (both energy barriers crossed from the right side, all four ahoy_harbour_door placements opened, the whole town on foot); what stopped it was a questrun bug, and it is the one the runner's own comments had blamed twice for eating Rune-Draw: the talk step's retry loop handed drive() the manifest's OWN picks array, and drive() shifts options off it, so every retry met the same menu with nothing to answer. A copy per attempt, and the quest walks |
 | 80 | The Feud | 146/146 | **nothing** - the manifest was already written and passes. Its tracker row had never been updated |
 | 81 | Monkey Madness | 144/144 | **nothing** - the manifest was already written and passes, all the way to Narnode. Its row said PARTIAL from an audit sweep that only reached Marim's gate |
+| 82 | Enakhra's Lament | 86/86 | **the quest in the content was not the quest.** Built from the varbit names, it had the player carve the statue and walk out; the cache says otherwise - Enakhra's temple is sealed by four sigil doors, the obj descs name the four pieces of the shrine, and Akthanakos is the one who has to be freed. Rebuilt from the cache's own spawns and placements, and the sigil door's own tile is the only approach to it |
+| 83 | Fight Arena | 34/34 | **no content fixes.** The uniform out of the chest, the Khali brew, the drunk guard's keys, Jeremy's cell, then the ogre, the scorpion, Bouncer and Khazard himself. One harness finding: `fight`'s `untilvar` compares with `===`, so a chained stage advance (9 to 10 to 11 in one death) overshoots the target and the step spins - the scorpion and Bouncer are one step with a type array and `to: 11` |
+| 84 | Murder Mystery | 33/33 | **the fingerprints could never be lifted.** `[opheldu,_murder_flourobj]` read its two halves the wrong way round: in an opheldu script `last_item` is the half that carried the trigger, so the category script was testing the half it was already holding. The step before it worked by luck, through the decline path. Also walked: the flypaper, the dagger, the window thread, the barrel silver, the poison salesman and the compost heap, with the culprit pinned to Anna |
+| 85 | Recruitment Drive | 69/69 | **no content fixes** - and the walk sits all SEVEN tests rather than the five a run draws, by clearing the completion bits after the draw. The bridge, the twelve statues, Sir Leye unarmed (a blade fails the room), Sir Tinley's thirteen ticks of not clicking anything, the acrostic, Miss Cheevers' lab and the logic riddle. No teleports between rooms: each exit door sends the player on. Two stale comments claiming rooms 1 and 6 "are not built yet" were corrected |
 
 **EVERY FREE QUEST NOW WALKS.** Eighteen of eighteen, each with a `questrun` manifest that plays it
 from start to finish on foot and passes every check.
@@ -331,8 +335,8 @@ refusals in a row.
 
 ## Where to pick this up
 
-**81 quests and miniquests walked** of the 104 on the list, plus two miniquests: all eighteen free
-quests and sixty-one of the eighty-six members' quests. Twenty-five members' quests to go. Every one has a file in `Engine-TS/tools/sim/` that plays it and passes every check;
+**85 quests and miniquests walked** of the 104 on the list, plus two miniquests: all eighteen free
+quests and sixty-five of the eighty-six members' quests. Twenty-one members' quests to go. Every one has a file in `Engine-TS/tools/sim/` that plays it and passes every check;
 rerun any of them with `npx tsx tools/sim/<name>.ts`.
 
 **One flag to know about:** `NODE_MEMBERS=true` is commented out in `Engine-TS/.env`, so a sim boots
@@ -404,12 +408,12 @@ content. What remains genuinely unbuildable in Swan Song is only the other beat:
   Man's hand is as close as the cache allows.
 
 ### What is left
-Everything still marked NOT AUDITED or AUDITED in the tables above - **twenty-five** of them, all
+Everything still marked NOT AUDITED or AUDITED in the tables above - **twenty-one** of them, all
 in the members' table, counting both NOT AUDITED and AUDITED (an AUDITED row was driven by one of
-the audit sweeps but never walked end to end). By size, the smallest left are: Enakhra's
-Lament (1187), Fight Arena (1208), Regicide (1210), Murder Mystery (1253), Recruitment Drive
-(1330), Animal Magnetism (1333), Nature Spirit (1373), Eagles' Peak (1386), Mourning's End
-Part 1 (1388), The Grand Tree (1615), Death Plateau (1666), Horror from the Deep (1858). The
+the audit sweeps but never walked end to end). By size, the smallest left are: Regicide (1210),
+Animal Magnetism (1333), Nature Spirit (1373), Eagles' Peak (1386), Mourning's End
+Part 1 (1388), The Grand Tree (1615), Death Plateau (1666), Horror from the Deep (1858),
+Big Chompy Bird Hunting (1936), Lunar Diplomacy (1971), Watch Tower (2124), Shilo Village (2171). The
 genuinely long ones - Legends Quest
 (5847), The Fremennik Trials (3383), The Tourist Trap (3120), Recipe for Disaster (3022), Throne of
 Miscellania (2729), Digsite (2647), Mourning's End Part 2 (2573), Underground Pass (2442), Desert
@@ -500,12 +504,12 @@ content. What remains genuinely unbuildable in Swan Song is only the other beat:
   Man's hand is as close as the cache allows.
 
 ### What is left
-Everything still marked NOT AUDITED or AUDITED in the tables above - **twenty-five** of them, all
+Everything still marked NOT AUDITED or AUDITED in the tables above - **twenty-one** of them, all
 in the members' table, counting both NOT AUDITED and AUDITED (an AUDITED row was driven by one of
-the audit sweeps but never walked end to end). By size, the smallest left are: Enakhra's
-Lament (1187), Fight Arena (1208), Regicide (1210), Murder Mystery (1253), Recruitment Drive
-(1330), Animal Magnetism (1333), Nature Spirit (1373), Eagles' Peak (1386), Mourning's End
-Part 1 (1388), The Grand Tree (1615), Death Plateau (1666), Horror from the Deep (1858). The
+the audit sweeps but never walked end to end). By size, the smallest left are: Regicide (1210),
+Animal Magnetism (1333), Nature Spirit (1373), Eagles' Peak (1386), Mourning's End
+Part 1 (1388), The Grand Tree (1615), Death Plateau (1666), Horror from the Deep (1858),
+Big Chompy Bird Hunting (1936), Lunar Diplomacy (1971), Watch Tower (2124), Shilo Village (2171). The
 genuinely long ones - Legends Quest
 (5847), The Fremennik Trials (3383), The Tourist Trap (3120), Recipe for Disaster (3022), Throne of
 Miscellania (2729), Digsite (2647), Mourning's End Part 2 (2573), Underground Pass (2442), Desert
