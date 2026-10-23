@@ -124,7 +124,7 @@ things. A flaky audit is a weak audit.
 | Rat Catchers | quest_ratcatch | 1000 | WALKED | quest_ratcatch_run.ts (73/73) |
 | Recipe for Disaster | quest_100 | 3022 | AUDITED | audit1 (ten sections) |
 | Recruitment Drive | quest_rd | 1330 | WALKED | quest_rd_run.ts (69/69) |
-| Regicide | quest_regicide | 1210 | NOT AUDITED | |
+| Regicide | quest_regicide | 1210 | WALKED | quest_regicide_run.ts (73/73) |
 | Roving Elves | quest_roving | 299 | WALKED | quest_roving_run.ts (19/19) |
 | Rum Deal | quest_deal | 490 | WALKED | quest_deal_run.ts (116/116) |
 | Scorpion Catcher | quest_scorpcatcher | 170 | WALKED | quest_scorpcatcher_run.ts (28/28) |
@@ -253,6 +253,7 @@ where it stopped. **WALKED** in the tables above means that manifest passes ever
 | 83 | Fight Arena | 34/34 | **no content fixes.** The uniform out of the chest, the Khali brew, the drunk guard's keys, Jeremy's cell, then the ogre, the scorpion, Bouncer and Khazard himself. One harness finding: `fight`'s `untilvar` compares with `===`, so a chained stage advance (9 to 10 to 11 in one death) overshoots the target and the step spins - the scorpion and Bouncer are one step with a type array and `to: 11` |
 | 84 | Murder Mystery | 33/33 | **the fingerprints could never be lifted.** `[opheldu,_murder_flourobj]` read its two halves the wrong way round: in an opheldu script `last_item` is the half that carried the trigger, so the category script was testing the half it was already holding. The step before it worked by luck, through the decline path. Also walked: the flypaper, the dagger, the window thread, the barrel silver, the poison salesman and the compost heap, with the culprit pinned to Anna |
 | 85 | Recruitment Drive | 69/69 | **no content fixes** - and the walk sits all SEVEN tests rather than the five a run draws, by clearing the completion bits after the draw. The bridge, the twelve statues, Sir Leye unarmed (a blade fails the room), Sir Tinley's thirteen ticks of not clicking anything, the acrostic, Miss Cheevers' lab and the logic riddle. No teleports between rooms: each exit door sends the player on. Two stale comments claiming rooms 1 and 6 "are not built yet" were corrected |
+| 86 | Regicide | 73/73 | **five faults, and four of them were in the forest.** The dense forest, the leaf pits, the tripwires and the spring of sticks all moved the player NOWHERE: every one called `~forcewalk2`, which goes through `~clipped_telewalk` and checks `map_blocked` on each tile of the way, so it gave up silently the moment one was solid - and a band of dense forest is solid by definition. They now use `~forcemove` and walk to the first clear tile past the obstacle, because every dense forest type is width=3 length=2 and a fixed two tiles landed the player inside the scenery. The three log balances over the river had NO HANDLER at all, and neither did `regicide_old_camp_footprints` (op1=Follow) - the tracks west of the Elf Tracker, which are both a step of the quest and the only way into the old camp. The three traps also ignored Agility entirely; they now use the wiki's published figures. And the fractionalising still could not be finished by following the instructions: the release valve at Half bled 3 against an inflow of 7, so the pressure climbed regardless and left the green zone eight ticks later. Lord Iorwerth now answers for each of the five bomb components, which is its own step in the guide. **Isafdar itself is still not walkable** - see the note below |
 
 **EVERY FREE QUEST NOW WALKS.** Eighteen of eighteen, each with a `questrun` manifest that plays it
 from start to finish on foot and passes every check.
@@ -335,8 +336,8 @@ refusals in a row.
 
 ## Where to pick this up
 
-**85 quests and miniquests walked** of the 104 on the list, plus two miniquests: all eighteen free
-quests and sixty-five of the eighty-six members' quests. Twenty-one members' quests to go. Every one has a file in `Engine-TS/tools/sim/` that plays it and passes every check;
+**86 quests and miniquests walked** of the 104 on the list, plus two miniquests: all eighteen free
+quests and sixty-six of the eighty-six members' quests. Twenty members' quests to go. Every one has a file in `Engine-TS/tools/sim/` that plays it and passes every check;
 rerun any of them with `npx tsx tools/sim/<name>.ts`.
 
 **One flag to know about:** `NODE_MEMBERS=true` is commented out in `Engine-TS/.env`, so a sim boots
@@ -408,9 +409,9 @@ content. What remains genuinely unbuildable in Swan Song is only the other beat:
   Man's hand is as close as the cache allows.
 
 ### What is left
-Everything still marked NOT AUDITED or AUDITED in the tables above - **twenty-one** of them, all
+Everything still marked NOT AUDITED or AUDITED in the tables above - **twenty** of them, all
 in the members' table, counting both NOT AUDITED and AUDITED (an AUDITED row was driven by one of
-the audit sweeps but never walked end to end). By size, the smallest left are: Regicide (1210),
+the audit sweeps but never walked end to end). By size, the smallest left are:
 Animal Magnetism (1333), Nature Spirit (1373), Eagles' Peak (1386), Mourning's End
 Part 1 (1388), The Grand Tree (1615), Death Plateau (1666), Horror from the Deep (1858),
 Big Chompy Bird Hunting (1936), Lunar Diplomacy (1971), Watch Tower (2124), Shilo Village (2171). The
@@ -504,9 +505,9 @@ content. What remains genuinely unbuildable in Swan Song is only the other beat:
   Man's hand is as close as the cache allows.
 
 ### What is left
-Everything still marked NOT AUDITED or AUDITED in the tables above - **twenty-one** of them, all
+Everything still marked NOT AUDITED or AUDITED in the tables above - **twenty** of them, all
 in the members' table, counting both NOT AUDITED and AUDITED (an AUDITED row was driven by one of
-the audit sweeps but never walked end to end). By size, the smallest left are: Regicide (1210),
+the audit sweeps but never walked end to end). By size, the smallest left are:
 Animal Magnetism (1333), Nature Spirit (1373), Eagles' Peak (1386), Mourning's End
 Part 1 (1388), The Grand Tree (1615), Death Plateau (1666), Horror from the Deep (1858),
 Big Chompy Bird Hunting (1936), Lunar Diplomacy (1971), Watch Tower (2124), Shilo Village (2171). The
@@ -746,3 +747,25 @@ Two pieces of unfinished business from earlier in the pass:
 - **Black Knights' Fortress** has one unwalked leg: the grill room back round to the second
   push-wall's north face. Every piece answers in isolation.
 - **audit5 and audit7** have flaky checks (randomised outcomes asserted exactly).
+
+### ISAFDAR DOES NOT JOIN UP, and it needs a decision (23 Oct)
+Tirannwn's forest is bands of solid scenery with the Regicide obstacles as the only gaps. All of
+those obstacles are now fixed and work - the dense forest, the leaf pits, the tripwire, the sticks
+and the three logs - and they are clicked for real in `quest_regicide_run.ts` where the walk can
+reach them. **The pockets they join still do not add up to a route.** Flood-filled on the ground
+plane:
+- the Well of Voyage's clearing is 365 tiles and the clearing north of the first forest column is a
+  chain of three- and six-tile slots,
+- **Tyras Camp is a 471-tile island** whose three crossings (`regicide_cross_over1/2_tyras_camp` and
+  `regicide_cross_over3` at x=2187, z=3163/3166/3169) all face outward: the tile north of the
+  northernmost band is solid, so the camp can be walked out of and not back into,
+- the old camp's three bands at x=2232-2239 have their crossings on z=3148, where the tile east of
+  the easternmost one is solid - which is why the tracks are the way in.
+
+So a player cannot reach General Hining, the catapult or the quartermaster on foot, and that is the
+second half of Regicide and all of Mourning's End. **It is map data, not script**, and the fix is a
+jm2 edit - unblocking one or two tiles beside a crossing, or moving a crossing - which is a call for
+the owner rather than something to invent. Useful tools for whoever does it:
+`tools/sim/crossroute.ts` (the order of clicks between two places, and the frontier when there is
+none), `tools/sim/regionmap.ts` (which region is on each side of each obstacle),
+`tools/sim/tilemap.ts` and `tools/sim/pocketedge.ts`.
