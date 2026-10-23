@@ -66,10 +66,10 @@ things. A flaky audit is a weak audit.
 | Animal Magnetism | quest_animmag | 1333 | NOT AUDITED | |
 | Between a Rock... | quest_dwarfrock | 337 | WALKED | quest_dwarfrock_run.ts (32/32) |
 | Big Chompy Bird Hunting | quest_chompybird | 1936 | NOT AUDITED | |
-| Biohazard | quest_biohazard | 797 | NOT AUDITED | |
-| Cabin Fever | quest_fever | 664 | AUDITED | audit3 |
+| Biohazard | quest_biohazard | 797 | WALKED | quest_biohazard_run.ts (81/81) |
+| Cabin Fever | quest_fever | 664 | WALKED | quest_fever_run.ts (81/81) |
 | Clock Tower | quest_cog | 64 | WALKED | quest_cog_run.ts (22/22) |
-| Creature of Fenkenstrain | quest_fenkenstrain | 713 | AUDITED | audit1 |
+| Creature of Fenkenstrain | quest_fenkenstrain | 713 | WALKED | quest_fenkenstrain_run.ts (75/75) |
 | Death Plateau | quest_death | 1666 | NOT AUDITED | |
 | Desert Treasure | quest_deserttreasure | 2288 | AUDITED | audit3 (two sections) |
 | Devious Minds | quest_devious | 339 | WALKED | quest_devious_run.ts (22/22) |
@@ -81,7 +81,7 @@ things. A flaky audit is a weak audit.
 | Eagles' Peak | quest_eaglespeak | 1386 | NOT AUDITED | |
 | Elemental Workshop | quest_elemental_workshop | 543 | WALKED | quest_elemental_run.ts (58/58) |
 | Enakhra's Lament | quest_enakh | 1187 | NOT AUDITED | |
-| Family Crest | quest_crest | 994 | NOT AUDITED | |
+| Family Crest | quest_crest | 994 | WALKED | quest_crest_run.ts (76/76) |
 | The Feud | quest_feud | 1357 | AUDITED | audit2 |
 | Fight Arena | quest_arena | 1208 | NOT AUDITED | |
 | Fishing Contest | quest_fishingcompo | 295 | WALKED | quest_fishingcompo_run.ts (20/20) |
@@ -93,9 +93,9 @@ things. A flaky audit is a weak audit.
 | The Giant Dwarf | quest_giantdwarf | 343 | WALKED | quest_giantdwarf_run.ts (18/18) |
 | The Golem | quest_golem | 640 | WALKED | quest_golem_run.ts (65/65) |
 | The Grand Tree | quest_grandtree | 1615 | NOT AUDITED | |
-| The Hand in the Sand | quest_handsand | 739 | NOT AUDITED | |
+| The Hand in the Sand | quest_handsand | 739 | WALKED | quest_handsand_run.ts (53/53) |
 | Haunted Mine | quest_hauntedmine | 422 | WALKED | quest_hauntedmine_run.ts (40/40) |
-| Hazeel Cult | quest_hazeelcult | 984 | NOT AUDITED | |
+| Hazeel Cult | quest_hazeelcult | 984 | WALKED | quest_hazeelcult_run.ts (27/27) + quest_hazeelcult_evil_run.ts (47/47) - both sides |
 | Heroes Quest | quest_hero | 256 | WALKED | quest_hero_run.ts (35/35) + heroes_candlestick.ts (16/16, two players) |
 | Holy Grail | quest_grail | 470 | WALKED | quest_grail_run.ts (30/30, needs NODE_MEMBERS=true) |
 | Horror from the Deep | quest_horror | 1858 | NOT AUDITED | |
@@ -105,20 +105,20 @@ things. A flaky audit is a weak audit.
 | Jungle Potion | quest_junglepotion | 190 | PARTIAL | tbwcleanup (the gate only) |
 | Legends Quest | quest_legends | 5847 | NOT AUDITED | the largest in the build |
 | Lost City | quest_zanaris | 248 | WALKED | quest_zanaris_run.ts (21/21) |
-| The Lost Tribe | quest_lost_tribe | 874 | NOT AUDITED | |
+| The Lost Tribe | quest_lost_tribe | 874 | WALKED | quest_losttribe_run.ts (52/52) |
 | Lunar Diplomacy | quest_lunar | 1971 | NOT AUDITED | |
 | Making History | quest_makinghistory | 700 | WALKED | quest_makinghistory_run.ts (39/39) |
 | Merlin's Crystal | quest_arthur | 515 | WALKED | quest_arthur_run.ts (26/26) |
 | Monk's Friend | quest_drunkmonk | 142 | WALKED | quest_drunkmonk_run.ts (26/26) |
 | Monkey Madness | quest_mm | 1846 | PARTIAL | audit1 (Marim's gate only) |
-| Mountain Daughter | quest_mdaughter | 710 | NOT AUDITED | |
+| Mountain Daughter | quest_mdaughter | 710 | WALKED | quest_mdaughter_run.ts (123/123) |
 | Mourning's End Part 1 | quest_mourning | 1388 | AUDITED | audit1 |
 | Mourning's End Part 2 | quest_mourning2 | 2573 | AUDITED | audit2 |
 | Murder Mystery | quest_murder | 1253 | NOT AUDITED | |
 | Nature Spirit | quest_druidspirit | 1373 | NOT AUDITED | |
-| Observatory Quest | quest_itgronigen | 849 | NOT AUDITED | |
+| Observatory Quest | quest_itgronigen | 849 | WALKED | quest_observatory_run.ts (49/49) |
 | One Small Favour | quest_onesmallfavour | — | NOT AUDITED | check: no directory of that name |
-| Plague City | quest_elena | 903 | NOT AUDITED | |
+| Plague City | quest_elena | 903 | WALKED | quest_plaguecity_run.ts (75/75) |
 | Priest in Peril | quest_priestperil | 382 | WALKED | quest_priestperil_run.ts (47/47) |
 | Rag and Bone Man | quest_rag | 257 | WALKED | quest_rag_run.ts (43/43) |
 | Rat Catchers | quest_ratcatch | 1000 | WALKED | quest_ratcatch_run.ts (73/73) |
@@ -137,13 +137,13 @@ things. A flaky audit is a weak audit.
 | Swan Song | quest_swansong | 628 | WALKED | quest_swansong_run.ts (109/109) |
 | Tai Bwo Wannai Trio | quest_tbwt | 652 | PARTIAL | tbwtsons (the three sons) |
 | Tears of Guthix | quest_tog | 426 | WALKED | quest_tog_run.ts (14/14, hand-rolled) |
-| Temple of Ikov | quest_ikov | 760 | NOT AUDITED | |
+| Temple of Ikov | quest_ikov | 760 | WALKED | quest_ikov_run.ts (86/86) |
 | Throne of Miscellania | quest_misc | 2729 | NOT AUDITED | |
 | The Tourist Trap | quest_desertrescue | 3120 | NOT AUDITED | |
 | Tree Gnome Village | quest_tree | 346 | WALKED | quest_tree_run.ts (43/43) |
 | Tribal Totem | quest_totem | 231 | WALKED | quest_totem_run.ts (40/40) |
-| Troll Romance | quest_troll_love | 688 | NOT AUDITED | |
-| Troll Stronghold | quest_troll | 857 | AUDITED | audit3 |
+| Troll Romance | quest_troll_love | 688 | WALKED | quest_troll_love_run.ts (63/63) |
+| Troll Stronghold | quest_troll | 857 | WALKED | quest_trollstronghold_run.ts (28/28) |
 | Underground Pass | quest_upass | 2442 | NOT AUDITED | |
 | Wanted! | quest_wanted | 413 | WALKED | quest_wanted_run.ts (25/25, hand-rolled — the chase is random) |
 | Watch Tower | quest_itwatchtower | 2124 | AUDITED | audit1 |
@@ -157,7 +157,7 @@ things. A flaky audit is a weak audit.
 |---|---|---|---|
 | Abyssal miniquest | miniquest_abyssal | 342 | WALKED | miniquest_abyssal_run.ts (19/19) |
 | Barcrawl | quest_barcrawl | 16 | WALKED | quest_barcrawl_run.ts (25/25) |
-| Dragon Slayer (shared) | quest_dragon | 1027 | NOT AUDITED |
+| Dragon Slayer (shared) | quest_dragon | 1027 | WALKED | same directory as the free-quest row above - quest_dragon_run.ts (82/82) |
 
 ---
 
@@ -233,6 +233,18 @@ where it stopped. **WALKED** in the tables above means that manifest passes ever
 | 62 | Swan Song | 104/104 | **two reasons it could not be finished and one that it could not be started**. Herman Caranos was spawned on 2354,3683, a blocked tile inside the colony office, and the engine answered "I can't reach that!" from every clear tile around the building - so the three conversations that start the battle, report the queen and finish the quest were all unreachable from stage 90 on. The Sea Troll Queen was a paragraph: level 170, an Attack op, her own five animations, no statblock, and two mesboxes of ~damage_self in place of a fight. And the start checked none of its requirements - 100 quest points, One Small Favour, Garden of Tranquillity. 10,000 Prayer XP and 25,000 coins were missing from the reward, the Magic was 10,000 rather than 15,000, and the book wanted five bones not seven |
 | 63 | Garden of Tranquillity | 86/86 | **nothing wrong with the quest**; all the work was in the walk. The nine beds are 1x1 locs in 2x2 blocks with hedges between them, and hedge edges do not show in a walkability grid - the pink rose bed has a clear tile either side of it in the same row and no route between them. A watering costs a dose and the can changes its obj name with it, so the ninth bed cannot be watered out of watering_can_8. The Ring of Charos half of the wiki's version is not buildable: the ring is enchanted by the Wise Old Man, who is placed nowhere on this server |
 | 64 | The Golem | 65/65 | **the display cabinet key was unobtainable**. The curator's pickpocket was guarded by `%golem_a > ^golem_finished_b`, and that stage is exactly where the player stands when they need the key - Elissa names the museum and sets it, and the only stage above it is the one that wants the statuette already in hand. So the statuette never left Display Case 30 and the quest stopped three steps from the end. Also: the strange implement opens the golem's skull and the skull shut itself ten ticks later, which is six seconds to find the program in your inventory - it now shuts when the instructions go in |
+| 65 | Cabin Fever | 81/81 | **both lockers on the battle ship were sealed**. Each one had an open model, a Search op and a Close op, and nothing anywhere swapped them in - `[oploc1]` handed the planks and the ramrod out through a closed lid and the lid never moved, so half the ops in the quest's own .loc were dead content. Also: Bill Teach signed on anyone who had finished Rum Deal, when the scroll wants Pirate's Treasure and four levels as well - and none of the five is optional once you are two hours out to sea - and the completion paid 7,000 Fishing, in a quest with no fishing in it, and none of the 10,000 coins |
+| 66 | Troll Romance | 63/63 | **nothing wrong with it**. The first quest in a long run of these that needed no content fix at all: both sled rides, the ice troll cave, the crevasse, the plateau, the crash into the rocks and the tunnels out to Rellekka's side all play as the wiki and Sal's Realm describe them, and its own source comments say where each beat came from. The one thing worth proving was the arena - a 614-tile pocket whose only way out on foot is its own doors, which stay shut until Troll Stronghold is done. Troll Romance requires Troll Stronghold, so they open; the manifest walks out through them rather than assuming it |
+| 67 | Mountain Daughter | 123/123 | **it was a different quest**. Not wrong in detail - wrong in the plot. Svidi was Hamal's daughter, Asleif was his dead wife, the quest opened by fetching three white pearls as a favour, her body was dug out of the roots by the mud pond with a spade, the Kendal was gated behind the burial, the half of the Ancient Rock went on top of the cairn, and the Shining pool answered "it bubbles, and smells of eggs". The cache said otherwise in its own words - the necklace belonged to "Asleif, DAUGHTER of the mountain camp chieftain", the 38 lake bubbles are a Shining pool with faint singing in it, the fruit's param is next_obj_stage,white_pearl_seed, the guarantee "grants Svidi safe passage", and mud_var / relations_var / food_var / brundt_done / bear_discovery / bear_mayattack were all unused. Rebuilt whole: the rope on the boulder, the mud on the tree, the plank on the stones, the pool's two errands in either order, the man in the bearskin, the necklace off Ragnar her fiance, and five rocks off the goat pen. The reward was also back to front - 2,000 Prayer and 1,000 Attack, not the reverse |
+| 68 | Creature of Fenkenstrain | 75/75 | **the reward did not exist, and it broke another quest**. `ring_of_charos` is obj 4202, sitting in the middle of this quest's own obj block (4183-4204), and the quest handed out no ring at all - so Garden of Tranquillity's Ring of Charos leg was unreachable and the Wise Old Man had been waiting to enchant a ring nobody could own. The cache also carries `op3=Pickpocket` on the doctor's own model (the ending, unhandled), a `fenk_fireplace` with no ops flanked by two "Mmm.. scented candles" surrounds (where the conductor mould is, and why the wiki says sweep the centre not the mantelpiece), and `fenk_needle`/`fenk_threads_given` - the needle and five thread are handed to the DOCTOR, who cannot sew and says so. Before this the doctor handed over the brain, the cavern key and the mould, the amulet halves came off a bench and a ghost, the head was in a coffin, the brush hooked the shed key off a ledge from inside the shed it opens, and the quest ended with a journal and an argument. Rebuilt; `fenk_signpost` placed in Canifis for the first time |
+| 70 | Temple of Ikov | 86/86 | **four separate things, any one of which made it unfinishable**. (1) The boots of lightness: two objs in the cache, 12oz pocketed and -10lb worn, and nothing referenced either - so the lava bridge, which refuses anybody not already weightless, could not be crossed. (2) The bridge trigger fired `inzone` on the lava gap itself, which no route-finder will enter (591 tiles east, 11 west, never touching); moved onto the two lips. (3) `~lucien_attack` gated the Armadyl ending on `map_members`, and Lucien's house is free-to-play ground, so that branch could never be true. (4) The Staff of Armadyl was spawned on the table's own blocked tile, so Take was refused for ever and the Lucien ending was shut too. Also completed: the cellar trapdoor south of the Ranging Guild, and `[ai_queue3,ikov_lucien2]` read a player varp and `npc_findhero` in one `&`. Walked by the Lucien ending; the Guardians' side goes as far as their pendant and is blocked at the last blow by `npc_findhero` coming back false |
+| 71 | Biohazard | 81/81 | **no content fixes at all** - the quest is correct from Elena's distillator to King Lathas admitting the plague is a hoax. What it needed was tiles: the watchtower fence is a WALL loc in nine sections and the only clear tile that reaches any of them is the inside corner at 2563,3301, which is exactly the guide's "stand in the corner where the two spiked fences meet"; the mourners' stew yard is a 69-tile pocket joined to West Ardougne by one Squeeze-through fence at 2541,3331; the quarters have two doors and only the southern one reaches the street; and the nurse's cupboard takes a click from 2517,3275 and nowhere else |
+| 72 | Observatory Quest | 49/49 | **no content fixes.** The professor, the three parts, the key chest, the kitchen gate, the lens casting, all twelve constellations with their twelve payouts, the assistant's wine and the Spirit of Scorpius's unholy mould all work. Two things the walk had to learn: the goblin guard must be dealt with BEFORE the gate, because opening it leaves an inviswall in the doorway and teleports you through, sealing him out for good (that is the guide's "or trap him"); and the constellation dialogue is a queue the telescope's own click started, which cannot run while the telescope interface is open - `canAccess()` gates `processQueue` on `busy()`. questrun gained a `close` step for it |
+| 73 | Troll Stronghold | 28/28 | **no quest fixes.** Denulth's account, Dad yielding at twenty hitpoints instead of dying, the Troll General's prison key, both sleeping guards' pockets, both cell doors and Dunstan's law talisman all work. The one thing the walk needed: the three Troll Generals live in their own 336-tile half of the cave and the ONLY join is `troll_stronghold_interior_door` at 2838,10057 - a `door_closed`, handled generically, named by no script in the quest folder. Fixed in passing: Eadgar's cell door never said a key was wrong, because both arms of the use-on tested the same key |
+| 74 | The Lost Tribe | 52/52 | **no content fixes** - the September rewrite holds end to end. Three map facts the walk needed: the Varrock palace library is a sealed 42-tile room whose north side is a map wall with no door loc, so a jump has to land inside; the west-wall bookcases are a solid column at x 3207, z 3495-3497, leaving 3208,3496 as the only tile touching the northernmost one; and Lumbridge castle's first-floor rooms do not join each other, so reaching Sigmund's chest from Sigmund means leaving his room and going back in. The goblin maze walks fine on a shortest path - every trap is in a dead end |
+| 75 | Plague City | 75/75 | **two things, each of which stopped the quest dead.** (1) The picture of Elena was spawned on the round table's own tile at 2576,3334, and a ground obj can only be taken by standing on its tile - so Take was refused for ever, and that picture is the only thing in the whole of the content that makes Jethick recognise her. (2) The clerk looked for Bravek within seven tiles of the PLAYER, and that line is the only way out of ^quest_elena_spoke_to_plague_house: Bravek wanders the room behind a fifty-two tile office, so from the north end he never answered and the stage never advanced. Widened to sixteen |
+| 76 | Hazeel Cult | 27/27 + 47/47 | **walked on BOTH sides** - the first quest in the pass where two endings are each proven rather than one standing in for the other. Ceril's side ends with the butler arrested after the cupboard search; Hazeel's with a Mahjarrat out of his coffin. The valve answer misleads: the valve the guide calls Valve 1, "north of the cave", is the cache's sewervalve3 at 2585,3245, and it is the only one turned LEFT - the content has it right. One content fix: the Carnillean cellar ladder (generic loc_1754, player tile + 6400) landed anyone approaching from the east at 2571,9667, which is solid rock with nothing adjacent to walk to |
+| 77 | Family Crest | 76/76 | **no content fixes.** Caleb's five cooked fish, the gem trader's yellow cape, Avan's perfect gold, Boot, the three-lever door puzzle under Witchaven, the perfect gold rocks, smelting and casting the ring and necklace, Johnathon's poison, Chronozon refusing to die until every one of the four Blast spells has hit him, and the gauntlets. The lever order: N up, south room, S up, out, N down, north room, R up, out, N up, south room, S down, out. questrun gained a `cast` step (a named spell at a named npc, judged on whether it LANDED) and `slot` on `press` (the jewellery panel's rows are one inv each) |
 
 **EVERY FREE QUEST NOW WALKS.** Eighteen of eighteen, each with a `questrun` manifest that plays it
 from start to finish on foot and passes every check.
@@ -315,8 +327,8 @@ refusals in a row.
 
 ## Where to pick this up
 
-**64 quests and miniquests walked.** All eighteen free quests, forty-four members' quests and two
-miniquests. Every one has a file in `Engine-TS/tools/sim/` that plays it and passes every check;
+**77 quests and miniquests walked** of the 104 on the list, plus two miniquests: all eighteen free
+quests and fifty-seven of the eighty-six members' quests. Twenty-nine members' quests to go. Every one has a file in `Engine-TS/tools/sim/` that plays it and passes every check;
 rerun any of them with `npx tsx tools/sim/<name>.ts`.
 
 **One flag to know about:** `NODE_MEMBERS=true` is commented out in `Engine-TS/.env`, so a sim boots
@@ -333,6 +345,13 @@ useLoc wants in them - were re-run against the stricter version and are still 41
 older manifests have not been re-run and should be, one at a time, as the pass goes back over them.
 
 ### The runner's own vocabulary, as it stands
+
+**`hop` on the loc and useLoc steps** (new, 21 Oct): for an op that teleports the player a few
+tiles. `arrive()` passes as soon as the player has stood next to the loc at any point, which
+covers everything you walk up to - but an approach op on a loc standing in water, clicked from
+three tiles off and answered with a teleport to the far side, can never satisfy it. With `hop`
+the step is judged on what the op said plus an exact walk after it, which is stronger anyway:
+the tile it lands you on is one no route from this side can reach.
 `go` `talk` `loc` `useLoc` `useNpc` `held` `use` `give` `setvar` `stage` `varis` `level` `wait`
 `take` `setpos` `has` `hasnt` `worn` `fight` `nearnpc` `hunt` `herd` `sneak` `press` `say` `note`.
 
@@ -353,7 +372,17 @@ Three quests were not written as manifests at all, because what they test is ran
 `quest_wanted_run.ts` (Solus is in one of twelve places), `quest_tog_run.ts` (the weeping walls run
 on a timer) and `heroes_candlestick.ts` (two players at once).
 
-### What is left
+### What the Experiment cavern would need
+**Creature of Fenkenstrain's cavern is not built**, and it is a map problem rather than a content
+one. The cache has all of it - `fenk_experiment_1` is level 51 with "It has a key hanging from its
+collar", `fenk_mausoleum_key` is called "Cavern key", the Experiments are spawned across two
+underground squares and a locked mausoleum door and a chest stand among them - but the 377 map has
+no way in and no way out: no memorial over the cave, no gate, no ladder. So the arms, legs and torso
+come from the railed plot north-west of the castle, which the map does support in full, and the
+cavern key stays unused. Building the cavern leg means inventing an entrance and an exit teleport
+pair, which is a bigger invention than leaving it out.
+
+### The Wise Old Man, and the one beat Swan Song still cannot build
 **THE WISE OLD MAN IS PLACED NOW** (3088,3251, Draynor), on the owner's instruction, and the two
 quests that had been written around his absence have their missing legs:
 - **Garden of Tranquillity** unlocks the Ring of Charos through him - seven diplomacy questions, six
@@ -371,14 +400,236 @@ content. What remains genuinely unbuildable in Swan Song is only the other beat:
   Man's hand is as close as the cache allows.
 
 ### What is left
-Everything still marked NOT AUDITED or AUDITED in the tables above - forty-five of them, and NOT all
-long. By size, the smallest unwalked are: Cabin Fever (664), Troll Romance (688),
-Mountain Daughter (710), Creature of Fenkenstrain (713), The Hand in the Sand (739), Temple of Ikov
-(760), Biohazard (797), Observatory Quest (849), Troll Stronghold (857), The Lost Tribe (874),
-Plague City (903), Hazeel Cult (984), Family Crest (994). The genuinely long ones - Legends Quest
+Everything still marked NOT AUDITED or AUDITED in the tables above - **twenty-nine** of them, all
+in the members' table, counting both NOT AUDITED and AUDITED (an AUDITED row was driven by one of
+the audit sweeps but never walked end to end). By size, the smallest left are: Zogre Flesh
+Eaters (1068), Ghosts Ahoy (1173), Enakhra's Lament (1187), Fight Arena (1208), Regicide
+(1210), Murder Mystery (1253), Recruitment Drive (1330), Animal Magnetism (1333), The Feud
+(1357), Nature Spirit (1373), Eagles' Peak (1386), Mourning's End Part 1 (1388), The Grand
+Tree (1615), Death Plateau (1666). The genuinely long ones - Legends Quest
 (5847), The Fremennik Trials (3383), The Tourist Trap (3120), Recipe for Disaster (3022), Throne of
 Miscellania (2729), Digsite (2647), Mourning's End Part 2 (2573), Underground Pass (2442), Desert
 Treasure (2288) - are best taken one at a time with a fresh context.
+
+### The re-run sweep, 22 Oct
+**Twenty-one manifests re-run after this session's content changes, all green.** The one that
+mattered was `scripts/player/scripts/equip.rs2`: the boots-of-lightness swap-back goes in
+`[proc,on_unequip]`, which every unequip in the game funnels through, so the sweep deliberately
+included quests that wear things.
+
+  quest_garden 88/88 · quest_swansong 109/109 · quest_golem 65/65 · quest_fever 81/81 ·
+  quest_mdaughter 123/123 · quest_fenkenstrain 75/75 · quest_handsand 53/53 · quest_deal 116/116 ·
+  quest_dreammentor 86/86 · quest_fluffs 41/41 · quest_ratcatch 73/73 · quest_elemental 58/58 ·
+  quest_mcannon 71/71 · quest_troll_love 63/63 · quest_cook 23/23 · quest_sheep 11/11 ·
+  quest_vampire 20/20 · quest_doric 9/9 · quest_imp 7/7 · quest_prince 38/38 ·
+  quest_restlessghost 28/28 · quest_romeojuliet 36/36
+
+That is the oldest eight and the newest thirteen; the middle of the list is still to sweep, and it
+is cheap - one line each, about a minute a manifest.
+
+### Biohazard: scanned clean, and that is worth saying
+First of the next batch, and the unused-cache scan came back with **nothing** - every `bio*` obj is
+referenced by the quest, and the two locs the scan flagged are both fine: `biohazarddummy` is
+scenery, and `bionursescupboardshut` (the hospital cupboard the doctor's gown is in) carries
+`category=cupboard_closed` and `param=cupboard_other`, so the generic `[oploc1,_cupboard_closed]` in
+general_use/scripts/cupboards.rs2 opens it. **A loc the quest folder never names is not an unhandled
+loc** - check the category before believing the scan.
+
+The stage spine also matches the real quest beat for beat: started, Jerico, the birdfeed, the
+pigeons released, the ladder, the stew poisoned, the distillator found and given, the chemist, the
+secret, reported to Elena. Seven npc files cover Jerico, the chemist, Guidor, Guidor's wife and all
+three of Hops, Chancy and Da Vinci.
+
+So Biohazard looks like one of the built ones rather than one of the invented ones, and what it
+needs is a walk: Elena in West Ardougne, Jerico's cupboard and cage, the mourner HQ ladder, the
+stew, the distillator, the gown out of the hospital cupboard, one of the three smugglers, Guidor in
+Varrock and back. That is where the next session starts.
+
+### Temple of Ikov: done, and it took four fixes
+**86 of 86 by the Lucien ending.** Four separate faults, any one of which made the quest
+unfinishable, and all four were invisible to reading the scripts:
+
+1. **The boots of lightness.** Two objs in the cache - 12oz pocketed, **-10lb worn** - and nothing
+   referenced either, so wearing them did nothing and the lava bridge (which refuses anybody not
+   already weightless) could not be crossed. The boots, a knife and the web over them were all
+   already in the map; only the swap was missing.
+2. **The bridge trigger fired on the lava gap itself** (2648-2650 x 9828-9829), which no
+   route-finder will enter: 591 tiles east, 11 west, never touching, no loc on the boundary. Moved
+   onto the two lips, where the crossing already worked from.
+3. **`~lucien_attack` gated the Armadyl ending on `map_members`**, and Lucien's house is between
+   Edgeville and the Grand Exchange - free-to-play ground - so that branch could never be true.
+4. **The Staff of Armadyl was spawned on the table's own blocked tile**, and a ground obj can only
+   be taken by standing on it, so Take was refused for ever and the Lucien ending was shut as well.
+   Moved one tile north, against the table.
+
+Also completed on the way: the cellar trapdoor south of the Ranging Guild (`ikov_trapdoor_down` had
+no handler while the ladder below it climbed out), and `[ai_queue3,ikov_lucien2]`, which read a
+player varp and `npc_findhero` in a single `&` - both sides of which are read before either is
+acted on, so the varp read happened with no active player.
+
+**One thing is still open**: the Guardians' ending. It walks as far as their pendant and then Lucien
+dies without the completion firing, because `npc_findhero` comes back false for him. The two endings
+are exclusive and the Lucien one is equally canonical, so the quest is walked by that side; if
+`npc_findhero` is ever chased down, the Armadyl branch is three steps from working too.
+
+Three things the walk itself needed, all worth remembering: **twenty ice arrows, not one** (the
+chest gives one to five a search and re-randomises which chest is loaded, so with the rng pinned it
+is the same chest twenty times - one arrow was why the Fire Warrior looked unkillable); **twelve
+ticks for a summoned npc to settle** before the fight step looks at him; and **wear something else
+in the same slot** when a worn item has to come off, because nothing in the harness unequips.
+
+### The Wise Old Man, and the one beat Swan Song still cannot build
+**THE WISE OLD MAN IS PLACED NOW** (3088,3251, Draynor), on the owner's instruction, and the two
+quests that had been written around his absence have their missing legs:
+- **Garden of Tranquillity** unlocks the Ring of Charos through him - seven diplomacy questions, six
+  of them right, on the scenarios the wiki's transcript gives. 88/88.
+- **Swan Song** stops folding its own step. The letter goes out, you fetch him from Draynor with ten
+  mist runes, ten lava and five blood, and he takes the morning boat himself. 109/109.
+
+Npc 2253 was in the cache all along with a full model set, a walking stick, a head and op1=Talk-to,
+and was spawned in no map square at all. **When a quest leg looks unbuildable because its npc "does
+not exist", check whether it exists and is merely unplaced** - that is a jm2 line, not missing
+content. What remains genuinely unbuildable in Swan Song is only the other beat:
+- **the army chain** (Wizard Frumscone, then Malignius Mortifer, a brown apron, an airtight pot and
+  the Crafting Guild pottery). Malignius does not exist in this cache at all, and neither does the
+  airtight pot or a bone-seed pot. Arnold handing over the book and the packet out of the Wise Old
+  Man's hand is as close as the cache allows.
+
+### What is left
+Everything still marked NOT AUDITED or AUDITED in the tables above - **twenty-nine** of them, all
+in the members' table, counting both NOT AUDITED and AUDITED (an AUDITED row was driven by one of
+the audit sweeps but never walked end to end). By size, the smallest left are: Zogre Flesh
+Eaters (1068), Ghosts Ahoy (1173), Enakhra's Lament (1187), Fight Arena (1208), Regicide
+(1210), Murder Mystery (1253), Recruitment Drive (1330), Animal Magnetism (1333), The Feud
+(1357), Nature Spirit (1373), Eagles' Peak (1386), Mourning's End Part 1 (1388), The Grand
+Tree (1615), Death Plateau (1666). The genuinely long ones - Legends Quest
+(5847), The Fremennik Trials (3383), The Tourist Trap (3120), Recipe for Disaster (3022), Throne of
+Miscellania (2729), Digsite (2647), Mourning's End Part 2 (2573), Underground Pass (2442), Desert
+Treasure (2288) - are best taken one at a time with a fresh context.
+
+### The re-run sweep, 22 Oct
+**Twenty-one manifests re-run after this session's content changes, all green.** The one that
+mattered was `scripts/player/scripts/equip.rs2`: the boots-of-lightness swap-back goes in
+`[proc,on_unequip]`, which every unequip in the game funnels through, so the sweep deliberately
+included quests that wear things.
+
+  quest_garden 88/88 · quest_swansong 109/109 · quest_golem 65/65 · quest_fever 81/81 ·
+  quest_mdaughter 123/123 · quest_fenkenstrain 75/75 · quest_handsand 53/53 · quest_deal 116/116 ·
+  quest_dreammentor 86/86 · quest_fluffs 41/41 · quest_ratcatch 73/73 · quest_elemental 58/58 ·
+  quest_mcannon 71/71 · quest_troll_love 63/63 · quest_cook 23/23 · quest_sheep 11/11 ·
+  quest_vampire 20/20 · quest_doric 9/9 · quest_imp 7/7 · quest_prince 38/38 ·
+  quest_restlessghost 28/28 · quest_romeojuliet 36/36
+
+That is the oldest eight and the newest thirteen; the middle of the list is still to sweep, and it
+is cheap - one line each, about a minute a manifest.
+
+### Biohazard: scanned clean, and that is worth saying
+First of the next batch, and the unused-cache scan came back with **nothing** - every `bio*` obj is
+referenced by the quest, and the two locs the scan flagged are both fine: `biohazarddummy` is
+scenery, and `bionursescupboardshut` (the hospital cupboard the doctor's gown is in) carries
+`category=cupboard_closed` and `param=cupboard_other`, so the generic `[oploc1,_cupboard_closed]` in
+general_use/scripts/cupboards.rs2 opens it. **A loc the quest folder never names is not an unhandled
+loc** - check the category before believing the scan.
+
+The stage spine also matches the real quest beat for beat: started, Jerico, the birdfeed, the
+pigeons released, the ladder, the stew poisoned, the distillator found and given, the chemist, the
+secret, reported to Elena. Seven npc files cover Jerico, the chemist, Guidor, Guidor's wife and all
+three of Hops, Chancy and Da Vinci.
+
+So Biohazard looks like one of the built ones rather than one of the invented ones, and what it
+needs is a walk: Elena in West Ardougne, Jerico's cupboard and cage, the mourner HQ ladder, the
+stew, the distillator, the gown out of the hospital cupboard, one of the three smugglers, Guidor in
+Varrock and back. That is where the next session starts.
+
+### Temple of Ikov: two things, either of which made it unfinishable
+The unused-thing scan found it in one pass: `ikov_bootsoflightness` and `ikov_bootsoflightnessworn`
+were referenced nowhere in the quest. They differ only in weight - 12oz pocketed, **-10lb worn** -
+and the lava bridge refuses anybody whose weight is not already negative, so **the bridge could not
+be crossed and the quest could not be finished**. Both the boots and a knife and the slashable web
+over them were already in the map; only the swap was missing. It is in now, on the way on
+(`[opheld2,ikov_bootsoflightness]`) and on the way off (`[proc,on_unequip]`, the hook the greegrees
+use), and measured at 340g pocketed against -4,535g worn.
+
+**And the bridge fired on tiles nobody can stand on.** The crossing is a per-tick timer testing
+`inzone(2648,9828 .. 2650,9829)` - the lava gap itself. `joinpocket` from either side: 591 tiles
+east, 11 tiles west, never touching, and no loc on the boundary; the route-finder refuses the one
+step from 2651,9828 to 2650,9828. So the trigger could never fire, the lever across the gap was
+unobtainable, the bracket had nothing to take, the south room never opened, there were no ice
+arrows, and the Fire Warrior - who takes damage from nothing else - could not be hurt. The crossing
+itself already worked from either lip, so the zone moved onto the lips (2647 and 2651) and the gap
+constants stay, because the forcemove is still measured from them.
+
+Also completed: `ikov_trapdoor_down` (2637,3408) had no handler while the ladder at the bottom of it
+climbs back out - a one-way pair. That is the cellar of crates south of the Ranging Guild, NOT the
+temple: the temple's own entrance is `loc_1754` at 2677,3405 and is handled generically.
+
+**The walk is WIP at 52 of 53, as far as the Fire Warrior of Lesarkus arriving.** Proven: Lucien's
+interview, the temple ladder (`loc_1754` at 2677,3405), the dark stairs, the web, the boots and
+their swap, the pendant, the gate of fear, the lava gap, the double door at the end of the far ledge
+(`loc_1516`/`loc_1519` at 2645,9828-9), the lever off the floor, the bracket (a shape-7 wall fitting
+- east or north of it, never west), the mended lever, the south gate, an ice arrow out of the right
+chest (forceapproach 14 leaves only its south side), both gates re-opened on the way back, the
+trapped lever searched and pulled, and the door it unbolts.
+
+**The walk is at 85 of 86 - everything but the last blow.** The Fire Warrior was never unkillable:
+the run was carrying ONE ice arrow. The chest gives one to five a search and re-randomises which
+chest is loaded, so with the rng pinned the run searches the same one twenty times and he dies in 77
+ticks. After him: Winelda's twenty limpwurt roots and the Guardians' pendant.
+
+Two things the walk turned up on the way:
+- **The Guardians really do refuse to talk to a player wearing Lucien's pendant**, which is the
+  wiki's warning and is implemented. There is no harness call for unequipping, so the pendant comes
+  off the way the engine takes it off: **wear something else in the same slot** and `~try_equip`
+  pops the old one into the pack. Worth remembering for any quest that needs a worn item removed.
+- **Lucien dies four times at the end and the stage stays at 70.** `[ai_queue3,ikov_lucien2]` only
+  queues the completion when `npc_findhero = true & %ikov = ^ikov_helping_armadyl`. The stage is 70,
+  so `npc_findhero` is coming back false and he falls through to an ordinary death instead. Whether
+  that is the damage tracking, `~lucien_attack`'s `map_members` check in a free-to-play Edgeville, or
+  the harness, is the ONE thing left on this quest - and it is the next thing to look at.
+
+Two things that cannot be exercised by a sim player at all, both worth knowing for other quests:
+the lava crossing (its timer reads `weight`, and nothing calls `calculateRunWeight()` outside
+NetworkPlayer, so a sim player always weighs zero and would be thrown in), and anything else that
+reads weight. Probes that need it must call `calculateRunWeight()` themselves, as
+`tools/sim/ikovboots.ts` does.
+
+**Watch for files going missing.** Part way through this session `maps/ignore.csv` and
+`scripts/areas/area_lumbridge/scripts/man.rs2` showed up deleted in the content worktree, with
+nothing in this session having touched either. rs2check caught it: the script count fell from 2069
+to 2068. Both were restored with `git checkout --` before committing. **Check `git status` for `D`
+lines before every commit** - the count in rs2check's last line is a cheap canary.
+
+**THREE REBUILDS IN A ROW, AND THE SAME TELL EACH TIME: AN UNUSED THING IN THE CACHE.** Mountain
+Daughter had six varbits nothing read. Creature of Fenkenstrain had `op3=Pickpocket` on the doctor's
+own model and a reward obj sitting in its own id block. The Hand in the Sand had a multiloc state
+describing a vial on Betty's counter, a pocketful of sand with no use, and an npc called Mazion
+standing on the Entrana sand heap for one line of flavour. **The unused thing is the missing step.**
+Grep every name in a quest's configs for a reader before reading the scripts, because the scripts
+will read as finished either way.
+
+**A QUEST CAN BE WRONG IN THE PLOT AND STILL LOOK FINISHED.** Mountain Daughter had 822 lines, a
+journal with a line for every stage, source comments, and a completion scroll - and it was a
+different story from the one the quest tells. The cache is what settles it, and it settles it in
+plain English: an obj's `desc` names who the necklace belonged to, a loc's `name` says the pool is a
+Shining pool with singing in it rather than sulphur gas, a `param=next_obj_stage` says eating the
+fruit leaves a seed, and **a varbit nothing reads is a step nobody built** - mud_var, relations_var,
+food_var, brundt_done, bear_discovery and bear_mayattack were all unused, and all six are beats of
+the real quest. Before touching the scripts, read every `name=` and `desc=` in the quest's own
+configs and grep each varbit for a reader.
+
+**A TELEPORT INTO A FIGHT IS A QUESTION ABOUT GETTING OUT AGAIN.** Troll Romance's duel teleports
+both of you into the Troll Arena, which floods to 614 tiles and touches nothing else on foot: the
+only way out is its own doors, and those stay shut until Troll Stronghold is done. It is, because
+Troll Romance requires it - but that is an argument, not a check, and the manifest walks out through
+the doors instead. **Whenever a script teleports the player somewhere to fight, flood that
+destination and find the exit before calling the quest finished.**
+
+**AN OP ON A LOC NOTHING EVER PLACES IS A DEAD OP, AND IT READS AS FINISHED CONTENT.** Cabin Fever's
+two lockers each had a second loc - open model, Search, Close - and no `loc_change` anywhere in the
+quest to put it on the map. Reading the scripts top to bottom shows a locker that opens and a locker
+that searches and nothing looks wrong; the giveaway is that the `_open` name appears only in its own
+`[oploc1]` header. **Grep every loc name in a quest's .loc for a `loc_change` to it** - a name with
+no writer is either dead or the step that is missing.
 
 **A LOC OFTEN STANDS ON THE BLOCKED TILE, NOT BESIDE IT.** Four of the last five manifests lost a
 run to a `go ... exact` aimed at the loc's own coordinate: Uzer's staircase is a 3x3 block of
