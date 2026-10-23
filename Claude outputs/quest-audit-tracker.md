@@ -82,14 +82,14 @@ things. A flaky audit is a weak audit.
 | Elemental Workshop | quest_elemental_workshop | 543 | WALKED | quest_elemental_run.ts (58/58) |
 | Enakhra's Lament | quest_enakh | 1187 | NOT AUDITED | |
 | Family Crest | quest_crest | 994 | WALKED | quest_crest_run.ts (76/76) |
-| The Feud | quest_feud | 1357 | AUDITED | audit2 |
+| The Feud | quest_feud | 1357 | WALKED | quest_feud_run.ts (146/146) |
 | Fight Arena | quest_arena | 1208 | NOT AUDITED | |
 | Fishing Contest | quest_fishingcompo | 295 | WALKED | quest_fishingcompo_run.ts (20/20) |
 | Forgettable Tale... | quest_forget | 453 | WALKED | quest_forget_run.ts (34/34) |
 | The Fremennik Trials | quest_viking | 3383 | NOT AUDITED | |
 | Garden of Tranquillity | quest_garden | 638 | WALKED | quest_garden_run.ts (88/88) |
 | Gertrude's Cat | quest_fluffs | 625 | WALKED | quest_fluffs_run.ts (41/41) |
-| Ghosts Ahoy | quest_ahoy | 1173 | AUDITED | audit3 |
+| Ghosts Ahoy | quest_ahoy | 1173 | WALKED | quest_ahoy_run.ts (168/168) |
 | The Giant Dwarf | quest_giantdwarf | 343 | WALKED | quest_giantdwarf_run.ts (18/18) |
 | The Golem | quest_golem | 640 | WALKED | quest_golem_run.ts (65/65) |
 | The Grand Tree | quest_grandtree | 1615 | NOT AUDITED | |
@@ -110,7 +110,7 @@ things. A flaky audit is a weak audit.
 | Making History | quest_makinghistory | 700 | WALKED | quest_makinghistory_run.ts (39/39) |
 | Merlin's Crystal | quest_arthur | 515 | WALKED | quest_arthur_run.ts (26/26) |
 | Monk's Friend | quest_drunkmonk | 142 | WALKED | quest_drunkmonk_run.ts (26/26) |
-| Monkey Madness | quest_mm | 1846 | PARTIAL | audit1 (Marim's gate only) |
+| Monkey Madness | quest_mm | 1846 | WALKED | quest_mm_run.ts (144/144) |
 | Mountain Daughter | quest_mdaughter | 710 | WALKED | quest_mdaughter_run.ts (123/123) |
 | Mourning's End Part 1 | quest_mourning | 1388 | AUDITED | audit1 |
 | Mourning's End Part 2 | quest_mourning2 | 2573 | AUDITED | audit2 |
@@ -149,7 +149,7 @@ things. A flaky audit is a weak audit.
 | Watch Tower | quest_itwatchtower | 2124 | AUDITED | audit1 |
 | Waterfall Quest | quest_waterfall | 888 | WALKED | quest_waterfall_run.ts (51/51) |
 | Witch's House | quest_ball | 343 | WALKED | quest_ball_run.ts (51/51) |
-| Zogre Flesh Eaters | quest_zogre | 1068 | AUDITED | audit3 |
+| Zogre Flesh Eaters | quest_zogre | 1068 | WALKED | quest_zogre_run.ts (73/73) |
 
 ## Also in the quests directory, not on the list
 
@@ -245,6 +245,10 @@ where it stopped. **WALKED** in the tables above means that manifest passes ever
 | 75 | Plague City | 75/75 | **two things, each of which stopped the quest dead.** (1) The picture of Elena was spawned on the round table's own tile at 2576,3334, and a ground obj can only be taken by standing on its tile - so Take was refused for ever, and that picture is the only thing in the whole of the content that makes Jethick recognise her. (2) The clerk looked for Bravek within seven tiles of the PLAYER, and that line is the only way out of ^quest_elena_spoke_to_plague_house: Bravek wanders the room behind a fifty-two tile office, so from the north end he never answered and the stage never advanced. Widened to sixteen |
 | 76 | Hazeel Cult | 27/27 + 47/47 | **walked on BOTH sides** - the first quest in the pass where two endings are each proven rather than one standing in for the other. Ceril's side ends with the butler arrested after the cupboard search; Hazeel's with a Mahjarrat out of his coffin. The valve answer misleads: the valve the guide calls Valve 1, "north of the cave", is the cache's sewervalve3 at 2585,3245, and it is the only one turned LEFT - the content has it right. One content fix: the Carnillean cellar ladder (generic loc_1754, player tile + 6400) landed anyone approaching from the east at 2571,9667, which is solid rock with nothing adjacent to walk to |
 | 77 | Family Crest | 76/76 | **no content fixes.** Caleb's five cooked fish, the gem trader's yellow cape, Avan's perfect gold, Boot, the three-lever door puzzle under Witchaven, the perfect gold rocks, smelting and casting the ring and necklace, Johnathon's poison, Chronozon refusing to die until every one of the four Blast spells has hit him, and the gauntlets. The lever order: N up, south room, S up, out, N down, north room, R up, out, N up, south room, S down, out. questrun gained a `cast` step (a named spell at a named npc, judged on whether it LANDED) and `slot` on `press` (the jewellery panel's rows are one inv each) |
+| 78 | Zogre Flesh Eaters | 73/73 | **two things, and the second sealed the end of the quest off.** (1) Both sets of ogre stone doors in the burial tomb teleported the player up to the Jiggig surface, and they are the way IN - flood-filled on plane 2 of m38_147, the tomb is 2077 tiles, the passage behind the first pair is 44, the corridor behind the second is 123, and the three touch nowhere else, so the ceremonial chamber was unreachable. (2) Slash Bash was spawned at 2_38_147_8_50 - the tomb, one tile from the coffin landing - while the chamber is the LEVEL 0 plane of the same square, so the boss appeared behind the player at the tomb entrance and the chamber was empty. Also: questrun gained a `useObj` step, because the potion goes into a cup standing on Sithik's drawers and nothing else reached OPOBJU |
+| 79 | Ghosts Ahoy | 168/168 | **no content fixes** - the 13 October rebuild holds end to end. The manifest was already written and already good (both energy barriers crossed from the right side, all four ahoy_harbour_door placements opened, the whole town on foot); what stopped it was a questrun bug, and it is the one the runner's own comments had blamed twice for eating Rune-Draw: the talk step's retry loop handed drive() the manifest's OWN picks array, and drive() shifts options off it, so every retry met the same menu with nothing to answer. A copy per attempt, and the quest walks |
+| 80 | The Feud | 146/146 | **nothing** - the manifest was already written and passes. Its tracker row had never been updated |
+| 81 | Monkey Madness | 144/144 | **nothing** - the manifest was already written and passes, all the way to Narnode. Its row said PARTIAL from an audit sweep that only reached Marim's gate |
 
 **EVERY FREE QUEST NOW WALKS.** Eighteen of eighteen, each with a `questrun` manifest that plays it
 from start to finish on foot and passes every check.
@@ -327,8 +331,8 @@ refusals in a row.
 
 ## Where to pick this up
 
-**77 quests and miniquests walked** of the 104 on the list, plus two miniquests: all eighteen free
-quests and fifty-seven of the eighty-six members' quests. Twenty-nine members' quests to go. Every one has a file in `Engine-TS/tools/sim/` that plays it and passes every check;
+**81 quests and miniquests walked** of the 104 on the list, plus two miniquests: all eighteen free
+quests and sixty-one of the eighty-six members' quests. Twenty-five members' quests to go. Every one has a file in `Engine-TS/tools/sim/` that plays it and passes every check;
 rerun any of them with `npx tsx tools/sim/<name>.ts`.
 
 **One flag to know about:** `NODE_MEMBERS=true` is commented out in `Engine-TS/.env`, so a sim boots
@@ -400,13 +404,13 @@ content. What remains genuinely unbuildable in Swan Song is only the other beat:
   Man's hand is as close as the cache allows.
 
 ### What is left
-Everything still marked NOT AUDITED or AUDITED in the tables above - **twenty-nine** of them, all
+Everything still marked NOT AUDITED or AUDITED in the tables above - **twenty-five** of them, all
 in the members' table, counting both NOT AUDITED and AUDITED (an AUDITED row was driven by one of
-the audit sweeps but never walked end to end). By size, the smallest left are: Zogre Flesh
-Eaters (1068), Ghosts Ahoy (1173), Enakhra's Lament (1187), Fight Arena (1208), Regicide
-(1210), Murder Mystery (1253), Recruitment Drive (1330), Animal Magnetism (1333), The Feud
-(1357), Nature Spirit (1373), Eagles' Peak (1386), Mourning's End Part 1 (1388), The Grand
-Tree (1615), Death Plateau (1666). The genuinely long ones - Legends Quest
+the audit sweeps but never walked end to end). By size, the smallest left are: Enakhra's
+Lament (1187), Fight Arena (1208), Regicide (1210), Murder Mystery (1253), Recruitment Drive
+(1330), Animal Magnetism (1333), Nature Spirit (1373), Eagles' Peak (1386), Mourning's End
+Part 1 (1388), The Grand Tree (1615), Death Plateau (1666), Horror from the Deep (1858). The
+genuinely long ones - Legends Quest
 (5847), The Fremennik Trials (3383), The Tourist Trap (3120), Recipe for Disaster (3022), Throne of
 Miscellania (2729), Digsite (2647), Mourning's End Part 2 (2573), Underground Pass (2442), Desert
 Treasure (2288) - are best taken one at a time with a fresh context.
@@ -496,13 +500,13 @@ content. What remains genuinely unbuildable in Swan Song is only the other beat:
   Man's hand is as close as the cache allows.
 
 ### What is left
-Everything still marked NOT AUDITED or AUDITED in the tables above - **twenty-nine** of them, all
+Everything still marked NOT AUDITED or AUDITED in the tables above - **twenty-five** of them, all
 in the members' table, counting both NOT AUDITED and AUDITED (an AUDITED row was driven by one of
-the audit sweeps but never walked end to end). By size, the smallest left are: Zogre Flesh
-Eaters (1068), Ghosts Ahoy (1173), Enakhra's Lament (1187), Fight Arena (1208), Regicide
-(1210), Murder Mystery (1253), Recruitment Drive (1330), Animal Magnetism (1333), The Feud
-(1357), Nature Spirit (1373), Eagles' Peak (1386), Mourning's End Part 1 (1388), The Grand
-Tree (1615), Death Plateau (1666). The genuinely long ones - Legends Quest
+the audit sweeps but never walked end to end). By size, the smallest left are: Enakhra's
+Lament (1187), Fight Arena (1208), Regicide (1210), Murder Mystery (1253), Recruitment Drive
+(1330), Animal Magnetism (1333), Nature Spirit (1373), Eagles' Peak (1386), Mourning's End
+Part 1 (1388), The Grand Tree (1615), Death Plateau (1666), Horror from the Deep (1858). The
+genuinely long ones - Legends Quest
 (5847), The Fremennik Trials (3383), The Tourist Trap (3120), Recipe for Disaster (3022), Throne of
 Miscellania (2729), Digsite (2647), Mourning's End Part 2 (2573), Underground Pass (2442), Desert
 Treasure (2288) - are best taken one at a time with a fresh context.
