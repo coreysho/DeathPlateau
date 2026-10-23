@@ -63,7 +63,7 @@ things. A flaky audit is a weak audit.
 | A Fairy Tale Pt. 1 | quest_fairy | 369 | WALKED | quest_fairy_run.ts (35/35) |
 | A Soul's Bane | quest_soulbane | 1206 | WALKED | quest_soulbane_run.ts (35/35) |
 | A Tail of Two Cats | quest_twocats | 637 | WALKED | quest_twocats_run.ts (45/45) |
-| Animal Magnetism | quest_animmag | 1333 | NOT AUDITED | |
+| Animal Magnetism | quest_animmag | 1333 | WALKED | quest_animmag_run.ts (68/68) |
 | Between a Rock... | quest_dwarfrock | 337 | WALKED | quest_dwarfrock_run.ts (32/32) |
 | Big Chompy Bird Hunting | quest_chompybird | 1936 | NOT AUDITED | |
 | Biohazard | quest_biohazard | 797 | WALKED | quest_biohazard_run.ts (81/81) |
@@ -254,6 +254,7 @@ where it stopped. **WALKED** in the tables above means that manifest passes ever
 | 84 | Murder Mystery | 33/33 | **the fingerprints could never be lifted.** `[opheldu,_murder_flourobj]` read its two halves the wrong way round: in an opheldu script `last_item` is the half that carried the trigger, so the category script was testing the half it was already holding. The step before it worked by luck, through the decline path. Also walked: the flypaper, the dagger, the window thread, the barrel silver, the poison salesman and the compost heap, with the culprit pinned to Anna |
 | 85 | Recruitment Drive | 69/69 | **no content fixes** - and the walk sits all SEVEN tests rather than the five a run draws, by clearing the completion bits after the draw. The bridge, the twelve statues, Sir Leye unarmed (a blade fails the room), Sir Tinley's thirteen ticks of not clicking anything, the acrostic, Miss Cheevers' lab and the logic riddle. No teleports between rooms: each exit door sends the player on. Two stale comments claiming rooms 1 and 6 "are not built yet" were corrected |
 | 86 | Regicide | 73/73 | **five faults, and four of them were in the forest.** The dense forest, the leaf pits, the tripwires and the spring of sticks all moved the player NOWHERE: every one called `~forcewalk2`, which goes through `~clipped_telewalk` and checks `map_blocked` on each tile of the way, so it gave up silently the moment one was solid - and a band of dense forest is solid by definition. They now use `~forcemove` and walk to the first clear tile past the obstacle, because every dense forest type is width=3 length=2 and a fixed two tiles landed the player inside the scenery. The three log balances over the river had NO HANDLER at all, and neither did `regicide_old_camp_footprints` (op1=Follow) - the tracks west of the Elf Tracker, which are both a step of the quest and the only way into the old camp. The three traps also ignored Agility entirely; they now use the wiki's published figures. And the fractionalising still could not be finished by following the instructions: the release valve at Half bled 3 against an inflow of 7, so the pressure climbed regardless and left the green zone eight ticks later. Lord Iorwerth now answers for each of the five bomb components, which is its own step in the guide. **Isafdar itself is still not walkable** - see the note below |
+| 87 | Animal Magnetism | 68/68 | **no content fixes.** The six exchanges between Alice and her dead husband, the Old Crone's amulet, two birds for twenty ecto-tokens, the Witch's five iron bars, the hammer blow in the Rimmington mine, the axe bouncing off the undead tree, Turael's blessed axe for a mithril axe and a holy symbol, the twigs, the research notes, polishing the buttons and stitching the container. Two randomised steps pinned: the notes want three lines of five marks in a row, and one cut in three fails. One thing a walk cannot prove and it is correct behaviour: Turael has two conversations and which you get depends on whether you are already carrying the price |
 
 **EVERY FREE QUEST NOW WALKS.** Eighteen of eighteen, each with a `questrun` manifest that plays it
 from start to finish on foot and passes every check.
@@ -336,8 +337,8 @@ refusals in a row.
 
 ## Where to pick this up
 
-**86 quests and miniquests walked** of the 104 on the list, plus two miniquests: all eighteen free
-quests and sixty-six of the eighty-six members' quests. Twenty members' quests to go. Every one has a file in `Engine-TS/tools/sim/` that plays it and passes every check;
+**87 quests and miniquests walked** of the 104 on the list, plus two miniquests: all eighteen free
+quests and sixty-seven of the eighty-six members' quests. Nineteen members' quests to go. Every one has a file in `Engine-TS/tools/sim/` that plays it and passes every check;
 rerun any of them with `npx tsx tools/sim/<name>.ts`.
 
 **One flag to know about:** `NODE_MEMBERS=true` is commented out in `Engine-TS/.env`, so a sim boots
@@ -409,10 +410,10 @@ content. What remains genuinely unbuildable in Swan Song is only the other beat:
   Man's hand is as close as the cache allows.
 
 ### What is left
-Everything still marked NOT AUDITED or AUDITED in the tables above - **twenty** of them, all
+Everything still marked NOT AUDITED or AUDITED in the tables above - **nineteen** of them, all
 in the members' table, counting both NOT AUDITED and AUDITED (an AUDITED row was driven by one of
 the audit sweeps but never walked end to end). By size, the smallest left are:
-Animal Magnetism (1333), Nature Spirit (1373), Eagles' Peak (1386), Mourning's End
+Nature Spirit (1373), Eagles' Peak (1386), Mourning's End
 Part 1 (1388), The Grand Tree (1615), Death Plateau (1666), Horror from the Deep (1858),
 Big Chompy Bird Hunting (1936), Lunar Diplomacy (1971), Watch Tower (2124), Shilo Village (2171). The
 genuinely long ones - Legends Quest
@@ -505,10 +506,10 @@ content. What remains genuinely unbuildable in Swan Song is only the other beat:
   Man's hand is as close as the cache allows.
 
 ### What is left
-Everything still marked NOT AUDITED or AUDITED in the tables above - **twenty** of them, all
+Everything still marked NOT AUDITED or AUDITED in the tables above - **nineteen** of them, all
 in the members' table, counting both NOT AUDITED and AUDITED (an AUDITED row was driven by one of
 the audit sweeps but never walked end to end). By size, the smallest left are:
-Animal Magnetism (1333), Nature Spirit (1373), Eagles' Peak (1386), Mourning's End
+Nature Spirit (1373), Eagles' Peak (1386), Mourning's End
 Part 1 (1388), The Grand Tree (1615), Death Plateau (1666), Horror from the Deep (1858),
 Big Chompy Bird Hunting (1936), Lunar Diplomacy (1971), Watch Tower (2124), Shilo Village (2171). The
 genuinely long ones - Legends Quest
