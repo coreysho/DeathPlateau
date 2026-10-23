@@ -115,7 +115,7 @@ things. A flaky audit is a weak audit.
 | Mourning's End Part 1 | quest_mourning | 1388 | AUDITED | audit1 |
 | Mourning's End Part 2 | quest_mourning2 | 2573 | AUDITED | audit2 |
 | Murder Mystery | quest_murder | 1253 | WALKED | quest_murder_run.ts (33/33) |
-| Nature Spirit | quest_druidspirit | 1373 | NOT AUDITED | |
+| Nature Spirit | quest_druidspirit | 1373 | WALKED | quest_druidspirit_run.ts (71/71) |
 | Observatory Quest | quest_itgronigen | 849 | WALKED | quest_observatory_run.ts (49/49) |
 | One Small Favour | quest_onesmallfavour | — | NOT AUDITED | check: no directory of that name |
 | Plague City | quest_elena | 903 | WALKED | quest_plaguecity_run.ts (75/75) |
@@ -255,6 +255,7 @@ where it stopped. **WALKED** in the tables above means that manifest passes ever
 | 85 | Recruitment Drive | 69/69 | **no content fixes** - and the walk sits all SEVEN tests rather than the five a run draws, by clearing the completion bits after the draw. The bridge, the twelve statues, Sir Leye unarmed (a blade fails the room), Sir Tinley's thirteen ticks of not clicking anything, the acrostic, Miss Cheevers' lab and the logic riddle. No teleports between rooms: each exit door sends the player on. Two stale comments claiming rooms 1 and 6 "are not built yet" were corrected |
 | 86 | Regicide | 73/73 | **five faults, and four of them were in the forest.** The dense forest, the leaf pits, the tripwires and the spring of sticks all moved the player NOWHERE: every one called `~forcewalk2`, which goes through `~clipped_telewalk` and checks `map_blocked` on each tile of the way, so it gave up silently the moment one was solid - and a band of dense forest is solid by definition. They now use `~forcemove` and walk to the first clear tile past the obstacle, because every dense forest type is width=3 length=2 and a fixed two tiles landed the player inside the scenery. The three log balances over the river had NO HANDLER at all, and neither did `regicide_old_camp_footprints` (op1=Follow) - the tracks west of the Elf Tracker, which are both a step of the quest and the only way into the old camp. The three traps also ignored Agility entirely; they now use the wiki's published figures. And the fractionalising still could not be finished by following the instructions: the release valve at Half bled 3 against an inflow of 7, so the pressure climbed regardless and left the green zone eight ticks later. Lord Iorwerth now answers for each of the five bomb components, which is its own step in the guide. **Isafdar itself is still not walkable** - see the note below |
 | 87 | Animal Magnetism | 68/68 | **no content fixes.** The six exchanges between Alice and her dead husband, the Old Crone's amulet, two birds for twenty ecto-tokens, the Witch's five iron bars, the hammer blow in the Rimmington mine, the axe bouncing off the undead tree, Turael's blessed axe for a mithril axe and a holy symbol, the twigs, the research notes, polishing the buttons and stitching the container. Two randomised steps pinned: the notes want three lines of five marks in a row, and one cut in three fails. One thing a walk cannot prove and it is correct behaviour: Turael has two conversations and which you get depends on whether you are already carrying the price |
+| 88 | Nature Spirit | 71/71 | **no content fixes.** Drezel's pies, the gate into Mort Myre (Filliman does not appear unless you came that way), the mirror under the washing bowl, the journal in the knot of the grotto tree, the blessing, the bloom spell, the three stones loaded in order with the player standing on the faith stone, the transformation, the blessed sickle, three mushrooms into a druid pouch, three Ghasts bound and killed. Three things to know: Drezel only reaches the Nature Spirit switch at `^priestperil_access_holy_barrier` and replaces a lost Wolfbane first; Filliman stands outside for 100 ticks at a time, less than it takes to load two stones, and clicking the grotto door is what puts him back; Bloom skips the caster's own tile and picking a mushroom leaves you standing on the log |
 
 **EVERY FREE QUEST NOW WALKS.** Eighteen of eighteen, each with a `questrun` manifest that plays it
 from start to finish on foot and passes every check.
@@ -337,8 +338,8 @@ refusals in a row.
 
 ## Where to pick this up
 
-**87 quests and miniquests walked** of the 104 on the list, plus two miniquests: all eighteen free
-quests and sixty-seven of the eighty-six members' quests. Nineteen members' quests to go. Every one has a file in `Engine-TS/tools/sim/` that plays it and passes every check;
+**88 quests and miniquests walked** of the 104 on the list, plus two miniquests: all eighteen free
+quests and sixty-eight of the eighty-six members' quests. Eighteen members' quests to go. Every one has a file in `Engine-TS/tools/sim/` that plays it and passes every check;
 rerun any of them with `npx tsx tools/sim/<name>.ts`.
 
 **One flag to know about:** `NODE_MEMBERS=true` is commented out in `Engine-TS/.env`, so a sim boots
@@ -410,10 +411,10 @@ content. What remains genuinely unbuildable in Swan Song is only the other beat:
   Man's hand is as close as the cache allows.
 
 ### What is left
-Everything still marked NOT AUDITED or AUDITED in the tables above - **nineteen** of them, all
+Everything still marked NOT AUDITED or AUDITED in the tables above - **eighteen** of them, all
 in the members' table, counting both NOT AUDITED and AUDITED (an AUDITED row was driven by one of
 the audit sweeps but never walked end to end). By size, the smallest left are:
-Nature Spirit (1373), Eagles' Peak (1386), Mourning's End
+Eagles' Peak (1386), Mourning's End
 Part 1 (1388), The Grand Tree (1615), Death Plateau (1666), Horror from the Deep (1858),
 Big Chompy Bird Hunting (1936), Lunar Diplomacy (1971), Watch Tower (2124), Shilo Village (2171). The
 genuinely long ones - Legends Quest
@@ -506,10 +507,10 @@ content. What remains genuinely unbuildable in Swan Song is only the other beat:
   Man's hand is as close as the cache allows.
 
 ### What is left
-Everything still marked NOT AUDITED or AUDITED in the tables above - **nineteen** of them, all
+Everything still marked NOT AUDITED or AUDITED in the tables above - **eighteen** of them, all
 in the members' table, counting both NOT AUDITED and AUDITED (an AUDITED row was driven by one of
 the audit sweeps but never walked end to end). By size, the smallest left are:
-Nature Spirit (1373), Eagles' Peak (1386), Mourning's End
+Eagles' Peak (1386), Mourning's End
 Part 1 (1388), The Grand Tree (1615), Death Plateau (1666), Horror from the Deep (1858),
 Big Chompy Bird Hunting (1936), Lunar Diplomacy (1971), Watch Tower (2124), Shilo Village (2171). The
 genuinely long ones - Legends Quest
