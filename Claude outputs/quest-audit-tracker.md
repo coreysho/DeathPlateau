@@ -65,7 +65,7 @@ things. A flaky audit is a weak audit.
 | A Tail of Two Cats | quest_twocats | 637 | WALKED | quest_twocats_run.ts (45/45) |
 | Animal Magnetism | quest_animmag | 1333 | WALKED | quest_animmag_run.ts (68/68) |
 | Between a Rock... | quest_dwarfrock | 337 | WALKED | quest_dwarfrock_run.ts (32/32) |
-| Big Chompy Bird Hunting | quest_chompybird | 1936 | NOT AUDITED | |
+| Big Chompy Bird Hunting | quest_chompybird | 1936 | WALKED | quest_chompy_run.ts (83/83) |
 | Biohazard | quest_biohazard | 797 | WALKED | quest_biohazard_run.ts (81/81) |
 | Cabin Fever | quest_fever | 664 | WALKED | quest_fever_run.ts (81/81) |
 | Clock Tower | quest_cog | 64 | WALKED | quest_cog_run.ts (22/22) |
@@ -261,6 +261,7 @@ where it stopped. **WALKED** in the tables above means that manifest passes ever
 | 91 | The Grand Tree | 61/61 | **the escape glider was a coin toss.** After Glough has you arrested and the King lets you out, the glider on top of the tree is the only way out of the stronghold - Glough has put guards on the front gate - and the pilot's escape dialogue asked whether HE was standing inside a five-by-five patch of the platform. He wanders out of it: on two runs in a row he was at 2464,3497 and then 2464,3501, and only the second offered the flight; the first gave the ordinary Gnome Air menu, which there is a dead end. He is the only pilot_grand_tree on plane 3, so the branch asks about the plane now. Also walked: the five-menu translation of Hazelmere's scroll, Charlie in the cage, the journal, the Ka-Lu-Min password, the foreman's three questions, Anita's key, the four twigs spelling TUZO, the Black demon and the last Daconia rock. Two things to know: climbing `grandtree_laddermiddle` is what spawns Charlie, and the cutscene under the trapdoor only puts the demon on the floor at the END of Glough's speech |
 | 92 | Death Plateau | 59/59 | **Harold's dice settled the bet before it was placed.** `[queue,haroldgamble_end]` is the hand's settler - it charges a player who walks away mid-roll and it is what makes a bankrupt Harold write the IOU the whole quest hangs on - and it cleared the stake as its FIRST line, then called `~dice_winnings`. So walking away was free and the next roll reached `inv_add(inv, coins, 0)`, which is a script error, not a no-op, thrown out of the roll button and seen as a dead dice window. Settle then clear, and a zero stake returns early. Also walked: Eohric, the ale, the Blurberry Special, the hand that bankrupts him, the IOU on the back of the combination, the five stone balls on six plinths, Saba, Tenzing, Dunstan, the certificate, the spiked boots, ten loaves and ten trout, the stile and the scout. **questrun gained `count`** (answers a p_countdialog) **and `zone`** (fires a `[zone,...]` trigger - `Player.triggerZone` is NetworkPlayer-only, so a harness player never gets one) |
 | 93 | Horror from the Deep | 52/52 | **No content fault - but the map nearly produced one.** A grep for the two `horror_broken_bridge_*_spot` jump spots at plane 0 found nothing anywhere in the maps, which reads as "the wiki's bridge-repair step has no loc to click" and a quest hard-blocked at step 3. They are on PLANE 1 of m40_56 with their tiles flagged `f2`/`f3` - bit 1 is `GameMap.LINK_BELOW`, and GameMap resolves such a loc to `level - 1`. Runtime 2596,3608 and 2598,3608, exactly where `~horror_cross_bridge` expects them. Walked: Larrissa, Gunnjorn's key, both spans and the leap, the front door (which moves the player into m38_71, the smashed copy of the lighthouse, and back out of it when the Mother dies), the bookcase and two of the three books, tar/tinderbox/glass on the mechanism, the six-icon wall, Jossik, the level-100 Dagannoth, the Mother and the casket. **The Mother is the hardest fight in the pass:** she changes colour every 30 ticks and only matching damage touches her, so the fight step takes all six of her forms as its type list (each colour is its own npc_type) and is judged on %horror, not on a corpse - 758 ticks over 50 re-engagements with a dragon scimitar against her +150 melee defence |
+| 94 | Big Chompy Bird Hunting | 83/83 | **The chompy bird landed outside its own hunt range.** `~spawn_chompy_bird` called `map_findsquare($coord, 4, 4, 1)`, and those two arguments are a MINIMUM and a MAXIMUM radius - so the bird was placed exactly four tiles from the toad that had just called it, while `chompy_bird` has `huntrange=2` and the hunt's own arrival check is `npc_find(..., bloated_toad, 2, ...)`. It could not see the bait, never ate it, nothing set `^chompybird_chompy_ate_toad`, and Rantz - who only shoots from that stage on - just stood there. The only thing that ever got past it was the bird's `wanderrange=3` happening to carry it within two tiles. It lands one to two tiles away now, by line of walk. Also walked: Fycie's flufsies and Bugs's scratchers, four achey trees, the whole fletching chain (shafts, feathers, a wolf kill for the bones, tips, arrows), Rantz's six, the ogre chest's Strength roll, the bellows' three charges, three toads, the bait, Rantz's miss, the bow, the kill, the pluck, both children's seasonings, the spit roast. **questrun gained `wakehunt`** (a hunt whose nobodynear is PAUSEHUNT - the default - only runs while a real client is observing the npc, so no npc in a sim has ever hunted anything) **and `op` on `fight`** (the Chompy Bird's Attack is op5, not op2) |
 
 **EVERY FREE QUEST NOW WALKS.** Eighteen of eighteen, each with a `questrun` manifest that plays it
 from start to finish on foot and passes every check.
@@ -343,8 +344,8 @@ refusals in a row.
 
 ## Where to pick this up
 
-**93 quests and miniquests walked** of the 104 on the list, plus two miniquests: all eighteen free
-quests and seventy-three of the eighty-six members' quests. Thirteen members' quests to go. Every one has a file in `Engine-TS/tools/sim/` that plays it and passes every check;
+**94 quests and miniquests walked** of the 104 on the list, plus two miniquests: all eighteen free
+quests and seventy-four of the eighty-six members' quests. Twelve members' quests to go. Every one has a file in `Engine-TS/tools/sim/` that plays it and passes every check;
 rerun any of them with `npx tsx tools/sim/<name>.ts`.
 
 **One flag to know about:** `NODE_MEMBERS=true` is commented out in `Engine-TS/.env`, so a sim boots
@@ -416,10 +417,10 @@ content. What remains genuinely unbuildable in Swan Song is only the other beat:
   Man's hand is as close as the cache allows.
 
 ### What is left
-Everything still marked NOT AUDITED or AUDITED in the tables above - **thirteen** of them, all
+Everything still marked NOT AUDITED or AUDITED in the tables above - **twelve** of them, all
 in the members' table, counting both NOT AUDITED and AUDITED (an AUDITED row was driven by one of
 the audit sweeps but never walked end to end). By size, the smallest left are:
-Big Chompy Bird Hunting (1936), Lunar Diplomacy (1971), Watch Tower (2124), Shilo Village (2171). The
+Lunar Diplomacy (1971), Watch Tower (2124), Shilo Village (2171). The
 genuinely long ones - Legends Quest
 (5847), The Fremennik Trials (3383), The Tourist Trap (3120), Recipe for Disaster (3022), Throne of
 Miscellania (2729), Digsite (2647), Mourning's End Part 2 (2573), Underground Pass (2442), Desert
@@ -510,10 +511,10 @@ content. What remains genuinely unbuildable in Swan Song is only the other beat:
   Man's hand is as close as the cache allows.
 
 ### What is left
-Everything still marked NOT AUDITED or AUDITED in the tables above - **thirteen** of them, all
+Everything still marked NOT AUDITED or AUDITED in the tables above - **twelve** of them, all
 in the members' table, counting both NOT AUDITED and AUDITED (an AUDITED row was driven by one of
 the audit sweeps but never walked end to end). By size, the smallest left are:
-Big Chompy Bird Hunting (1936), Lunar Diplomacy (1971), Watch Tower (2124), Shilo Village (2171). The
+Lunar Diplomacy (1971), Watch Tower (2124), Shilo Village (2171). The
 genuinely long ones - Legends Quest
 (5847), The Fremennik Trials (3383), The Tourist Trap (3120), Recipe for Disaster (3022), Throne of
 Miscellania (2729), Digsite (2647), Mourning's End Part 2 (2573), Underground Pass (2442), Desert
@@ -788,3 +789,12 @@ memory before concluding anything about a tool's speed.
 The note above about the bridge spots is the second time in two days a map grep has reported a loc
 as unplaced when it was only on a floor the grep did not expect. Treat "placed nowhere in the
 660-region sweep" as a hypothesis, not a finding: ask the booted world, not the .jm2 text.
+
+### A SIM NEVER HUNTS ANYTHING (23 Oct)
+`Npc.processNpc` only calls `huntAll()` when the hunt's `nobodynear` is not `PAUSEHUNT` - which is
+the default - or when `rsbuf.getNpcObservers()` says a client is looking at the npc. A harness
+player is not a `NetworkPlayer`, so it observes nothing, and **no npc in any sim in this directory
+has ever hunted anything**. Anything in the remaining quests that depends on an npc noticing an
+object, another npc or a loc on its own needs questrun's new `wakehunt` step, not a longer `wait`.
+This is the same class of hole as `Player.triggerZone` being NetworkPlayer-only, which the `zone`
+step covers.
