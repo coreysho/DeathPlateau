@@ -268,6 +268,7 @@ where it stopped. **WALKED** in the tables above means that manifest passes ever
 | 98 | One Small Favour | 52/52 | **You could climb onto the weathervane platform and never climb off it.** The platform's walkable floor on level 3 is x 2700-2704 by z 3470-3475; every tile on z=3476 and every tile on x=2699 carries the map's impassable flag. `favour_seer_laddertop` was placed at 2699,3476 and all four of its side neighbours are impassable too, so no tile a player can stand on is beside it - and `^osf_seer_roof`, the tile the climb up lands on, was 2700,3476, impassable as well. Moved to 2700,3476 (still a wall tile, which is what a ladder should be) with the arrival on the floor tile south of it. **Also: this quest is `quest_osf`, not `quest_onesmallfavour`** - the tracker said "no directory of that name" for weeks. It is this server's compressed reading of the quest rather than OSRS's twenty-npc chain: three broken parts, three craftspeople, one of whom wants a favour of their own first. Walked: the seer, both ladders, the vane looked at and searched, Jimmy behind a picked lock in the H.A.M. hideout, Tassie for the ornament and the airtight pot, Hammerspike for the directionals, the rebuild, the forecast, all eight landing lights and the pilot |
 | 99 | Desert Treasure | 114/114 | **No content fault, and the longest spine in the pass.** `audit3.ts dt` already drove all of it as set pieces - 62 checks, the only audit in the directory that walkability-checks every ladder landing - but nothing had run it as one continuous go. Three findings only a continuous run produces, all of them routing the engine's own pathfinder will not do over the distance: **Dessous's tomb** is a 5x3 loc cut into rock that blocks everything south, east and west of it - the only tiles beside it are z=3404, x 3568-3571, to the NORTH, and approaching from the south leaves you standing inside the rock; **each pyramid maze floor** has to be crossed with a `go` to the ladder's walkable NEIGHBOUR rather than the ladder (2909,4963 then 2845,4973 then 2784,4942 - both ladders on every floor are in the same region, it is just further than findPathToLoc looks); and **the altar room** is its own region of 130 tiles with one doorway in, thirty tiles from where the maze drops you. Also worth knowing: the whole kit does not fit in one inventory (twelve magic logs, six glass and six bars are 24 unstackable slots) and Indiana will not hand over the etchings to a player with no room; `fourdiamonds_vampire_lord` is MALAK and `malak` is RUANTUN, which is the opposite way round from the obvious reading; and Fareed's gate ends in p_delay, p_telejump and then the summon, so anything that closes an interface in between - opheld does - aborts it and Fareed never appears |
 | 100 | Underground Pass | 100/100 | **No content fault, but four things the walk had to learn.** **The temple doors count what you are WEARING, not what you have on top:** the check is `inv_freespace(worn) = inv_size(worn) - 2`, the two Zamorak robes and nothing else, so a player in full rune with a bow is refused however right the robes are - questrun gained a `strip` step for it. **The dwarf brew barrel** is width 2 length 7 on an odd angle, so it spans x 2327-2333 and the tile east of its origin is INSIDE it; the click has to come from the west. **The witch's cat is USED on her door** - `[opheld5,cavewitchcat]` is the ordinary drop and loses it. And **the bridge is the only thing in the quest that wants a bow**: leaving the shortbow and a spent lit arrow on afterwards means every later fight is fought with an empty quiver, which the three paladins survived 3,600 ticks of. Also: this quest leans on `[zone,...]` triggers harder than anything else in the game - forty-odd for Iban's voice, plus the pair that arm the grid's trap timer - and a harness player fires none of them, so **the grid is free to cross in a sim and this walk is not a test of it**. Two fight-step improvements came out of it: a passive npc never comes to you, so the step now re-walks to one that is wandering out of reach, and the "unreachable" bail-out no longer fires on a fight that has had the player beside it |
+| 101 | Mourning's End Part 2 | 118/118 | **The reward was a tenth of itself, spread over two skills the quest does not touch.** The completion awarded 6,000 Agility, 6,000 Thieving and 6,000 Mining XP; the quest gives one reward and it is 60,000 Agility XP - and the crystal trinket, the obj drawn on the reward scroll and the item the wiki lists, was never handed over, because `~send_quest_complete` only DRAWS the obj (the same trap already recorded against Enakhra's camulet). Everything else in 2,573 lines was right. **What nothing had asked was whether a player can walk to any of it:** four tools drive this quest's light and one drives its second half, and all five teleport - `templealtar.ts` teleported onto 1861,4638, which is the middle of the ruins. `tools/sim/templewalk.ts` is the new probe that asks properly - flood all three floors, then put a player beside every staircase, ladder, rope, wall jump and door of light and click it, and see which region it lands in. The west end of the bottom floor (Thorgel, the ruins, the Death Altar, the hole the light leaves by) is its own 55-tile region with exactly one way in: up the east staircase to floor 2, up the wall ladder to floor 3, back DOWN the west circle staircase twice, then through `mourning_door_1_b` and `mourning_door_1_c`. The walk makes that climb four times, because the hole is the only way out of the building and Arianwyn is three conversations. **Two traps:** the stages are a high-water mark, not a sequence - every one is written behind `if (%mourning_quest_main < x)`, so a player who lights the temple before cutting the sliver never records 26 or 34 at all; and `~mt_tunnel` calls `~mt_relight`, so crawling in redraws every beam from the mirrors actually in the pillars and shuts every door on the far side - the first pass through the cyan door worked and the second, nineteen steps later, silently did nothing. **And `templeverticals.ts` was missing five of the fourteen doorways**, one of them `mourning_door_1_b`, the only way on foot to the Death Altar; all eleven that can be lit, can be lit. Walked: Arianwyn, the mourners' dig and the tunnel, the corpse and Edern's journal, the collector's kit, the black crystal looked at and chiselled, the whole climb out, Arianwyn's singing, Thorgel and his list in two batches, all twenty-one items, the death talisman, the ruins (approached from outside the 3x3 footprint), the Death Altar, the exit portal, the climb back to the top floor, the repowering and the last conversation. Only the beams are delegated |
 
 **EVERY FREE QUEST NOW WALKS.** Eighteen of eighteen, each with a `questrun` manifest that plays it
 from start to finish on foot and passes every check.
@@ -350,8 +351,8 @@ refusals in a row.
 
 ## Where to pick this up
 
-**99 quests and miniquests walked** of the 104 on the list, plus two miniquests: all eighteen free
-quests and seventy-nine of the eighty-six members' quests. Seven members' quests to go, one of
+**100 quests and miniquests walked** of the 104 on the list, plus two miniquests: all eighteen free
+quests and eighty of the eighty-six members' quests. Six members' quests to go, one of
 them (Shilo Village) part-walked - 56 checks green and stopping at Nazastarool. Every one has a file in `Engine-TS/tools/sim/` that plays it and passes every check;
 rerun any of them with `npx tsx tools/sim/<name>.ts`.
 
@@ -828,12 +829,11 @@ there" - which reads exactly like a content bug, and is not one. Anything in a q
 itself and shuts itself again wants as few ticks as possible between the clicks, and questrun's
 `first` chain is how to say so.
 
-### WHAT IS ACTUALLY LEFT (24 Oct)
-Eight quests with no walk, and what coverage each already has:
+### WHAT IS ACTUALLY LEFT (24 Oct, Mourning's End Part 2 struck off)
+Six quests with no walk, and what coverage each already has:
 
 | Quest | Dir | Lines | Existing coverage |
 | --- | --- | --- | --- |
-| Mourning's End Part 2 | quest_mourning2 | 2573 | 1 |
 | Digsite | quest_itexam | 2647 | 1 |
 | Throne of Miscellania | quest_misc | 2729 | 9, including miscellania.ts |
 | The Tourist Trap | quest_desertrescue | 3120 | 1 |
@@ -842,3 +842,20 @@ Eight quests with no walk, and what coverage each already has:
 | Legends Quest | quest_legends | 5886 | 1 |
 
 Shilo Village's showdown is the one open thread with a known next step.
+
+### A STAGE VARBIT IS A HIGH-WATER MARK (24 Oct)
+Mourning's End Part 2 cost half an hour to this and it applies to every quest in the directory.
+Quest stages are written `if (%quest < x) { %quest = x; }`, so they are a maximum, not a position:
+a player who does a later step first never records the earlier number, and never will. Two
+consequences for a walk. A manifest that delegates a stage - `setvar` to skip a puzzle - erases
+every milestone below it, so the delegation has to sit exactly where the quest's own numbering puts
+it or the `stage` assertions after it are asking for numbers that can no longer exist. And a `stage`
+step that reads high is not necessarily a bug: check whether something later already wrote it.
+
+### SOME DOORS ARE RE-LOCKED BY THE WAY IN (24 Oct)
+`~mt_tunnel` ends in `~mt_relight`, which redraws every beam in the Temple of Light from the mirrors
+actually sitting in its pillars and then runs `~m2_doors` off the result. Anything a sim set by hand
+is gone the moment the player crawls back in. The symptom is the worst kind: the click is accepted,
+the op runs, the player does not move, and the step passes because the loc was there. If a manifest
+delegates a world state and then re-enters the area through a script, re-apply the state after the
+entry, not once at the top.
