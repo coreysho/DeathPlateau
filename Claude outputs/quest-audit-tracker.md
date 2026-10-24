@@ -106,7 +106,7 @@ things. A flaky audit is a weak audit.
 | Legends Quest | quest_legends | 5847 | NOT AUDITED | the largest in the build |
 | Lost City | quest_zanaris | 248 | WALKED | quest_zanaris_run.ts (21/21) |
 | The Lost Tribe | quest_lost_tribe | 874 | WALKED | quest_losttribe_run.ts (52/52) |
-| Lunar Diplomacy | quest_lunar | 1971 | NOT AUDITED | |
+| Lunar Diplomacy | quest_lunar | 1971 | WALKED | quest_lunar_run.ts (114/114), lunar.ts (139/139) |
 | Making History | quest_makinghistory | 700 | WALKED | quest_makinghistory_run.ts (39/39) |
 | Merlin's Crystal | quest_arthur | 515 | WALKED | quest_arthur_run.ts (26/26) |
 | Monk's Friend | quest_drunkmonk | 142 | WALKED | quest_drunkmonk_run.ts (26/26) |
@@ -262,6 +262,7 @@ where it stopped. **WALKED** in the tables above means that manifest passes ever
 | 92 | Death Plateau | 59/59 | **Harold's dice settled the bet before it was placed.** `[queue,haroldgamble_end]` is the hand's settler - it charges a player who walks away mid-roll and it is what makes a bankrupt Harold write the IOU the whole quest hangs on - and it cleared the stake as its FIRST line, then called `~dice_winnings`. So walking away was free and the next roll reached `inv_add(inv, coins, 0)`, which is a script error, not a no-op, thrown out of the roll button and seen as a dead dice window. Settle then clear, and a zero stake returns early. Also walked: Eohric, the ale, the Blurberry Special, the hand that bankrupts him, the IOU on the back of the combination, the five stone balls on six plinths, Saba, Tenzing, Dunstan, the certificate, the spiked boots, ten loaves and ten trout, the stile and the scout. **questrun gained `count`** (answers a p_countdialog) **and `zone`** (fires a `[zone,...]` trigger - `Player.triggerZone` is NetworkPlayer-only, so a harness player never gets one) |
 | 93 | Horror from the Deep | 52/52 | **No content fault - but the map nearly produced one.** A grep for the two `horror_broken_bridge_*_spot` jump spots at plane 0 found nothing anywhere in the maps, which reads as "the wiki's bridge-repair step has no loc to click" and a quest hard-blocked at step 3. They are on PLANE 1 of m40_56 with their tiles flagged `f2`/`f3` - bit 1 is `GameMap.LINK_BELOW`, and GameMap resolves such a loc to `level - 1`. Runtime 2596,3608 and 2598,3608, exactly where `~horror_cross_bridge` expects them. Walked: Larrissa, Gunnjorn's key, both spans and the leap, the front door (which moves the player into m38_71, the smashed copy of the lighthouse, and back out of it when the Mother dies), the bookcase and two of the three books, tar/tinderbox/glass on the mechanism, the six-icon wall, Jossik, the level-100 Dagannoth, the Mother and the casket. **The Mother is the hardest fight in the pass:** she changes colour every 30 ticks and only matching damage touches her, so the fight step takes all six of her forms as its type list (each colour is its own npc_type) and is judged on %horror, not on a corpse - 758 ticks over 50 re-engagements with a dragon scimitar against her +150 melee defence |
 | 94 | Big Chompy Bird Hunting | 83/83 | **The chompy bird landed outside its own hunt range.** `~spawn_chompy_bird` called `map_findsquare($coord, 4, 4, 1)`, and those two arguments are a MINIMUM and a MAXIMUM radius - so the bird was placed exactly four tiles from the toad that had just called it, while `chompy_bird` has `huntrange=2` and the hunt's own arrival check is `npc_find(..., bloated_toad, 2, ...)`. It could not see the bait, never ate it, nothing set `^chompybird_chompy_ate_toad`, and Rantz - who only shoots from that stage on - just stood there. The only thing that ever got past it was the bird's `wanderrange=3` happening to carry it within two tiles. It lands one to two tiles away now, by line of walk. Also walked: Fycie's flufsies and Bugs's scratchers, four achey trees, the whole fletching chain (shafts, feathers, a wolf kill for the bones, tips, arrows), Rantz's six, the ogre chest's Strength roll, the bellows' three charges, three toads, the bait, Rantz's miss, the bow, the kill, the pluck, both children's seasonings, the spit roast. **questrun gained `wakehunt`** (a hunt whose nobodynear is PAUSEHUNT - the default - only runs while a real client is observing the npc, so no npc in a sim has ever hunted anything) **and `op` on `fight`** (the Chompy Bird's Attack is op5, not op2) |
+| 95 | Lunar Diplomacy | 114/114 | **The Lady Zay's jinx is missing - designed in full, written nowhere.** Between the seal and the island the wiki has you sail and come back in a circle, hear from Birds-Eye Jack that the ship is jinxed, question five crew in order, take the emerald lens off the cabin boy when he confesses, fit it to a bullseye lantern, light it and rub out five symbols around the ship. `^lunar_sailed_circle(30)`, `^lunar_jinxed(40)`, `^lunar_questioning(50)`, `^lunar_confessed(60)` and `^lunar_symbols_gone(70)` have **no writer anywhere**; `%lunar_bits` 0-9 (five symbols, five crew) are never touched; `lunar_emerald_lens`/`_lantern`/`_lantern_lit` are objs nothing makes; `eagleeye_shultz`, `cabin_boy`, `beefy_burns`, `first_mate_daveyboy` and `lecherous_lee` are placed nowhere and Birds-Eye Jack is only on the island. Bentley sails straight through: 20 goes to 80. **It is buildable:** the ship is on the map (m34_59, three decks at x 2219-2228 z 3785-3808) and all five targets are already named locs on it - `loc474_16939` "Cannon" L1 2224,3802, `loc474_16975` "Wallchart" L2 2222,3790, `loc474_16891` "Chest" L0 2228,3791, `loc474_16951` "Support" L0 2224,3793, `loc474_16862` "Crate" L0 2226,3790. Not built: identifying all that was the night's budget for this quest. Everything that IS written walks: the requirement gate, Brundt's seal, both crossings, the Oneiromancer, the waking sleep potion, the four altars in order, the mine and the helm, four Suqah for hides and a tooth and the tiara, Rimae's tanning, Pauline's riddle, Selene's dig, all eight pieces, the brazier, Me and the lectern. Also fixed: lunar.ts aborted after Lunar Diplomacy because the Astral altar leaves its multiobj3 open and the Dream Mentor section's first talk walked into it - 139/139 now |
 
 **EVERY FREE QUEST NOW WALKS.** Eighteen of eighteen, each with a `questrun` manifest that plays it
 from start to finish on foot and passes every check.
@@ -344,8 +345,8 @@ refusals in a row.
 
 ## Where to pick this up
 
-**94 quests and miniquests walked** of the 104 on the list, plus two miniquests: all eighteen free
-quests and seventy-four of the eighty-six members' quests. Twelve members' quests to go. Every one has a file in `Engine-TS/tools/sim/` that plays it and passes every check;
+**95 quests and miniquests walked** of the 104 on the list, plus two miniquests: all eighteen free
+quests and seventy-five of the eighty-six members' quests. Eleven members' quests to go. Every one has a file in `Engine-TS/tools/sim/` that plays it and passes every check;
 rerun any of them with `npx tsx tools/sim/<name>.ts`.
 
 **One flag to know about:** `NODE_MEMBERS=true` is commented out in `Engine-TS/.env`, so a sim boots
@@ -417,10 +418,10 @@ content. What remains genuinely unbuildable in Swan Song is only the other beat:
   Man's hand is as close as the cache allows.
 
 ### What is left
-Everything still marked NOT AUDITED or AUDITED in the tables above - **twelve** of them, all
+Everything still marked NOT AUDITED or AUDITED in the tables above - **eleven** of them, all
 in the members' table, counting both NOT AUDITED and AUDITED (an AUDITED row was driven by one of
 the audit sweeps but never walked end to end). By size, the smallest left are:
-Lunar Diplomacy (1971), Watch Tower (2124), Shilo Village (2171). The
+Watch Tower (2124), Shilo Village (2171). The
 genuinely long ones - Legends Quest
 (5847), The Fremennik Trials (3383), The Tourist Trap (3120), Recipe for Disaster (3022), Throne of
 Miscellania (2729), Digsite (2647), Mourning's End Part 2 (2573), Underground Pass (2442), Desert
@@ -511,10 +512,10 @@ content. What remains genuinely unbuildable in Swan Song is only the other beat:
   Man's hand is as close as the cache allows.
 
 ### What is left
-Everything still marked NOT AUDITED or AUDITED in the tables above - **twelve** of them, all
+Everything still marked NOT AUDITED or AUDITED in the tables above - **eleven** of them, all
 in the members' table, counting both NOT AUDITED and AUDITED (an AUDITED row was driven by one of
 the audit sweeps but never walked end to end). By size, the smallest left are:
-Lunar Diplomacy (1971), Watch Tower (2124), Shilo Village (2171). The
+Watch Tower (2124), Shilo Village (2171). The
 genuinely long ones - Legends Quest
 (5847), The Fremennik Trials (3383), The Tourist Trap (3120), Recipe for Disaster (3022), Throne of
 Miscellania (2729), Digsite (2647), Mourning's End Part 2 (2573), Underground Pass (2442), Desert
@@ -798,3 +799,16 @@ has ever hunted anything**. Anything in the remaining quests that depends on an 
 object, another npc or a loc on its own needs questrun's new `wakehunt` step, not a longer `wait`.
 This is the same class of hole as `Player.triggerZone` being NetworkPlayer-only, which the `zone`
 step covers.
+
+### THE BIGGEST THING STILL TO BUILD: THE LADY ZAY (23 Oct)
+Lunar Diplomacy's jinxed-ship sequence is the largest piece of designed-but-unwritten content the
+pass has found. Five stages, ten varp bits, three objs, five npcs and five symbol locs, all of them
+already named and placed, and nothing joining them up. It is a self-contained job and the quest is
+completable without it, which is why it was written down rather than rushed at midnight. Full
+coordinates are in the row above and in the header of `tools/sim/quest_lunar_run.ts`.
+
+Smaller things noticed on the same survey, neither fixed:
+* Rellekka's three `viking_anvil` locs are scenery - the 377 cache gives them no ops and no
+  category, so no smithing of any kind works on them. The walk goes to Falador for the Lunar helm.
+* The Suqah drop grimy guam and grimy marrentill, so the waking sleep potion's two herbs want
+  cleaning, which is Herblore and not this quest. The walk is handed them clean.
