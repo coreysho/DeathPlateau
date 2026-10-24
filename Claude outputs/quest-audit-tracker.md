@@ -112,7 +112,7 @@ things. A flaky audit is a weak audit.
 | Monk's Friend | quest_drunkmonk | 142 | WALKED | quest_drunkmonk_run.ts (26/26) |
 | Monkey Madness | quest_mm | 1846 | WALKED | quest_mm_run.ts (144/144) |
 | Mountain Daughter | quest_mdaughter | 710 | WALKED | quest_mdaughter_run.ts (123/123) |
-| Mourning's End Part 1 | quest_mourning | 1388 | AUDITED | audit1 |
+| Mourning's End Part 1 | quest_mourning | 1388 | WALKED | quest_mourning_run.ts (98/98) |
 | Mourning's End Part 2 | quest_mourning2 | 2573 | AUDITED | audit2 |
 | Murder Mystery | quest_murder | 1253 | WALKED | quest_murder_run.ts (33/33) |
 | Nature Spirit | quest_druidspirit | 1373 | WALKED | quest_druidspirit_run.ts (71/71) |
@@ -257,6 +257,7 @@ where it stopped. **WALKED** in the tables above means that manifest passes ever
 | 87 | Animal Magnetism | 68/68 | **no content fixes.** The six exchanges between Alice and her dead husband, the Old Crone's amulet, two birds for twenty ecto-tokens, the Witch's five iron bars, the hammer blow in the Rimmington mine, the axe bouncing off the undead tree, Turael's blessed axe for a mithril axe and a holy symbol, the twigs, the research notes, polishing the buttons and stitching the container. Two randomised steps pinned: the notes want three lines of five marks in a row, and one cut in three fails. One thing a walk cannot prove and it is correct behaviour: Turael has two conversations and which you get depends on whether you are already carrying the price |
 | 88 | Nature Spirit | 71/71 | **no content fixes.** Drezel's pies, the gate into Mort Myre (Filliman does not appear unless you came that way), the mirror under the washing bowl, the journal in the knot of the grotto tree, the blessing, the bloom spell, the three stones loaded in order with the player standing on the faith stone, the transformation, the blessed sickle, three mushrooms into a druid pouch, three Ghasts bound and killed. Three things to know: Drezel only reaches the Nature Spirit switch at `^priestperil_access_holy_barrier` and replaces a lost Wolfbane first; Filliman stands outside for 100 ticks at a time, less than it takes to load two stones, and clicking the grotto door is what puts him back; Bloom skips the caster's own tile and picking a mushroom leaves you standing on the log |
 | 89 | Eagles' Peak | 123/123 | **no content fixes** - and this one already had a sim. `eaglespeak.ts` proves it at the op level (124 checks, a no-dead-ops sweep of every room, the eagle transport network and the box traps) and stays the authority on all of that; the new manifest answers the other half, whether a player gets from one end to the other on their own feet. Every tunnel, climb, winch, lever and feeder clicked, including the eleven-move bird-and-gate puzzle. Two things the walk had to be told: Asyff is asked what he needs BEFORE the tar and dye are in the pack, or his menu is the one for a customer who already brought everything; and the kebbit's hole needs `brief`, or drive() spends its guard on a fight a damage-immune sim cannot finish and the kebbit expires before the fight step looks |
+| 90 | Mourning's End Part 1 | 98/98 | **no content fixes.** Islwyn, Eluned's crossing into Lletya, Arianwyn, a Mourner killed for his uniform, the soap out of the Taverley laundry basket, Oronwen's mending, the walk in through the HQ's front door in the full set, the trapdoor, the gnome on the rack, Elena's sieve, the orchard and the press and the naphtha, all three food stores, the desk, the chest, the rack, the mended device, four flocks painted four colours, Elena brought out to see them. Three things to know: the mine's four doors all swing shut behind you; the stew is in the walled yard and the yard only joins the town through the fence; and the ration crate sits in a one-tile niche and takes a click from the SOUTH only - from anywhere else it is "I can't reach that!", which looks exactly like a dead op and is the map |
 
 **EVERY FREE QUEST NOW WALKS.** Eighteen of eighteen, each with a `questrun` manifest that plays it
 from start to finish on foot and passes every check.
@@ -339,8 +340,8 @@ refusals in a row.
 
 ## Where to pick this up
 
-**89 quests and miniquests walked** of the 104 on the list, plus two miniquests: all eighteen free
-quests and sixty-nine of the eighty-six members' quests. Seventeen members' quests to go. Every one has a file in `Engine-TS/tools/sim/` that plays it and passes every check;
+**90 quests and miniquests walked** of the 104 on the list, plus two miniquests: all eighteen free
+quests and seventy of the eighty-six members' quests. Sixteen members' quests to go. Every one has a file in `Engine-TS/tools/sim/` that plays it and passes every check;
 rerun any of them with `npx tsx tools/sim/<name>.ts`.
 
 **One flag to know about:** `NODE_MEMBERS=true` is commented out in `Engine-TS/.env`, so a sim boots
@@ -412,10 +413,10 @@ content. What remains genuinely unbuildable in Swan Song is only the other beat:
   Man's hand is as close as the cache allows.
 
 ### What is left
-Everything still marked NOT AUDITED or AUDITED in the tables above - **seventeen** of them, all
+Everything still marked NOT AUDITED or AUDITED in the tables above - **sixteen** of them, all
 in the members' table, counting both NOT AUDITED and AUDITED (an AUDITED row was driven by one of
-the audit sweeps but never walked end to end). By size, the smallest left are: Mourning's End
-Part 1 (1388), The Grand Tree (1615), Death Plateau (1666), Horror from the Deep (1858),
+the audit sweeps but never walked end to end). By size, the smallest left are:
+The Grand Tree (1615), Death Plateau (1666), Horror from the Deep (1858),
 Big Chompy Bird Hunting (1936), Lunar Diplomacy (1971), Watch Tower (2124), Shilo Village (2171). The
 genuinely long ones - Legends Quest
 (5847), The Fremennik Trials (3383), The Tourist Trap (3120), Recipe for Disaster (3022), Throne of
@@ -507,10 +508,10 @@ content. What remains genuinely unbuildable in Swan Song is only the other beat:
   Man's hand is as close as the cache allows.
 
 ### What is left
-Everything still marked NOT AUDITED or AUDITED in the tables above - **seventeen** of them, all
+Everything still marked NOT AUDITED or AUDITED in the tables above - **sixteen** of them, all
 in the members' table, counting both NOT AUDITED and AUDITED (an AUDITED row was driven by one of
-the audit sweeps but never walked end to end). By size, the smallest left are: Mourning's End
-Part 1 (1388), The Grand Tree (1615), Death Plateau (1666), Horror from the Deep (1858),
+the audit sweeps but never walked end to end). By size, the smallest left are:
+The Grand Tree (1615), Death Plateau (1666), Horror from the Deep (1858),
 Big Chompy Bird Hunting (1936), Lunar Diplomacy (1971), Watch Tower (2124), Shilo Village (2171). The
 genuinely long ones - Legends Quest
 (5847), The Fremennik Trials (3383), The Tourist Trap (3120), Recipe for Disaster (3022), Throne of
