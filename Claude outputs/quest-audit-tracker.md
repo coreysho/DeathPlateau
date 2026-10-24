@@ -71,7 +71,7 @@ things. A flaky audit is a weak audit.
 | Clock Tower | quest_cog | 64 | WALKED | quest_cog_run.ts (22/22) |
 | Creature of Fenkenstrain | quest_fenkenstrain | 713 | WALKED | quest_fenkenstrain_run.ts (75/75) |
 | Death Plateau | quest_death | 1666 | WALKED | quest_death_run.ts (59/59) |
-| Desert Treasure | quest_deserttreasure | 2288 | AUDITED | audit3 (two sections) |
+| Desert Treasure | quest_deserttreasure | 2288 | AUDITED | audit3.ts dt (62/62) - every landing coord walkability-checked |
 | Devious Minds | quest_devious | 339 | WALKED | quest_devious_run.ts (22/22) |
 | Digsite Quest | quest_itexam | 2647 | NOT AUDITED | |
 | Dream Mentor | quest_dreammentor | 620 | WALKED | quest_dreammentor_run.ts (86/86) |
@@ -117,7 +117,7 @@ things. A flaky audit is a weak audit.
 | Murder Mystery | quest_murder | 1253 | WALKED | quest_murder_run.ts (33/33) |
 | Nature Spirit | quest_druidspirit | 1373 | WALKED | quest_druidspirit_run.ts (71/71) |
 | Observatory Quest | quest_itgronigen | 849 | WALKED | quest_observatory_run.ts (49/49) |
-| One Small Favour | quest_onesmallfavour | — | NOT AUDITED | check: no directory of that name |
+| One Small Favour | quest_osf | 525 | WALKED | quest_osf_run.ts (52/52) |
 | Plague City | quest_elena | 903 | WALKED | quest_plaguecity_run.ts (75/75) |
 | Priest in Peril | quest_priestperil | 382 | WALKED | quest_priestperil_run.ts (47/47) |
 | Rag and Bone Man | quest_rag | 257 | WALKED | quest_rag_run.ts (43/43) |
@@ -265,6 +265,7 @@ where it stopped. **WALKED** in the tables above means that manifest passes ever
 | 95 | Lunar Diplomacy | 114/114 | **The Lady Zay's jinx is missing - designed in full, written nowhere.** Between the seal and the island the wiki has you sail and come back in a circle, hear from Birds-Eye Jack that the ship is jinxed, question five crew in order, take the emerald lens off the cabin boy when he confesses, fit it to a bullseye lantern, light it and rub out five symbols around the ship. `^lunar_sailed_circle(30)`, `^lunar_jinxed(40)`, `^lunar_questioning(50)`, `^lunar_confessed(60)` and `^lunar_symbols_gone(70)` have **no writer anywhere**; `%lunar_bits` 0-9 (five symbols, five crew) are never touched; `lunar_emerald_lens`/`_lantern`/`_lantern_lit` are objs nothing makes; `eagleeye_shultz`, `cabin_boy`, `beefy_burns`, `first_mate_daveyboy` and `lecherous_lee` are placed nowhere and Birds-Eye Jack is only on the island. Bentley sails straight through: 20 goes to 80. **It is buildable:** the ship is on the map (m34_59, three decks at x 2219-2228 z 3785-3808) and all five targets are already named locs on it - `loc474_16939` "Cannon" L1 2224,3802, `loc474_16975` "Wallchart" L2 2222,3790, `loc474_16891` "Chest" L0 2228,3791, `loc474_16951` "Support" L0 2224,3793, `loc474_16862` "Crate" L0 2226,3790. Not built: identifying all that was the night's budget for this quest. Everything that IS written walks: the requirement gate, Brundt's seal, both crossings, the Oneiromancer, the waking sleep potion, the four altars in order, the mine and the helm, four Suqah for hides and a tooth and the tiara, Rimae's tanning, Pauline's riddle, Selene's dig, all eight pieces, the brazier, Me and the lectern. Also fixed: lunar.ts aborted after Lunar Diplomacy because the Astral altar leaves its multiobj3 open and the Dream Mentor section's first talk walked into it - 139/139 now |
 | 96 | Watch Tower | 121/121 | **The mad skavid's fourth riddle could never come up.** `[opnpc1,mad_skavid]` picks one of four phrases with `random(3)`, which returns 0, 1 or 2 - so "Gor nod..." was unreachable, and with it case 4 of his own answer menu ("Tanath."), the only answer that phrase takes. A quarter of the conversation the quest ships was dead code and the word learnt from skavidtalker4 was never asked for. Four things the walk had to learn, all of them the quest working as designed: the tower ladder is refused before the quest starts, so the first way up is the trellis; `tanothjump1` is on PLANE 1 of m39_47 with its tile flagged LINK_BELOW, so it is a plane-0 click (second bridge this pass to hide a floor up); the two cave nightshade are ground-obj spawns in m39_147 at 2528,9415 and 2530,9462, which no script hands out and which briefly looked like a hard block on the Ogre Enclave; and all Herblore is behind Druidic Ritual, so mixing the guam says nothing at all without it. Walked: the trellis, the wizard, the fingernail bush, Og, the rope swing to Grew, the tunnel to Toban, Gorad, the dragon bones, the chest, all three relic parts, the north-west gate (which throws you down the hill first whatever you carry), the rock cake off the stall past a wandering trader, the battlements, the bridge toll, the city guard's riddle and the death rune, all five skavid caves and the four words, the mad skavid, both nightshade, the enclave, the potion, all six shamans, the Rock of Dalgroth, all four crystals and the lever. The crystals are shown to the wizard, not placed on pillars - this content follows RSC and 2006, not the OSRS rework |
 | 97 | Shilo Village | 56/56, stops at the showdown | **No content fault found, but the walk does not finish.** Everything up to the skeletal door is green: Mosol Rei and the wampum belt, Trufitus, the mound (searched, dug, lit, roped, climbed into), the secret stone, the cave-in, both scrolls, the gallows, the burial at the tribal statue, the Cairn Isle rocks, the well-stacked rocks, the tomb of Bervirius, the pommel into bone beads into the Beads of the Dead, the palm trees, the carved doors, the bone key, the ancient gate and all three bones. It stops at Nazastarool: the dolmen's mesbox appears and nothing is ever summoned, yet an isolated probe puts him at 2891,9487 every time - so it is something the walk carries into the step, not the content. The manifest header lists everything ruled out. **questrun gained three things:** `mapexit` (a `[mapzoneexit,...]` trigger - leaving Ah Za Rhoon is what sets `^zombiequeen_left_ah_za_rhoon`, and these are NetworkPlayer-only like `[zone,...]`); `first` as a CHAIN with its own coord and op, because the carved doors do not exist until the palms over them are searched and getting through is three clicks; and the fix that made that work at all - `first` used to go through `arrive()`, whose fifty-tick budget is exactly the fifty ticks `longqueue(hide_rashiliyia_doors, 50)` allows, so every attempt spent the window and then reported the doors missing |
+| 98 | One Small Favour | 52/52 | **You could climb onto the weathervane platform and never climb off it.** The platform's walkable floor on level 3 is x 2700-2704 by z 3470-3475; every tile on z=3476 and every tile on x=2699 carries the map's impassable flag. `favour_seer_laddertop` was placed at 2699,3476 and all four of its side neighbours are impassable too, so no tile a player can stand on is beside it - and `^osf_seer_roof`, the tile the climb up lands on, was 2700,3476, impassable as well. Moved to 2700,3476 (still a wall tile, which is what a ladder should be) with the arrival on the floor tile south of it. **Also: this quest is `quest_osf`, not `quest_onesmallfavour`** - the tracker said "no directory of that name" for weeks. It is this server's compressed reading of the quest rather than OSRS's twenty-npc chain: three broken parts, three craftspeople, one of whom wants a favour of their own first. Walked: the seer, both ladders, the vane looked at and searched, Jimmy behind a picked lock in the H.A.M. hideout, Tassie for the ornament and the airtight pot, Hammerspike for the directionals, the rebuild, the forecast, all eight landing lights and the pilot |
 
 **EVERY FREE QUEST NOW WALKS.** Eighteen of eighteen, each with a `questrun` manifest that plays it
 from start to finish on foot and passes every check.
@@ -347,9 +348,11 @@ refusals in a row.
 
 ## Where to pick this up
 
-**96 quests and miniquests walked** of the 104 on the list, plus two miniquests: all eighteen free
-quests and seventy-six of the eighty-six members' quests. Ten members' quests to go, one of them
-(Shilo Village) part-walked - 56 checks green and stopping at Nazastarool. Every one has a file in `Engine-TS/tools/sim/` that plays it and passes every check;
+**97 quests and miniquests walked** of the 104 on the list, plus two miniquests: all eighteen free
+quests and seventy-seven of the eighty-six members' quests. Nine members' quests to go, one of them
+(Shilo Village) part-walked - 56 checks green and stopping at Nazastarool - and Desert Treasure
+already covered end to end by `audit3.ts dt` (62 checks, every landing coordinate
+walkability-checked), which only wants one continuous on-foot run to count as walked. Every one has a file in `Engine-TS/tools/sim/` that plays it and passes every check;
 rerun any of them with `npx tsx tools/sim/<name>.ts`.
 
 **One flag to know about:** `NODE_MEMBERS=true` is commented out in `Engine-TS/.env`, so a sim boots
@@ -824,3 +827,20 @@ spent the entire window every single time, and the step after it reported "no hi
 there" - which reads exactly like a content bug, and is not one. Anything in a quest that opens
 itself and shuts itself again wants as few ticks as possible between the clicks, and questrun's
 `first` chain is how to say so.
+
+### WHAT IS ACTUALLY LEFT (24 Oct)
+Eight quests with no walk, and what coverage each already has:
+
+| Quest | Dir | Lines | Existing coverage |
+| --- | --- | --- | --- |
+| Desert Treasure | quest_deserttreasure | 2288 | `audit3.ts dt`, 62 checks, every ladder landing walkability-checked. Needs only a continuous run. |
+| Underground Pass | quest_upass | 2442 | mentioned by 3 sims |
+| Mourning's End Part 2 | quest_mourning2 | 2573 | 1 |
+| Digsite | quest_itexam | 2647 | 1 |
+| Throne of Miscellania | quest_misc | 2729 | 9, including miscellania.ts |
+| The Tourist Trap | quest_desertrescue | 3120 | 1 |
+| Recipe for Disaster | quest_100 | 3022 | 127 - by far the best-covered of the lot |
+| The Fremennik Trials | quest_viking | 3383 | 13 |
+| Legends Quest | quest_legends | 5886 | 1 |
+
+Shilo Village's showdown is the one open thread with a known next step.
