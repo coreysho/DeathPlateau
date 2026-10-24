@@ -98,7 +98,7 @@ things. A flaky audit is a weak audit.
 | Hazeel Cult | quest_hazeelcult | 984 | WALKED | quest_hazeelcult_run.ts (27/27) + quest_hazeelcult_evil_run.ts (47/47) - both sides |
 | Heroes Quest | quest_hero | 256 | WALKED | quest_hero_run.ts (35/35) + heroes_candlestick.ts (16/16, two players) |
 | Holy Grail | quest_grail | 470 | WALKED | quest_grail_run.ts (30/30, needs NODE_MEMBERS=true) |
-| Horror from the Deep | quest_horror | 1858 | NOT AUDITED | |
+| Horror from the Deep | quest_horror | 1858 | WALKED | quest_horror_run.ts (52/52) |
 | Icthlarin's Little Helper | quest_icslittle | 422 | WALKED | quest_icslittle_run.ts (38/38) |
 | In Aid of the Myreque | quest_myreque2 | 1800 | WALKED | quest_myreque2_run.ts (81/81) |
 | In Search of the Myreque | quest_routequest | 700 | WALKED | quest_routequest_run.ts (41/41) |
@@ -260,6 +260,7 @@ where it stopped. **WALKED** in the tables above means that manifest passes ever
 | 90 | Mourning's End Part 1 | 98/98 | **no content fixes.** Islwyn, Eluned's crossing into Lletya, Arianwyn, a Mourner killed for his uniform, the soap out of the Taverley laundry basket, Oronwen's mending, the walk in through the HQ's front door in the full set, the trapdoor, the gnome on the rack, Elena's sieve, the orchard and the press and the naphtha, all three food stores, the desk, the chest, the rack, the mended device, four flocks painted four colours, Elena brought out to see them. Three things to know: the mine's four doors all swing shut behind you; the stew is in the walled yard and the yard only joins the town through the fence; and the ration crate sits in a one-tile niche and takes a click from the SOUTH only - from anywhere else it is "I can't reach that!", which looks exactly like a dead op and is the map |
 | 91 | The Grand Tree | 61/61 | **the escape glider was a coin toss.** After Glough has you arrested and the King lets you out, the glider on top of the tree is the only way out of the stronghold - Glough has put guards on the front gate - and the pilot's escape dialogue asked whether HE was standing inside a five-by-five patch of the platform. He wanders out of it: on two runs in a row he was at 2464,3497 and then 2464,3501, and only the second offered the flight; the first gave the ordinary Gnome Air menu, which there is a dead end. He is the only pilot_grand_tree on plane 3, so the branch asks about the plane now. Also walked: the five-menu translation of Hazelmere's scroll, Charlie in the cage, the journal, the Ka-Lu-Min password, the foreman's three questions, Anita's key, the four twigs spelling TUZO, the Black demon and the last Daconia rock. Two things to know: climbing `grandtree_laddermiddle` is what spawns Charlie, and the cutscene under the trapdoor only puts the demon on the floor at the END of Glough's speech |
 | 92 | Death Plateau | 59/59 | **Harold's dice settled the bet before it was placed.** `[queue,haroldgamble_end]` is the hand's settler - it charges a player who walks away mid-roll and it is what makes a bankrupt Harold write the IOU the whole quest hangs on - and it cleared the stake as its FIRST line, then called `~dice_winnings`. So walking away was free and the next roll reached `inv_add(inv, coins, 0)`, which is a script error, not a no-op, thrown out of the roll button and seen as a dead dice window. Settle then clear, and a zero stake returns early. Also walked: Eohric, the ale, the Blurberry Special, the hand that bankrupts him, the IOU on the back of the combination, the five stone balls on six plinths, Saba, Tenzing, Dunstan, the certificate, the spiked boots, ten loaves and ten trout, the stile and the scout. **questrun gained `count`** (answers a p_countdialog) **and `zone`** (fires a `[zone,...]` trigger - `Player.triggerZone` is NetworkPlayer-only, so a harness player never gets one) |
+| 93 | Horror from the Deep | 52/52 | **No content fault - but the map nearly produced one.** A grep for the two `horror_broken_bridge_*_spot` jump spots at plane 0 found nothing anywhere in the maps, which reads as "the wiki's bridge-repair step has no loc to click" and a quest hard-blocked at step 3. They are on PLANE 1 of m40_56 with their tiles flagged `f2`/`f3` - bit 1 is `GameMap.LINK_BELOW`, and GameMap resolves such a loc to `level - 1`. Runtime 2596,3608 and 2598,3608, exactly where `~horror_cross_bridge` expects them. Walked: Larrissa, Gunnjorn's key, both spans and the leap, the front door (which moves the player into m38_71, the smashed copy of the lighthouse, and back out of it when the Mother dies), the bookcase and two of the three books, tar/tinderbox/glass on the mechanism, the six-icon wall, Jossik, the level-100 Dagannoth, the Mother and the casket. **The Mother is the hardest fight in the pass:** she changes colour every 30 ticks and only matching damage touches her, so the fight step takes all six of her forms as its type list (each colour is its own npc_type) and is judged on %horror, not on a corpse - 758 ticks over 50 re-engagements with a dragon scimitar against her +150 melee defence |
 
 **EVERY FREE QUEST NOW WALKS.** Eighteen of eighteen, each with a `questrun` manifest that plays it
 from start to finish on foot and passes every check.
@@ -342,8 +343,8 @@ refusals in a row.
 
 ## Where to pick this up
 
-**92 quests and miniquests walked** of the 104 on the list, plus two miniquests: all eighteen free
-quests and seventy-two of the eighty-six members' quests. Fourteen members' quests to go. Every one has a file in `Engine-TS/tools/sim/` that plays it and passes every check;
+**93 quests and miniquests walked** of the 104 on the list, plus two miniquests: all eighteen free
+quests and seventy-three of the eighty-six members' quests. Thirteen members' quests to go. Every one has a file in `Engine-TS/tools/sim/` that plays it and passes every check;
 rerun any of them with `npx tsx tools/sim/<name>.ts`.
 
 **One flag to know about:** `NODE_MEMBERS=true` is commented out in `Engine-TS/.env`, so a sim boots
@@ -415,10 +416,9 @@ content. What remains genuinely unbuildable in Swan Song is only the other beat:
   Man's hand is as close as the cache allows.
 
 ### What is left
-Everything still marked NOT AUDITED or AUDITED in the tables above - **fourteen** of them, all
+Everything still marked NOT AUDITED or AUDITED in the tables above - **thirteen** of them, all
 in the members' table, counting both NOT AUDITED and AUDITED (an AUDITED row was driven by one of
 the audit sweeps but never walked end to end). By size, the smallest left are:
-Horror from the Deep (1858),
 Big Chompy Bird Hunting (1936), Lunar Diplomacy (1971), Watch Tower (2124), Shilo Village (2171). The
 genuinely long ones - Legends Quest
 (5847), The Fremennik Trials (3383), The Tourist Trap (3120), Recipe for Disaster (3022), Throne of
@@ -510,10 +510,9 @@ content. What remains genuinely unbuildable in Swan Song is only the other beat:
   Man's hand is as close as the cache allows.
 
 ### What is left
-Everything still marked NOT AUDITED or AUDITED in the tables above - **fourteen** of them, all
+Everything still marked NOT AUDITED or AUDITED in the tables above - **thirteen** of them, all
 in the members' table, counting both NOT AUDITED and AUDITED (an AUDITED row was driven by one of
 the audit sweeps but never walked end to end). By size, the smallest left are:
-Horror from the Deep (1858),
 Big Chompy Bird Hunting (1936), Lunar Diplomacy (1971), Watch Tower (2124), Shilo Village (2171). The
 genuinely long ones - Legends Quest
 (5847), The Fremennik Trials (3383), The Tourist Trap (3120), Recipe for Disaster (3022), Throne of
@@ -784,3 +783,8 @@ now. The quest manifests never showed this because `play()` ends in `process.exi
 The other cause of a slow probe is real and separate: abandoned sim processes. Five of them had the
 machine down to 0.2 GB free of 7.7, and then everything genuinely does take ten minutes. Check free
 memory before concluding anything about a tool's speed.
+
+### ISAFDAR: THE EARLIER FINDING WAS HALF WRONG (23 Oct)
+The note above about the bridge spots is the second time in two days a map grep has reported a loc
+as unplaced when it was only on a floor the grep did not expect. Treat "placed nowhere in the
+660-region sweep" as a hypothesis, not a finding: ask the booted world, not the .jm2 text.
