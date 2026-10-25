@@ -898,9 +898,19 @@ Village and Recipe for Disaster - and there is no quest in the build without a w
 end to end on foot. audit2's Rat Catchers break is fixed too: the section was the old three-chapter
 quest and it had been taking Mourning's End Part II and Forgettable Tale down with it.
 
-### THE FOUR THAT ARE LEFT, AND WHAT EACH ONE IS ACTUALLY BLOCKED ON (25 Oct)
-Each of these was surveyed again after the quest list closed. None of them is "write the scripts";
-each is one decision away, and the decision is named.
+### THE NON-QUEST BACKLOG, AND WHAT EACH ONE IS ACTUALLY BLOCKED ON (25 Oct)
+Each of these was surveyed again after the quest list closed. **Ape Atoll is built and walked** -
+its entry below is kept because the table that was here before it was wrong in a way worth
+remembering. The three that remain are each one decision away, and the decision is named.
+
+The audits are repaired too, all three of them. `audit1.ts` is **304 ok, 0 FAIL** where it used to
+die at check 13, `audit2.ts` is 83 ok and `audit3.ts` runs its whole list. All three breaks were one
+disease: a section written against a version of a quest that has since been rebuilt, which throws
+and takes every section below it down with it - Rat Catchers in audit2, Creature of Fenkenstrain in
+audit1, and in audit3 two stale facts in Zogre Flesh Eaters plus a missing Pirate's Treasure
+prerequisite in Cabin Fever. Where a walk already plays the quest properly the audit section is now
+a pointer to it rather than a second copy, because two copies is what let these rot while the walks
+stayed green.
 
 **The Lady Zay's jinx (Lunar Diplomacy).** The gap is real and `quest_lunar_run.ts` records it:
 ^lunar_sailed_circle(30), ^lunar_jinxed(40), ^lunar_questioning(50), ^lunar_confessed(60) and
@@ -937,35 +947,48 @@ declares no iops, so it is an ordinary item whose desc says what it is for - not
 souvenir of a route nobody built. The decision is **whether the route is worth placing** (new track,
 cart and driver at two ends, which is map work), or whether Hammerspike's cart simply IS that route.
 
-**The Ape Atoll agility course.** Seven placed locs, none with a trigger, and this survey settled the
-level question the old note was blocked on. The locs:
+**The Ape Atoll agility course - BUILT (25 Oct).** `skill_agility/scripts/apeatoll_course.rs2`,
+`configs/apeatoll_course.constant`, `configs/apeatoll.varp` and varp 1945. Five obstacles, Agility
+48, 580 experience a lap, which is Old School's figure exactly.
+`tools/sim/apecourse.ts` walks it: **5 of 5, every landing walkable and on the right storey.**
 
-| obstacle | loc | plane, coord | op |
-| --- | --- | --- | --- |
-| stepping stone | `loc_12568` | 0, 2754,2742 | Jump-to |
-| tropical tree up | `loc_12570` | 0, 2753,2741 | Climb |
-| monkeybars, east span | `loc_12573` | 2, 2752,2741 | Swing Across |
-| monkeybars, west span | `loc_12575` | 2, 2747,2741 | Swing Across |
-| tropical tree down | `loc_12576` | 0, 2746,2741 | Climb-up |
-| skull slope | `loc_12578` | 0, 2752,2731 | Swing |
-| rope | `loc_12581` | 0, 2758,2729 | Enter |
+**The table that used to be here was wrong, and worth recording as a warning.** It was built from
+the loc ids in placement order and the obstacle names were shifted a row: it called `loc_12576` a
+tropical tree when it is the **Skull slope**, `loc_12578` the skull slope when it is the **Rope**,
+and `loc_12581` the rope when it is a **Hole** ("A vine-choked hole") that is not part of the course
+at all. It also said the sixth Old School obstacle, the tree climbed back down, was absent - and
+there are in fact two more Climb-downs on the map, `loc_12618` (Tropical tree, 0 2757,2734) and
+`loc_12622` (Vine, 1 2758,2735), neither of which the course chain reaches. Anyone building from
+that table would have wired the wrong script to the wrong op. What the cache actually ships:
 
-**Why the levels looked wrong, and what is actually there.** `openmap` cannot answer this: a tile
-with no collision data at all reads as open, so plane 2 looks like floor everywhere. The map file
-can. Plane 2 in that area has exactly seven tiles with any floor on them, all overlay 42 - the same
-plank overlay the ship decks use - and two of the seven are flagged blocked:
+| # | obstacle | loc | plane, coord | op | xp | clicked from |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | Stepping stone | `loc_12568` | 0, 2754,2742 | Jump-to | 40 | 2753,2742 or 2755,2742 |
+| 2 | Tropical tree | `loc_12570` | 0, 2753,2741 | Climb | 40 | 2753,2742 only |
+| 3 | Monkeybars | `loc_12573` | 2, 2752,2741 | Swing Across | 40 | 2752,2741 or 2752,2742 |
+| 4 | Skull slope | `loc_12576` | 0, 2746,2741 | Climb-up | 60 | 2747,2741 only |
+| 5 | Rope | `loc_12578` | 0, 2752,2731 | Swing | 100 | 2751,2731 only |
+| - | lap bonus | | | | 300 | |
 
-    2748,2741 (blocked)   2749,2741   2750,2741   2751,2741 (blocked)
-    2752,2741   2752,2742   2753,2742
+**The second Monkeybars loc is not an obstacle.** `loc_12575` at 2747,2741 on plane 2 also carries
+"Swing Across", and the walkway's blocked tiles at 2748 and 2751 make two spans look obvious. The
+new `tools/sim/apereach.ts` asks the engine which tiles each loc takes a click from - all nine in
+one boot, where `opfrom.ts` is one loc and one boot each - and the answer for `loc_12575` is
+**nowhere**: its own tile is blocked and so is every tile beside it. So the monkeybars are one
+obstacle paying the whole 40, and `loc_12575` is the far anchor of the same structure. It gets no
+handler. That probe also settled the other four approach tiles, and the rope's: `forceapproach` 7
+leaves only the west, so the rope is clicked from 2751,2731 and always swings east.
 
-That is the bar walkway, and the two blocked tiles are its supports, which is what makes it two
-spans rather than one and explains why the cache ships two Swing Across locs. It reads as: climb the
-east tree at 2753,2741 up onto 2753,2742, swing the east span from 2752,2741 to 2750,2741, swing the
-west span from 2749,2741, and come down the west tree at 2746,2741 - which has no plane-2 floor, so
-the second swing has to put the player back on plane 0. The decision left is **whether that last
-landing is right**, and it is a one-minute look in the client: the xp is 40/40/40/60/100/0 and
-getting a landing wrong strands a player at height, which is why this is not being guessed.
-Related: [[island-landings-are-intentional]], [[courseplan-landings-are-wrong]].
+**What settled the direction was the tile heights, not the op strings.** Along z 2741 plane 0 runs
+2743 (height 131, the lowland) - 2744 and 2745 blocked, which is the wall of skulls itself - 2746
+and 2747 (117 and 103, a ledge) - 2748, 2749 and 2750 blocked, which is the cliff - 2751 onwards
+(27, the plateau). Lower numbers are higher ground, so the lap starts up on the plateau and works
+down. The old note's open question - whether the last swing puts the player back on plane 0 - is
+answered by the skull slope being reachable from 2747 on plane 0 **and nowhere else**: that is where
+the bars have to land, and the two-tile ledge at 2746/2747 is an island on purpose, with the slope
+as its only exit. It is safe because the slope is gated on the same course level as the bars that
+put you there. `openmap` could not have answered any of this - a tile with no collision data reads
+as open, so plane 2 looks like floor everywhere. The `.jm2` MAP section is the authority.
 
 **Temple Trekking.** Unchanged and still the biggest: 7 regions `m31_78`..`m37_78`, 42 rooms
 (14 events x 3 difficulties), each with its own success, fail and evade path, 6 escorts as multinpc
