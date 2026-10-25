@@ -841,14 +841,136 @@ there" - which reads exactly like a content bug, and is not one. Anything in a q
 itself and shuts itself again wants as few ticks as possible between the clicks, and questrun's
 `first` chain is how to say so.
 
-### NOTHING IS LEFT (25 Oct)
+### EVERY WALK RERUN, AND SEVEN OF THEM WERE RED (25 Oct)
+The claim "every walk passes every check" came off this file rather than off a run, so all 107 were
+rerun. 100 were green. Seven were not, and none of them was a regression - each had been failing on
+its own, quietly, because nothing had rerun them since they were written:
+
+| walk | was | now |
+| --- | --- | --- |
+| Ghosts Ahoy | 75/80, stopped at 4 of 15 | 164/164, complete |
+| In Aid of the Myreque | 29/30, stopped at 40 of 110 | 82/82, complete |
+| Eadgar's Ruse | 12/14, stopped at 20 of 70 | 32/32, complete |
+| The Hand in the Sand | 31/32, stopped at 60 of 80 | 54/54, complete |
+| Witch's House | 37/38, stopped at 5 of 7 | 51/51, complete |
+| Sheep Herder | 28/29, stopped at 2 of 3 | 63/63 about half the time |
+| Tribal Totem | 39/40 | 40/40 |
+
+Lunar Diplomacy made eight, and that one WAS a regression - mine, from earlier the same day. See
+the note below it.
+
+**Four of the seven were the same fault**: a step sent from a tile the loc or npc cannot be reached
+from, and in no case did anything say so. The aviary feeding hatch in Eadgar's Ruse is a shape-0
+wall on the WEST edge of 2611,3287 and that tile is inside the aviary wall, so the jump put the
+player inside the masonry; Betty leaves you north of her counter in The Hand in the Sand and the
+tile between is furniture; the Lumbridge range cannot be used from the west; and the Keldagrim-side
+goblin ladder is in a different hut from the generals. **The lesson is the tooling one:** `locwhere`
+and `openmap` answer "where is it and what is floor" in a minute each, and `opfrom` answers "which
+side does it take a click from". Use them before believing a silent step.
+
+**Two were randomness nobody had pinned.** Ghosts Ahoy's mast search is random(2) and six soft tries
+still lost one run in sixty-four - and it cascaded into the chest key, the map scraps and the rest
+of the quest. Witch's House was not random at all: Nora T. Hagg hunts three tiles with line of
+sight and teleports whoever she sees out of the garden, so the sneak step was reporting where she
+had thrown the player rather than a wall. It holds on the tile being LEFT as well as the one being
+stepped onto now, walks the leg up to three times, and gives her a berth of 8.
+
+**One was a want that straddled a line break** - "covering it completely" in Tribal Totem, "falls
+off its perch" in Eadgar's Ruse. A mesbox splits where it splits; read a phrase that fits on one
+line.
+
+**And one is a click landing inside a p_delay.** In Aid of the Myreque's tithe fight says a line,
+waits four ticks and then adds Gadderanks and two juvinates - and a click delivered during that
+p_delay can take the rest of the script with it, so one run in three the three of them were never
+added. A wait cannot fix that; the script was gone, not slow. Asking for the tithe again does, and
+is harmless while the stage is still 40.
+
+**Sheep Herder is the one that is better rather than fixed.** Details are in the herd step; the
+short version is that the tile directly opposite the way a sheep should go is often unreachable
+because the sheep is in front of it, and the other sheep block the approaches with npc flags that a
+tile flood cannot see. It completes about half the time now and reaches the fourth sheep when it
+does not, where before it never got past the second.
+
+### NOTHING IS LEFT ON THE QUEST LIST (25 Oct)
 The list is finished. Eight quests were struck off in the last two sessions - Mourning's End Part 2,
 the Digsite, the Tourist Trap, the Fremennik Trials, Throne of Miscellania, Legends' Quest, Shilo
 Village and Recipe for Disaster - and there is no quest in the build without a walk that plays it
-end to end on foot.
+end to end on foot. audit2's Rat Catchers break is fixed too: the section was the old three-chapter
+quest and it had been taking Mourning's End Part II and Forgettable Tale down with it.
 
-What is left is not quests. The non-quest backlog parked at the top of this pass is still parked:
-the Lady Zay jinx build in Lunar Diplomacy, and audit2's Rat Catchers break at line ~435.
+### THE FOUR THAT ARE LEFT, AND WHAT EACH ONE IS ACTUALLY BLOCKED ON (25 Oct)
+Each of these was surveyed again after the quest list closed. None of them is "write the scripts";
+each is one decision away, and the decision is named.
+
+**The Lady Zay's jinx (Lunar Diplomacy).** The gap is real and `quest_lunar_run.ts` records it:
+^lunar_sailed_circle(30), ^lunar_jinxed(40), ^lunar_questioning(50), ^lunar_confessed(60) and
+^lunar_symbols_gone(70) have no writer, %lunar_bits 0-9 are never touched, and
+lunar_emerald_lens / lunar_emerald_lantern / lunar_emerald_lantern_lit are objs nothing makes. Three
+things found this time that the note did not have:
+
+* **The ship is three walkable decks**, not scenery. The Cove copy is x 2219-2229: plane 0 is the
+  hold (z 3798-3810), plane 1 the middle deck (z 3798-3807), plane 2 the main deck (z 3798-3813).
+* **Nothing is wired to get aboard or between decks.** walkgraph reports NO ROUTE from the Cove dock
+  (2202,3806) to any deck, and the two inter-deck ladder types - `loc474_16945` (Climb) and
+  `loc474_16947` (Climb) - have no trigger on any of their placements. The L2 doors
+  (`loc474_16902`) do work, through a generic door category.
+* **The five "symbol" locs in that note are spread across BOTH ship copies.** There are two ships in
+  m34_59, one at z 3798-3813 and one at z 3785-3796, and the note's list takes the cannon from the
+  first and the wallchart, chest, support and crate from the second. Anyone building from it would
+  put four of the five symbols on the wrong ship. Every one of those loc types has several
+  placements, so the handlers have to switch on `loc_coord` anyway - pick five on ONE copy first.
+
+So the one decision is **how the player gets aboard**: a gangplank loc (none is placed), or the
+quest sends them there the way it sends them to the island, with Bentley aboard as the way back.
+
+**The Keldagrim cart network.** Smaller than it looked, and not a network. The cache has four
+tickets - Keldagrim to and from the dwarven mines under Ice Mountain, and to and from the passage
+under White Wolf Mountain - one `mining_cart_driver` npc type, and at Keldagrim a control box
+(`keldagrim_track_junction_control_box`, Control, L1 1860,4955) and a card box
+(`keldagrim_track_junction_card_box`, Search, L1 1862,4954), neither with a trigger. What there is
+NOT: any station, cart or driver placed at either end. The only track on the map is five tiles of
+`keldagrim_trackstraight_gdecor` at L1 1861-1865,4957, which is Forgettable Tale's own cart line,
+and the one placed `mining_cart_driver` is in the desert at 3288,3022 for something else entirely.
+Keldagrim travel already works both ways without any of it: Hammerspike's cart in, the city boatman
+out. The Giant Dwarf hands `dwarf_minecart_ticket_kelda_ice` over as its reward and the ticket
+declares no iops, so it is an ordinary item whose desc says what it is for - not a mute item, just a
+souvenir of a route nobody built. The decision is **whether the route is worth placing** (new track,
+cart and driver at two ends, which is map work), or whether Hammerspike's cart simply IS that route.
+
+**The Ape Atoll agility course.** Seven placed locs, none with a trigger, and this survey settled the
+level question the old note was blocked on. The locs:
+
+| obstacle | loc | plane, coord | op |
+| --- | --- | --- | --- |
+| stepping stone | `loc_12568` | 0, 2754,2742 | Jump-to |
+| tropical tree up | `loc_12570` | 0, 2753,2741 | Climb |
+| monkeybars, east span | `loc_12573` | 2, 2752,2741 | Swing Across |
+| monkeybars, west span | `loc_12575` | 2, 2747,2741 | Swing Across |
+| tropical tree down | `loc_12576` | 0, 2746,2741 | Climb-up |
+| skull slope | `loc_12578` | 0, 2752,2731 | Swing |
+| rope | `loc_12581` | 0, 2758,2729 | Enter |
+
+**Why the levels looked wrong, and what is actually there.** `openmap` cannot answer this: a tile
+with no collision data at all reads as open, so plane 2 looks like floor everywhere. The map file
+can. Plane 2 in that area has exactly seven tiles with any floor on them, all overlay 42 - the same
+plank overlay the ship decks use - and two of the seven are flagged blocked:
+
+    2748,2741 (blocked)   2749,2741   2750,2741   2751,2741 (blocked)
+    2752,2741   2752,2742   2753,2742
+
+That is the bar walkway, and the two blocked tiles are its supports, which is what makes it two
+spans rather than one and explains why the cache ships two Swing Across locs. It reads as: climb the
+east tree at 2753,2741 up onto 2753,2742, swing the east span from 2752,2741 to 2750,2741, swing the
+west span from 2749,2741, and come down the west tree at 2746,2741 - which has no plane-2 floor, so
+the second swing has to put the player back on plane 0. The decision left is **whether that last
+landing is right**, and it is a one-minute look in the client: the xp is 40/40/40/60/100/0 and
+getting a landing wrong strands a player at height, which is why this is not being guessed.
+Related: [[island-landings-are-intentional]], [[courseplan-landings-are-wrong]].
+
+**Temple Trekking.** Unchanged and still the biggest: 7 regions `m31_78`..`m37_78`, 42 rooms
+(14 events x 3 difficulties), each with its own success, fail and evade path, 6 escorts as multinpc
+pairs, and `templetrek_npc_point_value` (13 bits) as the reward. It needs its own session; a partial
+trek strands players or pays out for a risk-free walk.
 
 ### A STAGE VARBIT IS A HIGH-WATER MARK (24 Oct)
 Mourning's End Part 2 cost half an hour to this and it applies to every quest in the directory.
