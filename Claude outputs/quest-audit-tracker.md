@@ -912,26 +912,53 @@ prerequisite in Cabin Fever. Where a walk already plays the quest properly the a
 a pointer to it rather than a second copy, because two copies is what let these rot while the walks
 stayed green.
 
-**The Lady Zay's jinx (Lunar Diplomacy).** The gap is real and `quest_lunar_run.ts` records it:
-^lunar_sailed_circle(30), ^lunar_jinxed(40), ^lunar_questioning(50), ^lunar_confessed(60) and
-^lunar_symbols_gone(70) have no writer, %lunar_bits 0-9 are never touched, and
-lunar_emerald_lens / lunar_emerald_lantern / lunar_emerald_lantern_lit are objs nothing makes. Three
-things found this time that the note did not have:
+**The Lady Zay's jinx (Lunar Diplomacy) - SURVEYED AGAIN, AND IT IS NOT BLOCKED (25 Oct).** The gap
+is real: with the Seal of Passage, `[label,lunar_bentley]` simply sails you to Lunar Isle and sets
+`^lunar_arrived` 80, so stages 30 to 70 - `^lunar_sailed_circle`, `^lunar_jinxed`,
+`^lunar_questioning`, `^lunar_confessed`, `^lunar_symbols_gone` - have no writer, `%lunar_bits` 0-9
+are never touched, and `lunar_emerald_lens` / `lunar_emerald_lantern` /
+`lunar_emerald_lantern_lit` are objs nothing makes. `quest_lunar_run.ts` is 114/114 because it
+completes through that bypass, not because the chapter is there.
 
-* **The ship is three walkable decks**, not scenery. The Cove copy is x 2219-2229: plane 0 is the
-  hold (z 3798-3810), plane 1 the middle deck (z 3798-3807), plane 2 the main deck (z 3798-3813).
-* **Nothing is wired to get aboard or between decks.** walkgraph reports NO ROUTE from the Cove dock
-  (2202,3806) to any deck, and the two inter-deck ladder types - `loc474_16945` (Climb) and
-  `loc474_16947` (Climb) - have no trigger on any of their placements. The L2 doors
-  (`loc474_16902`) do work, through a generic door category.
-* **The five "symbol" locs in that note are spread across BOTH ship copies.** There are two ships in
-  m34_59, one at z 3798-3813 and one at z 3785-3796, and the note's list takes the cannon from the
-  first and the wallchart, chest, support and crate from the second. Anyone building from it would
-  put four of the five symbols on the wrong ship. Every one of those loc types has several
-  placements, so the handlers have to switch on `loc_coord` anyway - pick five on ONE copy first.
+**The previous note's blockers were both wrong, and the mistake is instructive.** It said nothing is
+wired to get aboard or between decks and that the two ladder types have no trigger on any
+placement; and it listed five "symbol" locs split across both ship copies. The ladder *placements*
+are there - what is missing is only the trigger - and the symbol locs are not the ones it named.
+What went wrong is that it searched the map by the **474 loc id** in the config name, and the `.jm2`
+MAP and LOC sections carry the **packed** id. `loc474_16951` is packed id 18480, and a search for
+16951 finds nothing anywhere, which reads exactly like "not placed". `content/pack/loc.pack` is the
+translation; search by the packed id or everything on that ship looks absent.
 
-So the one decision is **how the player gets aboard**: a gangplank loc (none is placed), or the
-quest sends them there the way it sends them to the island, with Bentley aboard as the way back.
+**Everything the chapter needs is placed and named.** On the Cove ship (m34_59, x 2219-2228, two
+copies at z 3784-3796 and z 3798-3814):
+
+| piece | loc | packed | placements on the Cove ship |
+| --- | --- | --- | --- |
+| Stairs, deck to deck | `loc474_16945` | 15686 | 7, incl. **p0 2225,3808** - op1=Climb, no trigger |
+| Stairs, deck to deck | `loc474_16947` | 15688 | 7 - op1=Climb, no trigger |
+| Door | `loc474_16902` | 15646 | 4 on p2 - op1=Open, already works via the door category |
+| Cannon | `loc474_16938`, `loc474_16939` | | 15 on p1, and one at p1 2224,3802 |
+| Wallchart | `loc474_16975` | | 2: p2 2221,3807 and p2 2222,3790 |
+| Chest | `loc474_16891` | 18479 | 6, incl. p0 2223,3811 and p1 2221,3810 |
+| Support | `loc474_16951`, `loc474_16941` | 18480 | p0 2224,3793; p3 2224,3790 and 2224,3810 |
+| Crate | `loc474_16863` and three more | | 12 between them |
+| Cooking range | `loc474_16893` | | p0 2220,3789 - the wiki puts the crate symbol east of it |
+
+All seven crew are declared in `lunar_npcs.npc` - `captain_bentley`, `birdseye_jack`,
+`eagleeye_shultz`, `cabin_boy`, `beefy_burns`, `lecherous_lee`, `first_mate_daveyboy` - and the
+three objs are declared in `lunar_items.obj` with `light_source_unlit` / `light_source_lit`
+categories already set. **What is NOT there: any npc spawn.** m34_59's NPC section has two lines in
+the whole mapsquare, neither of them crew, so the chapter has to spawn them (see
+[[npc-spawns-live-in-jm2]]).
+
+**So it is a build, not a decision.** The order, from the Old School quick guide: Bentley, Bentley
+again, down to Jack, back to Bentley blaming the navigator, back to Jack; then the five crew **in
+order** - Shultz at the bow, the cabin boy one deck above the captain, Burns on the lowest deck, Lee
+top-rear, Davey-boy in the south room on the deck level; then the cabin boy again, who needs two
+free spaces and hands over a bullseye lantern (unf) and the emerald lens; the lens into a lantern,
+lit with a tinderbox; the five symbols rubbed out with it; then Bentley sails. Picking which of the
+two ship copies is the Lady Zay, and the exact tile for each of the seven npcs and five symbols, is
+the one piece of judgement left - and `tools/sim/apereach.ts` answers the reachability half of it.
 
 **The Keldagrim cart network.** Smaller than it looked, and not a network. The cache has four
 tickets - Keldagrim to and from the dwarven mines under Ice Mountain, and to and from the passage
