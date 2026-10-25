@@ -899,10 +899,16 @@ end to end on foot. audit2's Rat Catchers break is fixed too: the section was th
 quest and it had been taking Mourning's End Part II and Forgettable Tale down with it.
 
 ### THE BACKLOG AFTER THE QUEST LIST CLOSED (25 Oct)
-Four items were parked here when the quest list finished. **Two are now built and walked** - the Ape
-Atoll agility course and the Lady Zay's jinx - and both entries are kept, because the surveys that
-preceded them were wrong in ways worth remembering. **Two are left: the Keldagrim cart network,
-which is a decision, and Temple Trekking, which needs its own session.**
+Four items were parked here when the quest list finished. **Three are now built and proven** - the
+Ape Atoll agility course, the Lady Zay's jinx and the Keldagrim minecart system - and all three
+entries are kept, because the surveys that preceded them were wrong in ways worth remembering.
+**One is left: Temple Trekking, which needs its own session.**
+
+A pattern worth stating plainly, since it held for all three: every one of those surveys concluded
+"this is not built and the question is whether to build it", and in every case most of it WAS on the
+map and what was missing was a trigger. Two of the three surveys had searched the maps the wrong way
+(by cache id rather than packed id, or by eye rather than with a probe). Before parking anything
+else as a decision, search it properly.
 
 The audits are repaired too, all three of them. `audit1.ts` is **304 ok, 0 FAIL** where it used to
 die at check 13, `audit2.ts` is 83 ok and `audit3.ts` runs its whole list. All three breaks were one
@@ -961,62 +967,33 @@ in the mapsquare - a player let up there could walk out over the sea. And the Lu
 ship (`m33_60`, `m33_61`), for the same reason: nothing up there belongs to a quest and its decks
 have not been checked for a landing that strands somebody.
 
-**The Keldagrim cart network.** Smaller than it looked, and not a network. The cache has four
-tickets - Keldagrim to and from the dwarven mines under Ice Mountain, and to and from the passage
-under White Wolf Mountain - one `mining_cart_driver` npc type, and at Keldagrim a control box
-(`keldagrim_track_junction_control_box`, Control, L1 1860,4955) and a card box
-(`keldagrim_track_junction_card_box`, Search, L1 1862,4954), neither with a trigger. What there is
-NOT: any station, cart or driver placed at either end. The only track on the map is five tiles of
-`keldagrim_trackstraight_gdecor` at L1 1861-1865,4957, which is Forgettable Tale's own cart line,
-and the one placed `mining_cart_driver` is in the desert at 3288,3022 for something else entirely.
-Keldagrim travel already works both ways without any of it: Hammerspike's cart in, the city boatman
-out. The Giant Dwarf hands `dwarf_minecart_ticket_kelda_ice` over as its reward and the ticket
-declares no iops, so it is an ordinary item whose desc says what it is for - not a mute item, just a
-souvenir of a route nobody built. The decision is **whether the route is worth placing** (new track,
-cart and driver at two ends, which is map work), or whether Hammerspike's cart simply IS that route.
+**The Keldagrim minecart system - BUILT (25 Oct).**
+`areas/area_keldagrim/scripts/minecart.rs2` with `configs/minecart.constant` and one cart placed in
+`m45_158`. `tools/sim/minecart.ts` proves it **17 of 17**: all four tickets both ways, both
+requirement gates, the no-ticket refusal, all three station conductors taking the coin fare, the
+Ring of charos(a) discount, and every arrival tile checked as floor a player can walk onto.
 
-**The Ape Atoll agility course - BUILT (25 Oct).** `skill_agility/scripts/apeatoll_course.rs2`,
-`configs/apeatoll_course.constant`, `configs/apeatoll.varp` and varp 1945. Five obstacles, Agility
-48, 580 experience a lap, which is Old School's figure exactly.
-`tools/sim/apecourse.ts` walks it: **5 of 5, every landing walkable and on the right storey.**
+Three stations - the Keldagrim depot, the dwarven mines under Ice Mountain, the east end of the
+passage under White Wolf Mountain - hub and two spokes, which is what the four tickets describe. The
+conductor sells a seat for 150 coins, halved to 75 for a Ring of charos(a), which is Old School's
+figure; the cart itself takes a ticket instead, so The Giant Dwarf's reward ticket is a free ride
+rather than a keepsake. The system needs The Giant Dwarf started, and the White Wolf line also needs
+the Fishing Contest, because that is what opens the passage its far end sits inside.
 
-**The table that used to be here was wrong, and worth recording as a warning.** It was built from
-the loc ids in placement order and the obstacle names were shifted a row: it called `loc_12576` a
-tropical tree when it is the **Skull slope**, `loc_12578` the skull slope when it is the **Rope**,
-and `loc_12581` the rope when it is a **Hole** ("A vine-choked hole") that is not part of the course
-at all. It also said the sixth Old School obstacle, the tree climbed back down, was absent - and
-there are in fact two more Climb-downs on the map, `loc_12618` (Tropical tree, 0 2757,2734) and
-`loc_12622` (Vine, 1 2758,2735), neither of which the course chain reaches. Anyone building from
-that table would have wired the wrong script to the wrong op. What the cache actually ships:
+**The survey this replaces was backwards, and the entry keeps it as a warning.** It recorded "no
+station, cart or driver placed at either end" and concluded the open question was whether the route
+was worth placing at all. In fact `icemountain_train_cart` was at 2995,9836 with a conductor beside
+it, `whitewolfmountain_train_cart` at 2875,9868 with another, nine Cart conductors were spawned
+across the three stations, and **196 tiles of ridable track** were laid in the depot in four lines
+ending in buffers. The one thing genuinely absent was the hub's own cart - `keldagrim_train_cart`
+was placed nowhere - so the depot had four platforms and nothing standing at any of them. The
+`mining_cart_driver` that note pointed at is a red herring: its one spawn is at 3287,3022 in the
+desert and belongs to `quest_desertrescue`.
 
-| # | obstacle | loc | plane, coord | op | xp | clicked from |
-| --- | --- | --- | --- | --- | --- | --- |
-| 1 | Stepping stone | `loc_12568` | 0, 2754,2742 | Jump-to | 40 | 2753,2742 or 2755,2742 |
-| 2 | Tropical tree | `loc_12570` | 0, 2753,2741 | Climb | 40 | 2753,2742 only |
-| 3 | Monkeybars | `loc_12573` | 2, 2752,2741 | Swing Across | 40 | 2752,2741 or 2752,2742 |
-| 4 | Skull slope | `loc_12576` | 0, 2746,2741 | Climb-up | 60 | 2747,2741 only |
-| 5 | Rope | `loc_12578` | 0, 2752,2731 | Swing | 100 | 2751,2731 only |
-| - | lap bonus | | | | 300 | |
-
-**The second Monkeybars loc is not an obstacle.** `loc_12575` at 2747,2741 on plane 2 also carries
-"Swing Across", and the walkway's blocked tiles at 2748 and 2751 make two spans look obvious. The
-new `tools/sim/apereach.ts` asks the engine which tiles each loc takes a click from - all nine in
-one boot, where `opfrom.ts` is one loc and one boot each - and the answer for `loc_12575` is
-**nowhere**: its own tile is blocked and so is every tile beside it. So the monkeybars are one
-obstacle paying the whole 40, and `loc_12575` is the far anchor of the same structure. It gets no
-handler. That probe also settled the other four approach tiles, and the rope's: `forceapproach` 7
-leaves only the west, so the rope is clicked from 2751,2731 and always swings east.
-
-**What settled the direction was the tile heights, not the op strings.** Along z 2741 plane 0 runs
-2743 (height 131, the lowland) - 2744 and 2745 blocked, which is the wall of skulls itself - 2746
-and 2747 (117 and 103, a ledge) - 2748, 2749 and 2750 blocked, which is the cliff - 2751 onwards
-(27, the plateau). Lower numbers are higher ground, so the lap starts up on the plateau and works
-down. The old note's open question - whether the last swing puts the player back on plane 0 - is
-answered by the skull slope being reachable from 2747 on plane 0 **and nowhere else**: that is where
-the bars have to land, and the two-tile ledge at 2746/2747 is an island on purpose, with the slope
-as its only exit. It is safe because the slope is gated on the same course level as the bars that
-put you there. `openmap` could not have answered any of this - a tile with no collision data reads
-as open, so plane 2 looks like floor everywhere. The `.jm2` MAP section is the authority.
+**And the rails block.** `ridable_trackstraight_gdecor` carries no `blockwalk=no`, so a track tile
+is solid: the depot is track at z 10169, 10171 and 10173 with the **platforms in the rows between
+them**. The first three arrival tiles picked were every one of them on the rails, and the carts have
+to be clicked from the platform beside them for the same reason.
 
 **Temple Trekking.** Unchanged and still the biggest: 7 regions `m31_78`..`m37_78`, 42 rooms
 (14 events x 3 difficulties), each with its own success, fail and evade path, 6 escorts as multinpc

@@ -20,7 +20,23 @@ rope — and not one click of it did anything. It works now.
 - The **stepping stone** works in either direction, so you can step back across it.
 - The **Giant squirrel** can be found on finishing a lap here, at the same rate as the other courses.
 
+**The Keldagrim minecart system.** The dwarves' cart network was built, staffed and silent: nine Cart
+conductors with nothing to say, carts you could click "Ride" on for no result, and the minecart
+tickets from The Giant Dwarf with nowhere to use them. It runs now.
+
+- **Three stations**: the Keldagrim depot, the dwarven mines under Ice Mountain, and the east end of
+  the passage under White Wolf Mountain. Both outer lines run to Keldagrim and back.
+- **Talk to the Cart conductor** at any station and he will sell you a seat for **150 coins** — or
+  **75** if you are wearing a Ring of charos(a).
+- **Or use a ticket.** Each of the four minecart tickets covers one direction, and the cart itself
+  takes it instead of a fare. The ticket The Giant Dwarf gives you is now a free ride rather than a
+  keepsake.
+- **You need to have started The Giant Dwarf** to ride at all, and the White Wolf line also needs
+  the Fishing Contest, since that is what opens the passage it arrives in.
+- A cart has been put at the Keldagrim end, which had four platforms and nothing standing at any of
+  them.
+
 ---
 
-*Nothing in this release changes existing content. The course was placed on the map and silent; this
-is the first time any of it responds.*
+*Nothing in this release changes existing content. Both the agility course and the cart network were
+already drawn on the map and silent; this is the first time either of them responds.*
