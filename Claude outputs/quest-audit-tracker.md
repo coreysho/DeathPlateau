@@ -898,10 +898,11 @@ Village and Recipe for Disaster - and there is no quest in the build without a w
 end to end on foot. audit2's Rat Catchers break is fixed too: the section was the old three-chapter
 quest and it had been taking Mourning's End Part II and Forgettable Tale down with it.
 
-### THE NON-QUEST BACKLOG, AND WHAT EACH ONE IS ACTUALLY BLOCKED ON (25 Oct)
-Each of these was surveyed again after the quest list closed. **Ape Atoll is built and walked** -
-its entry below is kept because the table that was here before it was wrong in a way worth
-remembering. The three that remain are each one decision away, and the decision is named.
+### THE BACKLOG AFTER THE QUEST LIST CLOSED (25 Oct)
+Four items were parked here when the quest list finished. **Two are now built and walked** - the Ape
+Atoll agility course and the Lady Zay's jinx - and both entries are kept, because the surveys that
+preceded them were wrong in ways worth remembering. **Two are left: the Keldagrim cart network,
+which is a decision, and Temple Trekking, which needs its own session.**
 
 The audits are repaired too, all three of them. `audit1.ts` is **304 ok, 0 FAIL** where it used to
 die at check 13, `audit2.ts` is 83 ok and `audit3.ts` runs its whole list. All three breaks were one
@@ -912,53 +913,53 @@ prerequisite in Cabin Fever. Where a walk already plays the quest properly the a
 a pointer to it rather than a second copy, because two copies is what let these rot while the walks
 stayed green.
 
-**The Lady Zay's jinx (Lunar Diplomacy) - SURVEYED AGAIN, AND IT IS NOT BLOCKED (25 Oct).** The gap
-is real: with the Seal of Passage, `[label,lunar_bentley]` simply sails you to Lunar Isle and sets
-`^lunar_arrived` 80, so stages 30 to 70 - `^lunar_sailed_circle`, `^lunar_jinxed`,
-`^lunar_questioning`, `^lunar_confessed`, `^lunar_symbols_gone` - have no writer, `%lunar_bits` 0-9
-are never touched, and `lunar_emerald_lens` / `lunar_emerald_lantern` /
-`lunar_emerald_lantern_lit` are objs nothing makes. `quest_lunar_run.ts` is 114/114 because it
-completes through that bypass, not because the chapter is there.
+**The Lady Zay's jinx (Lunar Diplomacy) - BUILT (25 Oct).**
+`quests/quest_lunar/scripts/lunar_ladyzay.rs2`, with the coords in `configs/quest_lunar.constant`,
+seven new varbits on `%lunar_bits`, seven npc spawns in `m34_59` and the five stages wired into
+`[label,lunar_bentley]`. `tools/sim/quest_lunar_run.ts` walks the whole quest on foot:
+**187 of 187, complete at 150**, where it was 114 of 114 through the bypass.
 
-**The previous note's blockers were both wrong, and the mistake is instructive.** It said nothing is
-wired to get aboard or between decks and that the two ladder types have no trigger on any
-placement; and it listed five "symbol" locs split across both ship copies. The ladder *placements*
-are there - what is missing is only the trigger - and the symbol locs are not the ones it named.
-What went wrong is that it searched the map by the **474 loc id** in the config name, and the `.jm2`
-MAP and LOC sections carry the **packed** id. `loc474_16951` is packed id 18480, and a search for
-16951 finds nothing anywhere, which reads exactly like "not placed". `content/pack/loc.pack` is the
-translation; search by the packed id or everything on that ship looks absent.
+Bentley sails and comes back where he started (30), the navigator works out she is marked (40), the
+five crew are questioned in order (50) - out of turn gets a brush-off that counts for nothing - the
+cabin boy breaks and hands over the lens (60), the lens goes into a bullseye lantern and is lit, and
+five marks come off the cannon, the wallchart, a chest, a support and a crate (70). Only then does
+Bentley sail north.
 
-**Everything the chapter needs is placed and named.** On the Cove ship (m34_59, x 2219-2228, two
-copies at z 3784-3796 and z 3798-3814):
+**What the two earlier surveys of this got wrong, which is the lesson.** The first said the five
+symbol locs were split across two ship copies in m34_59; there is **one** ship, drawn across four
+planes. The second said nothing is wired to get aboard and the ladders have no trigger on any
+placement; the placements are all there - two ladders at the shore and the pier, a gangplank, and
+the ship's own stairs between three decks - and only the trigger was missing. Both mistakes came
+from searching the maps by the **474 loc id in the config name** when the `.jm2` LOC sections carry
+the **packed** id. `content/pack/loc.pack` is the translation, and without it every placement on
+that ship reads as absent.
 
-| piece | loc | packed | placements on the Cove ship |
-| --- | --- | --- | --- |
-| Stairs, deck to deck | `loc474_16945` | 15686 | 7, incl. **p0 2225,3808** - op1=Climb, no trigger |
-| Stairs, deck to deck | `loc474_16947` | 15688 | 7 - op1=Climb, no trigger |
-| Door | `loc474_16902` | 15646 | 4 on p2 - op1=Open, already works via the door category |
-| Cannon | `loc474_16938`, `loc474_16939` | | 15 on p1, and one at p1 2224,3802 |
-| Wallchart | `loc474_16975` | | 2: p2 2221,3807 and p2 2222,3790 |
-| Chest | `loc474_16891` | 18479 | 6, incl. p0 2223,3811 and p1 2221,3810 |
-| Support | `loc474_16951`, `loc474_16941` | 18480 | p0 2224,3793; p3 2224,3790 and 2224,3810 |
-| Crate | `loc474_16863` and three more | | 12 between them |
-| Cooking range | `loc474_16893` | | p0 2220,3789 - the wiki puts the crate symbol east of it |
+**Four things only a probe would have caught:**
 
-All seven crew are declared in `lunar_npcs.npc` - `captain_bentley`, `birdseye_jack`,
-`eagleeye_shultz`, `cabin_boy`, `beefy_burns`, `lecherous_lee`, `first_mate_daveyboy` - and the
-three objs are declared in `lunar_items.obj` with `light_source_unlit` / `light_source_lit`
-categories already set. **What is NOT there: any npc spawn.** m34_59's NPC section has two lines in
-the whole mapsquare, neither of them crew, so the chapter has to spawn them (see
-[[npc-spawns-live-in-jm2]]).
+* **First mate Davey-boy's tile was unreachable.** 2222,3787 is the head of the wooden table, with
+  `loc474_16900` chairs on three sides and a floorchart on the fourth. `tools/sim/beside.ts`:
+  `stand at: NOWHERE - it is walled in`. The talk step said *nothing* rather than failing, and the
+  step that went red was the cabin boy two steps later, correctly refusing to confess because the
+  crew counter had not advanced.
+* **The crew drift.** With no `wanderrange` in the npc config, all seven had moved off their spawn
+  tiles before the world finished booting. The guide names where each of them stands, so they are
+  pinned with `wanderrange=0`.
+* **Three of the six chests in the hold are reachable from nowhere**, cargo sealing them in, and the
+  one first picked for the mark was one of them. `tools/sim/locreach.ts` was written for this: any
+  list of `name,x,z,level`, and the tiles the engine will accept an op from, all in one boot.
+* **The main deck is three rooms behind bulkhead doors.** `walkgraph` named all three with the tile
+  to stand on for each - `loc474_16902` at 2224,3807 for the bow, then 2224,3793 and 2224,3790 for
+  the aft room. Without those clicks the bow cannot be reached at all.
 
-**So it is a build, not a decision.** The order, from the Old School quick guide: Bentley, Bentley
-again, down to Jack, back to Bentley blaming the navigator, back to Jack; then the five crew **in
-order** - Shultz at the bow, the cabin boy one deck above the captain, Burns on the lowest deck, Lee
-top-rear, Davey-boy in the south room on the deck level; then the cabin boy again, who needs two
-free spaces and hands over a bullseye lantern (unf) and the emerald lens; the lens into a lantern,
-lit with a tinderbox; the five symbols rubbed out with it; then Bentley sails. Picking which of the
-two ship copies is the Lady Zay, and the exact tile for each of the seven npcs and five symbols, is
-the one piece of judgement left - and `tools/sim/apereach.ts` answers the reachability half of it.
+Two pre-existing obj bugs fell out of it: `lunar_emerald_lantern` had `category=light_source_unlit`
+with **no `param=product`**, so a tinderbox would have matched the generic handler, deleted the
+lantern and handed back nothing; and its lit form carries `Extinguish` on op3, which needed its own
+trigger like the op2 ones.
+
+**Deliberately not wired:** plane 3, which carries the wheel and the masts and has no walls anywhere
+in the mapsquare - a player let up there could walk out over the sea. And the Lunar Isle copy of the
+ship (`m33_60`, `m33_61`), for the same reason: nothing up there belongs to a quest and its decks
+have not been checked for a landing that strands somebody.
 
 **The Keldagrim cart network.** Smaller than it looked, and not a network. The cache has four
 tickets - Keldagrim to and from the dwarven mines under Ice Mountain, and to and from the passage
