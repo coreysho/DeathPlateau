@@ -1070,6 +1070,50 @@ one run in three; Abidor Crank is forced now, like the route 3 evade refusal.
 `npc.pack` at all, and the Burgh de Rott Ramble - the reverse route - whose six escorts (Adventurer,
 Mage, Apprentice, Ranger, Forester, Woman-at-arms) are not in it either.
 
+### WHAT THE CAM STILL SEES, AND WHAT IT CANNOT (26 Oct)
+With the thin-air landings fixed, a full pass of the course cam over the seven rooftop courses reads
+**263 ok, 55 FAIL**, and the failures sort into four kinds. Two are real, two are the cam's own
+limits, and knowing which is which is the whole point of having it.
+
+**REAL: nine crossings still glide diagonally.** `~agility_roof_move` slides the player from the
+obstacle to the landing in one movement, and nine of them are not in line with the tile the glide
+starts from, so the player slides across whatever lies between. Each one here with the tile the
+glide begins at, which is what a fix needs and what `courseland.ts` cannot know offline (it only
+sees the previous landing, and the player WALKS from there to the obstacle first):
+
+| course | obstacle | obstacle at | glide starts |
+|---|---|---|---|
+| ardougne | gap 1 | 2670,3310 | 2662,3318 |
+| ardougne | gap 2 | 2653,3317 | 2654,3318 |
+| falador | tightrope 3 | 3026,3353 | 3027,3353 |
+| falador | gap 3 | 3016,3352 | 3017,3351 |
+| falador | ledge 1 | 3015,3345 | 3016,3345 |
+| pollnivneach | market stall | 3349,2970 | 3350,2970 |
+| rellekka | tightrope 1 | 2623,3658 | 2623,3658 |
+| rellekka | gap 2 | 2629,3656 | 2629,3655 |
+| seers | tightrope | 2710,3489 | 2711,3489 |
+
+Varrock and Canifis have none. **This count was sixteen until the check was fixed**: it was reading
+the whole drawn path, and most of a path is the engine walking the player to the obstacle, one tile
+a tick, diagonally whenever the last landing was not in line with this one - which is 52 of the 58
+and is perfectly ordinary. `Player.exactMove` marks the boundary: it teleports to the end before
+setting the mask, so the path carries one multi-tile jump and the glide is everything after it.
+
+**REAL: three obstacles whose verb the cam cannot find at all** - Varrock's gap 1 among them, a
+149-byte .ob2 against 1023 for the tightrope beside it, because a gap in a roof edge is drawn as a
+marker rather than as a thing. A six-pixel pass close in was added for them and has not settled it;
+whether a player can click them is worth knowing either way.
+
+**THE CAM'S OWN LIMIT: twenty "has floor under it" failures.** The client keeps scenery at a loc's
+ORIGIN tile only, so a landing in the middle of a big canopy reads empty to the renderer while the
+mapsquare's own LOC rows say otherwise - which is why `mapfloor.ts` reads the rows and the offline
+sweep reports no unexplained thin air. Canifis' whole run is this: its first obstacle lands on a loc
+and everything after it cascades.
+
+**AND THE CASCADES: twenty-two "not on screen from here".** Once an obstacle cannot be clicked the
+player never advances, and every obstacle after it is measured from the wrong tile. They are noise
+around the first real failure on each course, not twenty-two findings.
+
 ### SHEEP HERDER'S WALK IS REPEATABLE (26 Oct)
 **8 of 8, 29 checks each, 0 failed**, at 40 to 65 prods a sheep. It had been about four in eight
 since it was written, always on a herd step, and the note left in `prodPlan` blamed the other sheep.
