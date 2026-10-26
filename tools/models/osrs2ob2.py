@@ -208,6 +208,9 @@ def decode(b, textures=SHARED_TEXTURES):
     return dict(ver=L['ver'], vcount=vc, fcount=fc, vx=vx, vy=vy, vz=vz,
                 fa=fa, fb=fb, fc=fcc, colour=colours, alpha=alpha,
                 textured=textured, priority=L['pri'], pri=pri, tris=out_tris,
+                # the OSRS texture each face asked for (-1 for none), so a caller can census what a
+                # model WANTED as well as what it got - tools/models/rooftextures.py reads this
+                texids=[(tex_id[i] if tex[i] else -1) for i in range(fc)],
                 vlab=vlab, flab=flab, finfo=finfo if any(finfo) else None)
 
 
