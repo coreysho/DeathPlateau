@@ -59,6 +59,9 @@ every monster in the cache waiting for something to put it there.
     the branch that reaches across.
 - **Every room has three ways out**: carry on north, slip past, or take the path you came in by and
   give the whole thing up.
+- **The Hollows road ends on the water.** Its last leg is a boat across the swamp, and something
+  with a head and four tentacles comes up out of it on both sides. There is nowhere to stand but the
+  deck, and the boat goes nowhere until the thing is dealt with.
 - **Reach Paterdomus** and your charge hands over a reward token — blue off the swamp road, yellow
   off the Salve, red out of the Hollows. Click it to claim what the trek was worth: the harder the
   road and the more you dealt with, the more comes out of it, and tomes of experience are in the

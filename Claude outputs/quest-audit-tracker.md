@@ -1026,10 +1026,22 @@ event that opens with `~mesbox` never spawns anything, because the mesbox parks 
 spawn; `^trek_burgh_start` was 24 tiles out (m54_50's base is 3456,3200, so 3480 is local 24, not
 48); and `last_useitem` is corrupted by `p_arrivedelay`, so an `[oplocu]` has to read it first.
 
-**Not wired, and said plainly:** the route 3 boat with the head and its four tentacles, at 2062,5034
-on plane 2 with `op4=Continue-trek` and `op5=Escape-event`. It is a vehicle rather than a path, a
-different shape from every other room, and the head alone is worth 4,000 points. Route 3 is
-otherwise complete: three legs of tier-3 monsters with no evading.
+**THE BOAT IS WIRED TOO (26 Oct).** Route 3's last leg is now the crossing: the deck is six tiles on
+plane 2 at 2062-2063, z 5034-5036, the boat carries its own `op4=Continue-trek` and
+`op5=Escape-event` instead of Paths, and the head and four tentacles come up out of the water around
+it - which works only because `npc_add` does not need a walkable tile. The cache keeps a second copy
+of each, `templetrek_tentacle_arm_spawning` and `templetrek_tentacle_head_spawning`, whose READY
+animation is the surfacing one and which exist for no other purpose, so the thing rises and then
+swaps to the form that fights. 800 points a kill, 4,000 for the event, which is Old School's figure.
+
+**And building it found three holes in what had already shipped.** None of the twenty trek monsters
+had a `huntmode`, so nothing ever attacked the player or the escort and the whole point of the
+minigame was inert - the giant snails got the ranged attack Old School describes, using the
+`trek_snail_acid_attack`/`_travel` projectiles and `snail_spit` sound the cache already had. The
+monsters are 2x2 to 5x5 and an npc's coord is its south-west corner, so two spawned two tiles apart
+overlapped and the second silently never appeared; the probe had only ever checked the number the
+script wrote, never that an npc existed. And a trek could draw the same room twice and walk back
+into the monsters it had left standing there, six alive against a kill count expecting three.
 
 ### A STAGE VARBIT IS A HIGH-WATER MARK (24 Oct)
 Mourning's End Part 2 cost half an hour to this and it applies to every quest in the directory.
