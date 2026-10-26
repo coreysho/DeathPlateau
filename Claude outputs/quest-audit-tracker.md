@@ -1250,6 +1250,49 @@ Collapsed trap, Trapdoor and five unnamed ones), changing only face colours - 12
 anything to do with textures, and **they were reverted**: sixteen unrelated models recoloured inside
 a rooftop change, with no way to look at them, is not a thing to ship. It is worth its own pass.
 
+### THE ROOF DEFICITS, ONE BY ONE, WITH THE CLIENT LOOKING (26 Oct)
+`roofdiff.py` counts, per course, the roof pieces Old School places that we have no placement of.
+Three were acted on and the third is the reason this section exists.
+
+`graftosrsmap.py` gained **`--shapes`**. A course box also covers the upper floors of a 2006 town,
+and a plain graft deletes every loc of ours inside the box and levels it is given before writing
+Old School's - for Canifis, 565 of ours for 727 of theirs, except theirs also brings Old School's
+beds and tables for a town that has its own. `--shapes 12-21` limits BOTH halves to roof pieces,
+which it has to: filtering only what is taken would strip the course of its obstacles, and
+filtering only what is kept would double every bed. With `--locs-only` the terrain is untouched, so
+rooftopfix's three rules survive.
+
+| course | Old School places | we had none of | grafted | verdict |
+|---|---|---|---|---|
+| canifis | 727 of loc 24370, shapes 12-19 | all 727 | yes, level 2 | **the roof was a chequerboard of holes and is now whole** |
+| ardougne | 645 | 34 of loc 54131, shape 17 | yes, level 2 | six ridge pieces; a notch in the thatch filled |
+| seers | 687 | 10 | **reverted** | see below |
+| varrock | 869 at m50_53 | 114 of 10 ids | not done | levels 1, 2 and 3 all move, and level 2 would REMOVE 57 - this is Varrock's own roofline, seen from every street, and it wants the owner's eye before it is replaced |
+
+**SEERS IS THE ONE TO REMEMBER.** It was 44 short at level 1, the second biggest deficit on the
+list, and the graft replaced a solid red tile roof with **a black void and two loose wooden beams**.
+Old School's level 1 pieces there are not models this client draws. Nothing offline caught it:
+roofdiff was happy, rooftextures was happy, and `rooftops.ts` still read **273 ok 0 FAIL with the
+void in place**. A roof deficit is not a fix-by-numbers, and the only instrument that can tell a
+Canifis from a Seers is the cam.
+
+### THE CAM RUNS AGAIN, AND THE JAR IS PART OF THE BUILD (26 Oct)
+Every course died in `logIn` with `timed out waiting for the login box (login screen says:  / )`,
+which reads as the engine not serving the client its cache. It is not. The login screen used to be
+two pages - "Existing User", then `titleScreenState == 2` - and is now one: `TitleScreen` draws the
+saved profiles, two fields and an ENTER button, and `Client.updateTitle` only ever sets
+`titleScreenState` to 0 or 3. There is no state 2 left to wait for. The quoted login screen is
+empty because there is no login box to quote.
+
+It only surfaced now because `build/libs/rs2client-dev.jar` was a fortnight older than the source.
+**A cam run against a stale jar is a cam run against a different client.** Build it first
+(`./gradlew --no-daemon jar`; there is no shadowJar task). `CourseCam.logIn` now fills the fields
+and presses ENTER at TitleScreen's own button coordinates, retrying until the player is in.
+
+Current tallies, all seven: falador 79/10, seers 41/2, rellekka 33/7, ardougne 31/9, varrock 24/5,
+canifis 13/15, pollnivneach not re-run. Falador's deck repaint is **confirmed in the client** - grey
+slate under the whole lap, not dwarf_red - and so is the imported slate texture on Varrock's roofs.
+
 ### MARIM IS NOT MISSING ITS MONKEY GUARDS (26 Oct)
 Recorded here as five npcs with no static spawn needing coordinates off the wiki. Both halves were
 wrong, and `osrsnpcspawns.py` says so in one run.
