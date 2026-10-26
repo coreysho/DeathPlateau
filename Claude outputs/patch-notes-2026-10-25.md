@@ -48,10 +48,20 @@ every monster in the cache waiting for something to put it there.
   the Hollows is level 140 and there is no slipping past anything.
 - **Who you take matters, backwards.** The tougher the volunteer, the fewer monsters turn up: the
   retired pair bring three, the militia four, the old man and the child five.
+- **Your charge is what the swamp is after.** Anything left standing will go for them while you
+  fight, and if they go down the trek is over and you walk out with nothing. The tougher the
+  volunteer the more they can take - the retired pair have 70 hitpoints, the militia 50, the old man
+  and the child 30 - which is the other half of the trade above.
+- **Stock their pack before you set off.** Use food on a volunteer in Burgh de Rott and it goes into
+  their pack: up to fifteen items, anything you could eat yourself. Once a mauling has them down to
+  half they will take something out of it and get a little back, so a full pack roughly doubles how
+  long a soft escort lasts. It empties when the trek does, and they lose it if you log out.
 - **Fourteen events, one to a room.** Swamp snakes, ghasts, giant snails, vampyre juvinates and
   shadows; a bridge down over a ditch; a gully to be crossed on a vine rope; and Abidor Crank, who
-  will feed you both and steady your hands.
+  will feed you both, steady your hands, and turn anything rotten in your pack into stew.
   - **Ghasts are invisible** without a druid pouch, and a pouch used on one pulls it into the light.
+    A ghast still in the fog is the only thing that will go for your charge, so the pouch is how you
+    get it off them as much as it is how you kill it.
   - **Juvinates** will not take a scratch from anything but silver.
   - **The bridge** needs three pieces of wood — planks and a hammer, or logs and an axe — and goes
     back together a length at a time. There is no other way over the ditch.

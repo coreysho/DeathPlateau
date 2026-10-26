@@ -999,7 +999,7 @@ to be clicked from the platform beside them for the same reason.
 
 **Temple Trekking - BUILT (25 Oct).** `minigames/game_templetrek/` - the constant file, the varbits
 on `templetrek_temp_var`, and three scripts: the trek machine, the eight events, the rewards.
-`tools/sim/templetrek.ts` plays a trek end to end on all three routes - **78, 79 and 70 checks, 0
+`tools/sim/templetrek.ts` plays a trek end to end on all three routes - **92 to 102 checks a run, 0
 failed** - and then asks, for all fourteen rooms, whether the way out is in the same walkable region
 as the tile the trek puts you on.
 
@@ -1042,6 +1042,33 @@ monsters are 2x2 to 5x5 and an npc's coord is its south-west corner, so two spaw
 overlapped and the second silently never appeared; the probe had only ever checked the number the
 script wrote, never that an npc existed. And a trek could draw the same room twice and walk back
 into the monsters it had left standing there, six alive against a kill count expecting three.
+
+**AND THEN THE ESCORT ITSELF (26 Oct).** "It is built" was said twice before it was true, and both
+times the thing missing was the escort rather than the swamp. The six volunteers had no `hitpoints`
+line at all, so they were level-0 npcs who could not be hurt and could not die; they have Old
+School's 70/50/30 now, and a trek ends if they go down. Nothing had ever written to the cache's
+four-bit `templetrek_multi_npc_food_give`, which is the follower's pack - fifteen items, stocked by
+using food on them because there is **no templetrek interface anywhere in the cache**, not one
+component - and that is what they eat out of at half hitpoints. Abidor Crank healed the player and
+left the villager bleeding, and never touched the `rotten_food` and `stew` the cache holds for him.
+And only the hidden ghasts maul the follower, which is Old School's rule and was being applied to
+both forms.
+
+**The last real bug was found by the probe throwing rather than failing:** "no
+templetrek_bridge_broken at 2090,5039", on a trek that happened to draw the bridge room twice. A
+mended bridge stays mended for 2000 ticks and the rope over the branch is a `loc_add` with the same
+life, and the draw only refuses the room immediately before - so the second visit had no obstacle to
+clear and no way on but Escape. Old School instances its rooms; here both puzzles are knocked back
+down on the way in. Six treks across the three routes, **92 to 102 checks each, 0 failed**.
+
+**Two things measuring the escort taught.** The maul and the meal cancel out if measured together -
+four meals at eight points against ten bites at four leaves the escort no worse off, which reads
+exactly like the mauling not working. And an event that is one room in fourteen gets tested in about
+one run in three; Abidor Crank is forced now, like the route 3 evade refusal.
+
+**Two things Old School has that this cache does not, and so cannot:** nail beasts, which are not in
+`npc.pack` at all, and the Burgh de Rott Ramble - the reverse route - whose six escorts (Adventurer,
+Mage, Apprentice, Ranger, Forester, Woman-at-arms) are not in it either.
 
 ### A STAGE VARBIT IS A HIGH-WATER MARK (24 Oct)
 Mourning's End Part 2 cost half an hour to this and it applies to every quest in the directory.
