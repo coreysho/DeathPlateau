@@ -704,3 +704,142 @@ repeats once per session unless the commands go in the environment's Setup scrip
 5. **#8.** Do you want the 2-5% yield bonus on top of the Old School notification job, knowing it
    would be the third stacking yield multiplier and the two existing ones are already above Old
    School's numbers?
+
+---
+
+# Round two — the 26 October list, measured the same way
+
+Nineteen more, numbered on from the first list. Everything below was checked against the tree today
+rather than remembered: what already exists, what the source npc is, and what is actually missing.
+
+## Verdict table
+
+| # | Suggestion | Verdict | The one thing that decides it |
+|---|---|---|---|
+| 23 | Hunter store icon, Yanille | **Two lines of map** | Aleck's Hunter Emporium is built; it just has no minimap icon |
+| 24 | Agility Pyramid | **Best value on this list** | Every obstacle is modelled and placed. Nothing is scripted |
+| 25 | Pyramid Plunder + pharaoh sceptre | Whole minigame | Nothing of it exists: no rooms, no guard mummies, no sceptre |
+| 26 | Clue caskets, rebuilt the Old School way | **Approved: one casket per tier** | OSRS has six reward caskets; this build has 103 |
+| 27 | Zaros mage arena cape + ornament kit | **Approved: import 29448** | The model is OSRS's own "Imbued mage arena cape" |
+| 28 | Slayer gem: Check for kill count | **~5 lines** | `%slayer_count` already exists and the gem already reads it aloud |
+| 29 | Bone weapons from the cave goblins | Import + drops | Two of them already exist (`cave_goblin_bone_club`, `_spear`) |
+| 30 | Hill giant club | Import + one drop line | The npc is `giant`; the item is absent |
+| 31 | Belle's folly from metal dragons / KBD | Import + drop lines | OSRS id 31248, and a tarnished version at 31245 |
+| 32 | Arkan blade from lava dragons | **Item already built** | `arkan_blade` exists here with its own spec; it needs a drop |
+| 33 | Rum Deal + barrelchest anchor | **Approved: build the quest** | Anchor is OSRS 10887; the quest is the real work |
+| 34 | Abyssal bludgeon, three pieces, no dupes | Import + a small state machine | The demon is `slayer_abyssal`; the no-duplicate rule needs varbits |
+| 35 | Dragon warhammer from KQ or KBD | Import + one drop line | Both are built — the KBD is the npc `king_dragon` |
+| 36 | Staff of the dead from K'ril | Import + one drop line | K'ril is built |
+| 37 | Saradomin's light from Zilyana | Import + one drop line | Zilyana is built |
+| 38 | Staff of light, combining the two | One script, after 36 and 37 | Nothing to import; it is a combine |
+| 39 | Granite hammer from gargoyles | Import + one drop line | `slayer_gargoyle` is built, with a superior |
+| 40 | Granite longsword from gargoyles | Import + one drop line | Same table as 39 — do them together |
+| 41 | Dragon sword from every dragon | Import + a scaled table | 30 dragon npcs; "better rate on bigger dragons" is the design |
+
+## The cheap shelf
+
+**#28, the slayer gem's Check.** The gem carries one op today, `iop1=Activate`, and that path already
+reads `%slayer_count` out loud through the master's dialogue. A Check op is the same number without
+the phone call: one `iop`, one `[opheld]`, one message. The smallest thing on the list.
+
+**#23, the Hunter shop icon.** Aleck is built, in `skill_hunter/configs/hunter_emporium.npc`, and so
+are Leon's shop and the one in Nardah. What Yanille has not got is the minimap icon. Only two places
+in the whole tree set `mapfunction` outside the cache's own locs — the trading post and Pest Control
+— and the trading post's config records the rule that cost somebody an afternoon: **the client only
+reads `mapfunction` off ground decoration (shape 22)**, which is why Jagex marked shops with an
+invisible `general_store_icon` loc rather than on the building. So: one invisible loc on Aleck's
+tile, one `mapfunction` line, and a hunter icon added to `sprites/mapfunction.png` if none of the
+existing ones fit.
+
+**#26, stackable caskets.** 103 objs have "casket" in the name and every one is `stackable=no`. The
+flag itself is data. The design call underneath it is not: caskets here are per-clue objs, so making
+them stackable stacks *identical* caskets, not "all your easy caskets". If the intent is a pile of
+loot to open at the bank, that is one obj per tier and a rewrite of how caskets are handed out.
+
+## The one with everything built except the script
+
+**#24, the Agility Pyramid.** This is the standout. All 114 `agility_pyramid_*` locs exist, they are
+**placed on the map** (m52_44 and m47_73), Simon Templeton is built, and so are the two waterfall
+npcs. Nothing in `skill_agility/scripts/` mentions any of it — the only script that references the
+pyramid at all is `stairs.rs2`. The whole thing is standing there as scenery: climbing rocks,
+ledges, gaps, doors, the lot, with no course behind them. That is the same shape as the rooftop
+courses this build already has nine of, and those have the hard parts — landings, obstacle spans,
+the client-side camera check — already solved and written down.
+
+## The drop-table family, #29 to #41
+
+Eleven of the nineteen are one job repeated: import an item from the OSRS cache, hang it on a drop
+table that already exists. The tree is in good shape for it — `slayer_abyssal`, `slayer_gargoyle`,
+`kril`, `zilyana`, `kalphite_queen`, `lava_dragon`, `giant`, the three metal dragons and 30 dragon
+npcs in all are built, and `tools/models/importosrs.py` takes an item by name.
+
+Two are blocked on something only you can answer:
+
+* **#31 and #32.** I cannot identify "Belle's folly" or the "Arkan blade" — neither is a 2006 item
+  and neither resolves in the OSRS cache under those names. Say what they look like or where they
+  come from and they become the same one-line job as the rest.
+* **#35, and half of #31.** There is **no King Black Dragon in this build.** `black_dragon` is the
+  ordinary one; there is no KBD npc, no lair, no table. A KBD drop is really "build the KBD first",
+  so the dragon warhammer should come off the Kalphite Queen, who is built.
+
+And one needs a home rather than a model:
+
+* **#33, the barrelchest anchor.** The item is absent and so is Rum Deal — there is no pirate or rum
+  quest in `scripts/quests/`. "Given by quest completion" needs a quest that exists; name one and it
+  is a reward line.
+
+**#34 deserves its own note.** The no-duplicate-pieces rule is the interesting part, not the item: the
+drop roll has to read what you already own and pick from the pieces you are missing, which is a
+varbit per piece and a check in the demon's table. Worth doing properly, because that pattern is
+what any other "collect three" item would want afterwards.
+
+**#38 is free once #36 and #37 are in** — the staff of light is a combine, not an import.
+
+**#41 is the only one with a design in it.** "All dragons, better rate on bigger ones" means a
+per-npc rate rather than one line: bronze through to the lava dragon, each with its own number. That
+is one table and a param on each dragon.
+
+## Corrections to this round, 26 October
+
+Three of the entries above were wrong when written, and two of them were wrong because I searched
+for the wrong string rather than because the thing was missing. Recorded here because the same
+mistake is easy to repeat:
+
+1. **The Arkan blade is already in this build.** `scripts/general/configs/osrs_items_2.obj` holds
+   `[arkan_blade]`, and it has a special attack (`skill_combat/.../specs/scripts/arkan_blade.rs2`),
+   burn-stack varps and a level-60 requirement. My scan searched for a list of words I had chosen in
+   advance and "arkan" was not one of them. Only the drop is missing.
+2. **The King Black Dragon is in this build.** The npc is `king_dragon` - the 2006 name - with a
+   full drop table in `drop_tables/scripts/king_black_dragon.rs2` and a boss pet. I searched for
+   `king_black_dragon` and `kbd` among npc names and concluded it was absent; the file was named
+   that all along and the npc was not.
+3. **Belle's folly is a real Old School item**, id 31248, with a tarnished version at 31245. The
+   name did not resolve because `importosrs.py` matches whole names, not substrings - a substring
+   search over the cache finds it at once.
+
+**Answered, and now scheduled:**
+
+* **#33** - Rum Deal comes in with the anchor. The quest is the work; the anchor is OSRS 10887.
+* **#26** - caskets follow Old School: one reward casket per tier (beginner, easy, medium, hard,
+  elite, master - OSRS 23245, 20546, 20545, 20544, 20543, 19836), replacing the 103 per-clue objs.
+* **#27** - the cape is Old School's **Imbued mage arena cape**, id 29448, imported as the model.
+
+## What I would do first
+
+1. **#28** — five lines, today.
+2. **#23** — one loc and an icon.
+3. **#39 + #40** — one gargoyle table, two items, and it proves the import-and-drop loop for the
+   other nine.
+4. **#36, #37, #38** — the God Wars staves together, since the third is free.
+5. **#24, the Agility Pyramid** — the biggest return on the list, and the course machinery exists.
+6. **#34** — the bludgeon, properly, with the no-duplicate rule.
+7. **#25** — Pyramid Plunder, a minigame-sized job that should be costed on its own.
+
+## Open questions on this round
+
+1. **#31, #32** — what are "Belle's folly" and the "Arkan blade"? Neither name resolves here.
+2. **#33** — which quest should hand over the barrelchest anchor, given Rum Deal is not built?
+3. **#26** — stack identical caskets, or one casket obj per tier? The second is the bigger change.
+4. **#27** — a Zaros cape needs art that does not exist in 2006. Recolour of an existing god cape,
+   or a new model?
+5. **#35** — confirm the Kalphite Queen as the dragon warhammer's source, since there is no KBD.
