@@ -1070,6 +1070,39 @@ one run in three; Abidor Crank is forced now, like the route 3 evade refusal.
 `npc.pack` at all, and the Burgh de Rott Ramble - the reverse route - whose six escorts (Adventurer,
 Mage, Apprentice, Ranger, Forester, Woman-at-arms) are not in it either.
 
+### SHEEP HERDER'S WALK IS REPEATABLE (26 Oct)
+**8 of 8, 29 checks each, 0 failed**, at 40 to 65 prods a sheep. It had been about four in eight
+since it was written, always on a herd step, and the note left in `prodPlan` blamed the other sheep.
+That was the smallest of four faults.
+
+**The field north of Ardougne has a fence in it**, between x2623 and x2624, running the whole height
+of the pasture with free ground either side and no crossing for eight tiles - a flood from 2623,3368
+reaches 3,294 tiles and not one is east of that line. A prod moves the animal AWAY from the player,
+so a sheep against that fence cannot be pushed west at all: the stand tile is on the far side. The
+planner takes the player's walkable component now and refuses those pushes.
+
+  - **For every step, not just the next.** A component does not change as the player walks about
+    inside it. Gating only the first step let the plan turn into the fence on step two - push south,
+    re-plan, west refused, push north, re-plan, west refused - four hundred prods of a sheep pacing
+    the same fence.
+  - **And the fallback must not drop it.** A "found nothing, try again with less" tail drops
+    whichever constraint is listed first, and this one dropped both. Three rungs now and no fourth:
+    every step with the animals avoided, every step without, and last the NEXT push makeable.
+    Nothing below that, because a plan whose next push cannot be made is not a plan - the step walks
+    towards it, never arrives, and spends forty rounds finding out.
+
+**`WALK_BLOCKED` LEAVES OUT THE FLAG THAT MATTERS.** It is `FLOOR | FLOOR_DECORATION | LOC`, and it
+does not include `BLOCK_NPC_AND_PLAYERS` - which is exactly what a Player's `blockWalkFlag()` is,
+and part of every Npc's. So `canTravel` with an extraFlag of 0 answers "fine" for tiles that both
+halves of a prod refuse. This one is not specific to Sheep Herder: anything in `tools/sim` planning
+a walk with an extraFlag of 0 is planning over a different map from the one the engine walks.
+
+**AND THE ANIMAL MOVES WHILE YOU WALK TO IT.** The script takes the push direction from
+`~coord_direction(player, animal)` at the moment of the prod, so a sheep that has shuffled one tile
+since the plan was made gets shoved in a direction nobody planned - usually into the wall the plan
+was routing around. It does not move, the prod is spent, and twenty-five of those in a row was the
+last failure mode standing. A shuffle is a re-plan now.
+
 ### THE AGILITY LANDINGS WERE IN THIN AIR (26 Oct)
 **Seventeen of the agility courses' landing tiles had nothing drawn on them at all** - no overlay,
 no underlay, and no loc to be standing on - so the obstacle set the player down in the sky. Fifteen
