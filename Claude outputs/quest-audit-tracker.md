@@ -1070,17 +1070,15 @@ one run in three; Abidor Crank is forced now, like the route 3 evade refusal.
 `npc.pack` at all, and the Burgh de Rott Ramble - the reverse route - whose six escorts (Adventurer,
 Mage, Apprentice, Ranger, Forester, Woman-at-arms) are not in it either.
 
-### THE ROOFTOP LANDINGS WERE IN THIN AIR (26 Oct)
-**19 of the 58 rooftop obstacle landings put the player on a tile the client draws nothing for, or
-on one the engine flags blocked by something that is not a loc.** 17 are fixed; the two that are
-not are named at the end of this section. Every one of them passed `tools/sim/rooftops.ts`, which
-has checked these courses since they shipped - because the engine side cannot see it. It even
-PRINTS the blocked ones: "note: ... land on flagged tiles", a line added rather than asserted
-because asserting it "would mean arguing it away on seven courses every run".
+### THE AGILITY LANDINGS WERE IN THIN AIR (26 Oct)
+**Seventeen of the agility courses' landing tiles had nothing drawn on them at all** - no overlay,
+no underlay, and no loc to be standing on - so the obstacle set the player down in the sky. Fifteen
+are fixed. Every one of them passed `tools/sim/rooftops.ts`, which has checked these courses since
+they shipped, because the engine side cannot see it: a hole at plane 3 over a street is "open" as
+far as `canTravel` is concerned.
 
 **The proof is a picture.** `javaclient/tools/clienttests/CourseCam.java` runs a lap in the real
-client with no window and records, per obstacle, the drawn path frame by frame. Falador's first
-tightrope, before:
+client, headless, and records the drawn path frame by frame. Falador's first tightrope, before:
 
     drawn path: 3039,3343 -> 3049,3350 -> 3041,3345 -> 3043,3346 -> ... -> 3049,3350
     FAIL  every tile it drew the player on had floor under it   4 of 9 had none
@@ -1095,13 +1093,12 @@ animation playing. The other is a walk along the rope.
 **WHY IT HAPPENED.** `courseplan.ts` chose each landing as "the walkable tile adjacent to the NEXT
 obstacle, on the side you come from", which cannot produce an island and was written for exactly
 that reason. Two things it could not know. `~agility_roof_move` GLIDES the player the whole way to
-the landing, so a landing beside the next obstacle is a slide across everything in between. And the
+the landing, so a landing beside the next obstacle is a slide across everything between. And the
 tile adjacent to an obstacle on its approach side is frequently the obstacle's own wall - hand
-holds, ledges and tightropes are mounted on walls - which is blocked and carries no overlay or
-underlay, so the client draws nothing there at all.
+holds, ledges and tightropes are mounted on walls - which carries no overlay and no underlay.
 
-**THE MAP MARKS ITS OWN OBSTACLES, which is what made this derivable.** Old School draws the span
-of a rope, a plank or a set of hand holds with overlay 161 - the hidden one - and flags it blocked,
+**THE MAP MARKS ITS OWN OBSTACLES, which is what made this derivable.** Old School draws the span of
+a rope, a plank or a set of hand holds with overlay 161 - the hidden one - and flags it blocked,
 because the span is not ground, it is the thing being crossed. Falador's first rope, along z3343:
 
     3039 h5 o118      roof, open      <- the player clicks the rope from here
@@ -1111,37 +1108,44 @@ because the span is not ground, it is the thing being crossed. Falador's first r
     3043 h17 o161 f1  SPAN, blocked
     3044 h17 o118     roof, open      <- and this is where the crossing ends
 
-So `tools/sim/courseland.ts` walks it: leave the obstacle on the side forceapproach does NOT let you
-stand on, cross its footprint and whatever span or gap follows, and stop at the first tile that is
-drawn, open and stood upon. Nothing is invented; the inputs are the placement and the mapsquare.
+`tools/sim/courseland.ts` walks exactly that: leave the obstacle on the side forceapproach refuses,
+cross its footprint and whatever span or gap follows, stop at the first tile that is drawn, open and
+stood upon. Where the roofs do not join up - which is most of these courses - it falls back to the
+nearest REAL tile at the next obstacle, because the op needs the player to arrive there and a
+far-side landing with no route to it is a worse bug. Seven landings proved that the hard way.
 
-**AND THE ROOFS DO NOT JOIN UP, which is the other half of the rule.** Moving every landing to its
-obstacle's own far side left seven of them with no route to the next obstacle at all - a worse bug
-than the one being fixed, because the op needs the player to arrive. On most of these courses the
-roofs are separate islands and obstacle-to-obstacle delivery is the only thing that works, which is
-also how the course plays. So the rule is: the obstacle's own far side when the lap can go on from
-there, otherwise the nearest REAL tile at the next obstacle. `rooftops.ts` now passes **217 ok, 0
-FAIL** across the seven courses, and its flagged-tile note reads "no landing sits on a flagged tile"
-on every one of them.
+**FOUR THINGS THAT WOULD HAVE MADE IT WORSE, each caught by a course that was already right.**
+  - *A loc is floor.* Half of these obstacles are climbed ON TO, and the tile you end on carries no
+    overlay because what you are standing on is the obstacle's model. The first sweep called 21
+    landings floorless; counting locs it is 17.
+  - *And the loc test cannot be the collision map.* Pollnivneach's canopies are every one of them
+    `blockwalk=no` - no LOC flag, no collision at all, and a very solid model - so the flag test
+    called the whole market thin air. The mapsquare's own LOC rows are the answer.
+  - *Blocked is not broken.* Draynor's entire rooftop deck reads `o175 f1`: drawn, and flagged,
+    because a grafted roof is not meant to be walked on. Treating blocked as a fault moved three
+    landings that were fine (`^pollnivneach_land_wall`, `^pollnivneach_land_bars`,
+    `^seers_land_gap1`); they are back.
+  - *`a1lib.reachLoc` answers yes when there is no route.* It falls back to measuring from the
+    player's own tile, so anything within a tile of the footprint passes. That put the market
+    stall's landing one square south of the banner with a blocked edge between them, and the lap
+    stopped there in silence. `rsmod`'s `reached()` applies the edge and the forceapproach mask.
 
-**TWO THINGS THAT NEARLY MADE IT WORSE.**
-  - *A loc is floor.* Half of these obstacles are climbed ON TO - a market stall, a basket, a
-    banner, a steep roof, a pile of fish - and the tile you end on carries no overlay and no
-    underlay, because what you are standing on is the obstacle's model. The engine flags it LOC and
-    blocks it, correctly. The first sweep called 21 landings floorless; with locs counted it is 16,
-    and Pollnivneach - nine obstacles of standing on market furniture - is left alone.
-  - *`a1lib.reachLoc` has a false positive.* It routes to the loc and, when there is no route, falls
-    back to measuring from the player's own tile: within one tile of the footprint it answers yes
-    whether or not anything can get there. That put the market stall's landing one tile south of the
-    banner with a blocked edge between them, and the lap stopped there in silence. `rsmod`'s own
-    `reached()` applies the edge and the forceapproach mask, which is what the interaction uses.
+**WHAT THE SUITES SAY NOW.** `rooftops.ts` 273 ok 0 FAIL (and it asserts thin air now, so the class
+is caught by the suite that missed it), `draynorcourse` 24 ok, `alkharidcourse` 42 ok, `apecourse`
+5 ok. `agilityland.ts` sweeps every coordinate literal in `skill_agility` - all nine courses,
+including the three with no landing table at all, where the gnome course walks you and Barbarian
+Outpost and the Wilderness carry their destinations inline: **132 literals, 124 on drawn floor, 6 on
+a loc, 2 in thin air.**
 
-**STILL BROKEN, and left alone rather than guessed at:** `^pollnivneach_land_stall` (3355,2978) and
-`^pollnivneach_land_tree2` (3362,3000). Both are thin air, and nothing within four tiles of the next
-obstacle is both something to stand on and a tile that obstacle can be clicked from. The lap still
-completes from them - the player stands in the air and the next click works - so this is a visual
-fault, and settling it needs a decision about where Pollnivneach's market roofs are meant to be
-walked rather than another derivation.
+**THE TWO THAT ARE LEFT, and why they are not a constant away from right.**
+`^pollnivneach_land_stall` (3355,2978 L1) and `^pollnivneach_land_tree2` (3362,3000 L2). Both were
+written as "an island on purpose", which was about collision rather than about what is drawn. One
+tile away from each is a canopy tile - something to stand on - and it was tried: from 3355,2977 the
+engine will not let the player click the banner at all, and the lap stops with "banner: ended at
+3355,2977, expected 3362,2977". A visual fault with a course that works beats a solid tile with a
+course that does not, so they are named in `rooftops.ts` as exemptions with that reasoning rather
+than asserted away. What they need is floor added to that market, which is a map change and a
+decision about where Pollnivneach's roofs are meant to be walked.
 
 ### A STAGE VARBIT IS A HIGH-WATER MARK (24 Oct)
 Mourning's End Part 2 cost half an hour to this and it applies to every quest in the directory.
