@@ -898,17 +898,19 @@ Village and Recipe for Disaster - and there is no quest in the build without a w
 end to end on foot. audit2's Rat Catchers break is fixed too: the section was the old three-chapter
 quest and it had been taking Mourning's End Part II and Forgettable Tale down with it.
 
-### THE BACKLOG AFTER THE QUEST LIST CLOSED (25 Oct)
-Four items were parked here when the quest list finished. **Three are now built and proven** - the
-Ape Atoll agility course, the Lady Zay's jinx and the Keldagrim minecart system - and all three
-entries are kept, because the surveys that preceded them were wrong in ways worth remembering.
-**One is left: Temple Trekking, which needs its own session.**
+### THE BACKLOG IS EMPTY (25 Oct)
+Four items were parked here when the quest list finished and **all four are now built and proven**:
+the Ape Atoll agility course, the Lady Zay's jinx, the Keldagrim minecart system and Temple
+Trekking. Every entry below is kept, because the survey that preceded each one was wrong in a way
+worth remembering.
 
-A pattern worth stating plainly, since it held for all three: every one of those surveys concluded
+A pattern worth stating plainly, since it held for all four: every one of those surveys concluded
 "this is not built and the question is whether to build it", and in every case most of it WAS on the
-map and what was missing was a trigger. Two of the three surveys had searched the maps the wrong way
-(by cache id rather than packed id, or by eye rather than with a probe). Before parking anything
-else as a decision, search it properly.
+map and what was missing was a trigger. Three of the four had been searched the wrong way - by cache
+id rather than packed id, or by eye rather than with a probe - and the fourth, Temple Trekking, was
+parked as "needs its own session" when fourteen rooms, six escorts and three monster tiers were
+already sitting there waiting for a script. Before parking anything as a decision, search it
+properly.
 
 The audits are repaired too, all three of them. `audit1.ts` is **304 ok, 0 FAIL** where it used to
 die at check 13, `audit2.ts` is 83 ok and `audit3.ts` runs its whole list. All three breaks were one
@@ -995,10 +997,39 @@ is solid: the depot is track at z 10169, 10171 and 10173 with the **platforms in
 them**. The first three arrival tiles picked were every one of them on the rails, and the carts have
 to be clicked from the platform beside them for the same reason.
 
-**Temple Trekking.** Unchanged and still the biggest: 7 regions `m31_78`..`m37_78`, 42 rooms
-(14 events x 3 difficulties), each with its own success, fail and evade path, 6 escorts as multinpc
-pairs, and `templetrek_npc_point_value` (13 bits) as the reward. It needs its own session; a partial
-trek strands players or pays out for a risk-free walk.
+**Temple Trekking - BUILT (25 Oct).** `minigames/game_templetrek/` - the constant file, the varbits
+on `templetrek_temp_var`, and three scripts: the trek machine, the eight events, the rewards.
+`tools/sim/templetrek.ts` plays a trek end to end on all three routes - **78, 79 and 70 checks, 0
+failed** - and then asks, for all fourteen rooms, whether the way out is in the same walkable region
+as the tile the trek puts you on.
+
+It was the largest of the four and it was also the one with the most already in place. Six escorts
+spawned in Burgh de Rott behind `multivar=templetrek_npcs_visible` - Old School's own six. Seven
+regions holding fourteen floor islands, which is exactly the number of events Old School lists, each
+with a Path at every way out. Every event monster in three tiers, which is the three routes: 80/109/
+139 against Old School's "about level 80, 110, 140". Three tokens, 27 tomes, the vine rope parts. And
+a thirteen-bit `templetrek_npc_point_value` where the published point range is 325 to 8,000. What
+was missing was one line of script and any varbit on `templetrek_temp_var`.
+
+**Two events the cache described better than any guide.** The bridge is a THREE-STAGE repair -
+"Broken bridge", "Partially broken", "Sightly broken" [its own spelling], "Fixed bridge" - and only
+the last carries `op2=Walk-across`. The engine puts the two banks in separate regions with **0 doors
+and 0 climbables** between them, so the bridge is the only crossing and the far-side Continue-trek
+path was unreachable until the landing was right: 2093,5037 is in no region at all, 2094,5037 is a
+19-tile pocket touching neither bank, 2091,5039 is the east bank. And the vine crossing is two
+islands either side of two tiles of solid ground, where the loc carrying `Swing-on`
+(`templetrek_swamptree_branch_vine`) is placed **nowhere** - tying the rope is what puts it there.
+
+**Four bugs the probe found that reading the script would not have:** the token's colour is the
+route and `trek_arrive` cleared the route before paying, so every trek handed out a blue one; an
+event that opens with `~mesbox` never spawns anything, because the mesbox parks the script above the
+spawn; `^trek_burgh_start` was 24 tiles out (m54_50's base is 3456,3200, so 3480 is local 24, not
+48); and `last_useitem` is corrupted by `p_arrivedelay`, so an `[oplocu]` has to read it first.
+
+**Not wired, and said plainly:** the route 3 boat with the head and its four tentacles, at 2062,5034
+on plane 2 with `op4=Continue-trek` and `op5=Escape-event`. It is a vehicle rather than a path, a
+different shape from every other room, and the head alone is worth 4,000 points. Route 3 is
+otherwise complete: three legs of tier-3 monsters with no evading.
 
 ### A STAGE VARBIT IS A HIGH-WATER MARK (24 Oct)
 Mourning's End Part 2 cost half an hour to this and it applies to every quest in the directory.

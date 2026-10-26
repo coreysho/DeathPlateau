@@ -36,7 +36,36 @@ tickets from The Giant Dwarf with nowhere to use them. It runs now.
 - A cart has been put at the Keldagrim end, which had four platforms and nothing standing at any of
   them.
 
+**Temple Trekking.** Escort a volunteer from Burgh de Rott across Mort Myre to Paterdomus, keeping
+them alive on the way. The whole minigame was drawn and staffed and silent: six volunteers standing
+invisible in Burgh de Rott, fourteen rooms of swamp with a signposted path out of every one, and
+every monster in the cache waiting for something to put it there.
+
+- **Finish In Aid of the Myreque** and the six volunteers appear in Burgh de Rott. Talk to any of
+  them to set off.
+- **Three roads.** The swamp road is the quietest — about level 80, and you can slip past anything.
+  Along the Salve is level 110 or so, and you can only slip past once half of them are down. Through
+  the Hollows is level 140 and there is no slipping past anything.
+- **Who you take matters, backwards.** The tougher the volunteer, the fewer monsters turn up: the
+  retired pair bring three, the militia four, the old man and the child five.
+- **Fourteen events, one to a room.** Swamp snakes, ghasts, giant snails, vampyre juvinates and
+  shadows; a bridge down over a ditch; a gully to be crossed on a vine rope; and Abidor Crank, who
+  will feed you both and steady your hands.
+  - **Ghasts are invisible** without a druid pouch, and a pouch used on one pulls it into the light.
+  - **Juvinates** will not take a scratch from anything but silver.
+  - **The bridge** needs three pieces of wood — planks and a hammer, or logs and an axe — and goes
+    back together a length at a time. There is no other way over the ditch.
+  - **The gully** wants two lengths of vine off a swamp tree, twisted into a rope and thrown over
+    the branch that reaches across.
+- **Every room has three ways out**: carry on north, slip past, or take the path you came in by and
+  give the whole thing up.
+- **Reach Paterdomus** and your charge hands over a reward token — blue off the swamp road, yellow
+  off the Salve, red out of the Hollows. Click it to claim what the trek was worth: the harder the
+  road and the more you dealt with, the more comes out of it, and tomes of experience are in the
+  table.
+
 ---
 
-*Nothing in this release changes existing content. Both the agility course and the cart network were
-already drawn on the map and silent; this is the first time either of them responds.*
+*Nothing in this release changes existing content. The agility course, the cart network and the whole
+of Temple Trekking were already drawn on the map and silent; this is the first time any of them
+responds.*
