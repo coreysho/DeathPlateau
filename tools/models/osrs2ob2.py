@@ -50,7 +50,12 @@ SHARED_TEXTURES = frozenset({0, 2, 3, 4, 5, 6, 11, 13, 14, 15, 16, 18, 20, 22, 2
 # scrolling (the cache marks it animated, dir 1 speed 2). 377's own texture 34 is yewtree, so
 # this one could not be shared and the twelve faces carrying it were painted with its average
 # colour instead: a solid cream slab over the bow, which is what shipped on 2026-10-03.
-LOCAL_TEXTURES = {59: 50, 34: 51}
+#   52  OSRS 45, sprite 533: grey slate roof shingles, 128x128. THE ROOFTOP COURSES' OWN SURFACE.
+#       377's texture 45 is door2, so it could not be shared, and rooftextures.py found it named by
+#       87 faces across the Varrock and Canifis course models - every one of them painted flat with
+#       the texture's average colour instead, which is what turns a tiled slate roof into one grey
+#       plane. texmatch puts the nearest 377 texture (mossy) at 26.3, so there was nothing to reuse.
+LOCAL_TEXTURES = {59: 50, 34: 51, 45: 52}
 
 
 # ------------------------------------------------------------------ decode

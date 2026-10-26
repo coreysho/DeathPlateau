@@ -1214,15 +1214,65 @@ including the three with no landing table at all, where the gnome course walks y
 Outpost and the Wilderness carry their destinations inline: **132 literals, 124 on drawn floor, 6 on
 a loc, 2 in thin air.**
 
-**THE TWO THAT ARE LEFT, and why they are not a constant away from right.**
+**THE TWO THAT ARE LEFT, AND THEY ARE OLD SCHOOL'S OWN (26 Oct).**
 `^pollnivneach_land_stall` (3355,2978 L1) and `^pollnivneach_land_tree2` (3362,3000 L2). Both were
 written as "an island on purpose", which was about collision rather than about what is drawn. One
 tile away from each is a canopy tile - something to stand on - and it was tried: from 3355,2977 the
 engine will not let the player click the banner at all, and the lap stops with "banner: ended at
 3355,2977, expected 3362,2977". A visual fault with a course that works beats a solid tile with a
-course that does not, so they are named in `rooftops.ts` as exemptions with that reasoning rather
-than asserted away. What they need is floor added to that market, which is a map change and a
-decision about where Pollnivneach's roofs are meant to be walked.
+course that does not, so they are named in `rooftops.ts` as exemptions.
+
+That was recorded here as "what they need is floor added to that market, which is a map change".
+**It is not, and the map was asked.** `roofdiff.py` over Pollnivneach reports m52_46 level 1 with no
+differing tile at all and level 2 with `0 tiles Old School draws and we do not, 0 we draw and it does
+not`. Neither landing is in Old School's own missing list, because Old School draws nothing on those
+two tiles either. They are islands in Old School as well, and there is nothing to add. The item is
+closed and the exemption in `rooftops.ts` is the right answer rather than a deferral.
+
+### THE ROOFTOP COURSES HAVE THEIR SLATE BACK (26 Oct)
+`rooftextures.py` read 87 faces across the Varrock and Canifis course models naming **OSRS texture
+45** and every one of them painted flat with the texture's average colour, which is what turns a
+tiled roof into one grey plane. 377's own texture 45 is `door2`, so it could not be shared, and
+`texmatch` put the nearest thing we ship (`mossy`) at 26.3 - a real match scores 0.0 - so there was
+nothing to reuse. It is sprite 533, 128x128, 30 colours: grey slate shingles, and nothing like
+`roof` (red tile), `roof2` (grey block) or `thatched`.
+
+Imported as local texture **52** (`content/textures/roofslate.png`), added to `osrs2ob2.LOCAL_TEXTURES`
+as `45: 52`, and the already-imported loc models re-encoded with `reconvert_osrs_locs.py`. No client
+change was needed: `Pix3D.TEXTURE_COUNT` is already 128. Twelve models changed - ten of them the
+`osrsloc_15552` family, which is Varrock's own roof piece - and they went from **no textured face at
+all** to 26 carrying texture 52. `rooftextures.py` now reads **0 flattened faces on all eight
+courses**, where it read 87.
+
+The same reconvert offered to rewrite sixteen OTHER already-imported loc models (Spiked pit,
+Collapsed trap, Trapdoor and five unnamed ones), changing only face colours - 128 to 4, 128 to 38119
+- with no geometry difference. That is the repo's models being stale against a later `osrs2ob2`, not
+anything to do with textures, and **they were reverted**: sixteen unrelated models recoloured inside
+a rooftop change, with no way to look at them, is not a thing to ship. It is worth its own pass.
+
+### MARIM IS NOT MISSING ITS MONKEY GUARDS (26 Oct)
+Recorded here as five npcs with no static spawn needing coordinates off the wiki. Both halves were
+wrong, and `osrsnpcspawns.py` says so in one run.
+
+**The nine temple guards are already placed, on Old School's own coordinates.** The wiki's
+`Monkey_Guard` page gives nine `{{LocLine}}` rows in the Temple of Marimbo - 2788,2778 / 2793,2782 /
+2793,2789 / 2795,2775 / 2801,2782 / 2801,2789 / 2803,2785 / 2805,2783 / 2805,2786 - and every one of
+those tiles already carries one of ours on m43_43. They are not called `mm_monkey_guard`: six are
+`mm_religious_guard`, whose `name=` is literally **"Monkey Guard"** at vislevel 167, which is the
+wiki page's own level, and three are `mm_religious_trapdoor_guard`. The name in the pack was not the
+name in the game.
+
+**And the other five have no spawn in Old School either.** `Monkey_Guard_(ninja)`, `Duke_(monkey)`,
+`Oipuis`, `Ouhai`, `Uodai` and `Uyoro` return "no matching spawns" because they are an event, not
+furniture: "Monkey Guards will appear if players talk to a monkey on Ape Atoll while in human form.
+One or two of these may appear along with one of the named ninja monkeys", and a hit from the named
+one puts you in the Ape Atoll prison. `mm_padulah`, the one of that family that IS static, is at
+2757,2788 in Old School and at 2757,2788 on our map.
+
+So there is nothing to place. What is genuinely missing is the capture event itself - and with it any
+dialogue for the eleven Marim monkeys, none of which has an `opnpc1` at all. The cell and the arrest
+are built (`[label,mm_jail_arrest]`); this would be a second doorway into them. Written up in
+`quest_mm.constant` under STILL NOT BUILT.
 
 ### A STAGE VARBIT IS A HIGH-WATER MARK (24 Oct)
 Mourning's End Part 2 cost half an hour to this and it applies to every quest in the directory.
