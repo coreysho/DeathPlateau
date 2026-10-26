@@ -139,10 +139,27 @@ def main():
     ap.add_argument('--locs-only', action='store_true',
                     help='graft the locs but leave the terrain alone - for a ground-level obstacle '
                          'whose tile belongs to the 2006 town under it, like a rough wall')
+    ap.add_argument('--shapes', metavar='LIST',
+                    help='only graft locs of these map SHAPES, e.g. "12-21" for roof pieces. Ours '
+                         'of other shapes inside the box are kept, which is the whole point: a '
+                         'course box also covers the upper floors of a 2006 town, and a plain '
+                         'graft deletes every loc of ours in it and replaces the lot with Old '
+                         "School's beds, tables and chests. Shapes 12 to 21 are the roofs - "
+                         'straight, diagonal, the four corners, flat and the sloped edges - so '
+                         '--shapes 12-21 fills in a missing roof and touches nothing else.')
     ap.add_argument('--dry-run', action='store_true')
     a = ap.parse_args()
 
     levels = {int(v) for v in a.levels.split(',')}
+    shapes = None
+    if a.shapes:
+        shapes = set()
+        for part in a.shapes.split(','):
+            if '-' in part:
+                lo, hi = (int(v) for v in part.split('-', 1))
+                shapes.update(range(lo, hi + 1))
+            else:
+                shapes.add(int(part))
     X0, Z0, X1, Z1 = (int(v) for v in a.box.split(','))
     rename = {}
     for r in a.rename:
@@ -237,9 +254,14 @@ def main():
                   f"377 keeps at that number.")
             roof_hits.clear()
 
-        kept = [l for l in ours if not (l[1] in levels and inbox(l[2], l[3]))]
+        # THE SHAPE FILTER CUTS BOTH WAYS or it is not a filter. Taking only Old School's roof
+        # pieces while still deleting all of ours would strip the course of its own obstacles; and
+        # keeping all of ours while taking all of theirs would double every bed in Canifis.
+        inshape = lambda sh: shapes is None or sh in shapes
+        kept = [l for l in ours if not (l[1] in levels and inbox(l[2], l[3]) and inshape(l[4]))]
         dropped = len(ours) - len(kept)
-        theirs = [l for l in src.locs(reg, ms) if l[1] in levels and inbox(l[2], l[3])]
+        theirs = [l for l in src.locs(reg, ms)
+                  if l[1] in levels and inbox(l[2], l[3]) and inshape(l[4])]
         for (oid, lv, x, z, sh, rot) in theirs:
             if oid not in results:
                 # ALREADY IMPORTED BY AN EARLIER AREA counts as reuse, not as a fresh import.
