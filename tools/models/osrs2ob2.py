@@ -122,7 +122,8 @@ def decode(b, textures=SHARED_TEXTURES):
     flab = list(b[L['tskin']:L['tskin'] + fc]) if L.get('has_tskin') else None
 
     # Which faces are textured. v2 (old style): render type bit 2, colour holds the texture
-    # id. v3: a separate faceTextures section, stored as texture+1 (0 = none).
+    # id. v1 (474's own new format) and v3: a separate faceTextures section, stored as
+    # texture+1 (0 = none).
     # Texture coordinates: an index into the texture triangles (P, M, N vertex triples),
     # or -1 for "map onto the face's own three vertices".
     tex = [False] * fc
@@ -136,7 +137,7 @@ def decode(b, textures=SHARED_TEXTURES):
                 tex_id[i] = colours[i]; tex_coord[i] = rtypes[i] >> 2
         tp = P(b, L['tex'])
         tris = [(tp.g2(), tp.g2(), tp.g2()) for _ in range(L['tc'])]
-    elif L['ver'] == 3 and L.get('has_ftex'):
+    elif L['ver'] in (1, 3) and L.get('has_ftex'):
         tp = P(b, L['ftexture'])
         tex_id = [tp.g2() - 1 for _ in range(fc)]
         tex = [t != -1 for t in tex_id]

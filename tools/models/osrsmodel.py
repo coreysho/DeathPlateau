@@ -51,9 +51,21 @@ def _layout1(b):
     position that puts the face data where the indices come out inside the vertex array; it is
     also the only placement under which the vertex-flag bytes stay inside their three bits.
 
-    102 of the 110 reconcile and have every face index in range. The other eight all set f4, a
-    variable-length per-vertex section this does not model, and they are refused rather than
-    guessed at - which is what the caller's walked != body check does with the None below.
+    All 110 reconcile and have every face index in range.
+
+    f4 is "this model has textures" - every one of the eight models that set it has tc > 0 and
+    every one of the 102 that does not has tc = 0. It costs 2*fc + tc bytes, and those sit in
+    three places, which was settled by brute-forcing the section offsets rather than guessing:
+    the texture RENDER TYPES go in a tc-byte block at offset 0 (all 57 of them in this cache
+    read 0 = a simple three-vertex projection), the FACE TEXTURES in an fc*2 block right after
+    the face data, and the TEXTURE COORDINATES in the `misc` section that follows it. The giveaway
+    was that the vertex flags start at offset tc, not 0, in all eight.
+
+    `misc` is the count of TEXTURED faces, one coordinate byte each - which is why it reads 0 for
+    every model that does not set f4, and why moving the section here breaks none of them. The
+    face-texture shorts hold texture id + 1 and the coordinate bytes triangle index + 1, with 0
+    for "none", the same convention type 3 uses; the non-zero count matches `misc` exactly in all
+    eight, and every coordinate lands inside 1..tc.
     """
     h = P(b, len(b) - 23)
     vc, fc = h.g2(), h.g2()
@@ -61,10 +73,8 @@ def _layout1(b):
     f0 = h.g1(); pri = h.g1(); f2 = h.g1(); f3 = h.g1(); f4 = h.g1(); f5 = h.g1()
     xl, yl, zl, fil, misc = h.g2(), h.g2(), h.g2(), h.g2(), h.g2()
 
-    if f4:
-        return None                      # vertex groups: length not modelled, so refuse it
-
     o = 0
+    trt   = o;  o += tc                  # texture render types, as type 3 has at offset 0
     vflag = o;  o += vc
     frt   = o
     if f0: o += fc
@@ -73,24 +83,28 @@ def _layout1(b):
     if pri == 255: o += fc
     tskin = o
     if f3: o += fc
-    misc_sec = o; o += misc    # the var22-equivalent section; nothing here reads inside it
     vlabel = o
     if f5: o += vc
     falpha = o
     if f2: o += fc
     fdata = o;  o += fil
+    ftexture = o
+    if f4: o += fc * 2
+    texcoord = o; o += misc              # one byte per textured face
     colour = o; o += fc * 2
-    tex   = o;  o += tc * 6
     xo    = o;  o += xl
     yo    = o;  o += yl
     zo    = o;  o += zl
+    tex   = o;  o += tc * 6              # all simple, so three shorts each
     o += 1                               # the trailing byte, as in type 2
-    del misc_sec                         # walked for its length only
+    del trt                              # read straight from b[:tc], as type 3's are
     return dict(ver=1, vc=vc, fc=fc, tc=tc, body=len(b) - 23, walked=o,
                 vflag=vflag, ftype=ftype, fpri=fpri, frt=frt, falpha=falpha,
                 fdata=fdata, colour=colour, tex=tex, xo=xo, yo=yo, zo=zo,
                 vgroup=vlabel, has_vgroup=f5 == 1,
-                tskin=tskin, has_tskin=f3 == 1, has_ftex=False,
+                tskin=tskin, has_tskin=f3 == 1,
+                ftexture=ftexture, texcoord=texcoord, has_ftex=f4 == 1,
+                simple=tc, complexn=0,
                 has_rtype=f0 == 1, has_pri=pri == 255, pri=pri,
                 has_alpha=f2 == 1, has_zoff=False)
 
