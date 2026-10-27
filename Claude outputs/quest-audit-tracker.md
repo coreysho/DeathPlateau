@@ -1513,3 +1513,61 @@ Viyeldi caves is `loc_add`ed onto the boulder NPC's own tile for 30 ticks, and t
 back on a queue of the same length - so the fill either lands in that window or the shove has to be
 repeated, and the pool is not reliably on the tile the boulder spawned on either (hence `near` on
 the useLoc step).
+
+### THE GREAT BRAIN ROBBERY, BUILT FROM NOTHING (27 Oct)
+
+The first quest in this pass that the 377 cache does not contain a line of. It is 20 November 2006
+and the cache is September 2006, so there was no Harmony Island, no Underwater Tunnel, no Brother
+Tranquility, no Mi-Gor, no Barrelchest, no Sorebones and none of the fourteen items. All of it came
+out of the rev 474 cache (October 2007) - two map squares, 441 locs, 24 npcs, 23 animations and 13
+objs - and `tools/sim/quest_tgbr_run.ts` walks the fourteen stages, 97/97.
+`content/scripts/quests/quest_tgbr/configs/quest_tgbr.constant` is the design document.
+
+**THE CACHE KNOWS THE STAGE NUMBERS.** 474's quest varp for this is 980 and it runs 0, 10, 20 ...
+130, and that is not a guess: npc 5606 is a multi on it that shows Dr Fenkenstrain from 70 up, and
+5667/5668 swap Brother Tranquility's form at 100. Both pivots are kept exactly. The small state is
+474's varps 981 and 982, whose twenty-nine varbits drive the statue (3401), the broken stairs
+(3385), the gate (3393), the fuse (3394/3395), the peephole (3404), the crate (3390) and the monks
+(3407) - the multiloc tables ARE the quest's mechanics, and reading them off the cache was most of
+the design work.
+
+**A MULTILOC'S COLLISION COMES FROM THE PARENT, NEVER FROM THE CHILD.**
+`GameMap.loadLocations` takes `LocType.get(locId)` off the map and builds collision from that;
+`OpLocHandler` only resolves the child to decide whether the op is legal. So a gate that is meant
+to open cannot stop blocking by changing state, and the way through a blown gateway has to be a
+click that steps the player across. The same line explains why every op-less multiloc parent needs
+`active=yes` spelled out: a loc with no op of its own is not interactive, so it is never put in a
+zone and never picked by the client, and the statue, the stairs, the gate, the fuse and the crate
+were all invisible to a click until that was added. Cabin Fever's cannon does not need it only
+because its parent happens to carry an op.
+
+**A BRIDGE FLAG MOVES AN ENTIRE BUILDING DOWN A PLANE.** The beached ship's level 1 carries
+LINK_BELOW, and `loadLocations` reads *level 1's* flag as the answer for every level at that tile -
+so the lower deck, its locker and its ladder are all on level 0, the deck above is level 1 and the
+top deck is level 2. Everything written against the cache's own levels was one plane out. A beached
+ship's lower deck being at beach level is the one happy accident: the locker is reachable from the
+sand without climbing anything.
+
+**AN IMPORTED SQUARE IS NOT IN THE WORLD UNTIL `pack/map.pack` SAYS SO.** `packMaps` iterates
+`MapPack`, not the maps directory, so two .jm2 files that nothing had registered were simply never
+packed - and the symptom is a teleport that is silently undone, because the square does not exist.
+Four lines (`m59_44`, `l59_44`, `m59_144`, `l59_144`) and a rebuild of every map square.
+
+**474'S OWN GEOMETRY SEALS THE MONASTERY.** The courtyard the quest fights in (3806-3816,
+2841-2847) can only be entered through the gate the keg takes down, and the rooms east of it -
+including the tile beside the peephole 474 places at 3817,2844 - are 1 and 5-tile pockets behind
+doors inside that courtyard. So the peephole the wiki looks through long before the explosion
+cannot be reached until after it. The hole is the closed gate's own second option instead, which
+stands on open ground, looks into the courtyard Mi-Gor is in, and goes away when the blast takes
+the gate - which is exactly what 474's varbit 3404 is for.
+
+**THE LAST TWO NUMBERS OF A COORD LITERAL ARE LOCAL TO THE SQUARE,** and two of them were written
+as if m55_55 began at 3488 rather than 3520, which put Dr Fenkenstrain's cell and the crate thirty
+tiles away inside a wall. Nothing complains: the loc is placed, the constant resolves, and the
+quest step reports "no crate there". Asking the booted world where the loc actually landed is the
+only thing that finds it.
+
+**AND THE ANCHOR IS THIS QUEST'S.** It was hung on Rum Deal's completion when Rum Deal was built,
+because the item existed in Old School and the quest it belongs to did not exist here; both the
+script and `quests/quest_deal/configs/barrelchest_anchor.obj` argued the case in a comment. Both
+are corrected, Rum Deal no longer hands it over, and Barrelchest drops it.
