@@ -86,3 +86,41 @@ def patch_map(path, tiles):
                 continue
         out.append(l)
     open(path, 'w', newline='').write(nl.join(out))
+
+def loc_text(i, lv, x, z, sh, rot):
+    """One LOC line, written the way jm2.write() writes it."""
+    if sh == 10 and rot == 0: return f'{lv} {x} {z}: {i}'
+    if rot == 0: return f'{lv} {x} {z}: {i} {sh}'
+    return f'{lv} {x} {z}: {i} {sh} {rot}'
+
+def add_locs(path, locs):
+    """Insert LOC placements into an existing .jm2, leaving every other line byte for byte as it was.
+
+    jm2.write() would do the job and rewrite the whole file, which re-sorts the NPC and OBJ sections
+    that the 474 import leaves in the cache's own order - hundreds of lines of churn around a handful
+    of real ones. This touches the LOC section and nothing else.
+
+    Each placement goes in at its sorted (level, x, z) position, so the section stays ordered, and one
+    already in the file is skipped - which makes a re-run a no-op. Returns how many were added.
+    """
+    raw = open(path, newline='').read(); nl = '\r\n' if '\r\n' in raw else '\n'
+    lines = raw.split(nl)
+    _, have, _, _ = read(path)
+    pending = [r for r in sorted(set(locs), key=lambda r: (r[1], r[2], r[3])) if r not in set(have)]
+    out = []; sec = None; added = 0
+    for l in lines:
+        if l.startswith('===='):
+            if sec == 'LOC':                      # a placement past the last line in the section
+                for r in pending: out.append(loc_text(*r)); added += 1
+                pending = []
+            sec = l.strip('= ').strip(); out.append(l); continue
+        if sec == 'LOC' and l and pending:
+            m = re.match(r'(\d) (\d+) (\d+):', l)
+            if m:
+                here = (int(m.group(1)), int(m.group(2)), int(m.group(3)))
+                while pending and (pending[0][1], pending[0][2], pending[0][3]) < here:
+                    out.append(loc_text(*pending.pop(0))); added += 1
+        out.append(l)
+    for r in pending: out.append(loc_text(*r)); added += 1
+    open(path, 'w', newline='').write(nl.join(out))
+    return added

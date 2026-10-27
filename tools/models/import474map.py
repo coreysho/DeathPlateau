@@ -31,7 +31,7 @@ import osrsmap, jm2
 from osrsloc import decode_osrs_loc
 from osrslocimport import Content377, SUFFIX, default_child
 from importosrs import hsl16_to_rgb15
-from osrs2ob2 import parse_ob2, encode as encode_ob2, roundtrip
+from osrs2ob2 import parse_ob2, encode as encode_ob2, roundtrip, convert_checked
 from animconv474 import pack_append
 
 def jh(n):
@@ -185,8 +185,16 @@ def import_loc(c, oid, lines, model_files, notes, rename=None):
         for t, mid in slots[k].items():
             raw = c.model(mid)
             if raw is None: raise SystemExit(f'loc {oid}: 474 model {mid} missing')
-            if raw[-2:] == b'\xff\xff': raise SystemExit(f'loc {oid}: model {mid} is the newer format')
-            m = parse_ob2(raw)
+            # 474 ships TWO model formats and this used to refuse the newer one outright, which
+            # dropped every loc built on it - the five that flank the God Wars doors among them.
+            # osrsmodel._layout1 reads it now, so it is converted to the 377 format the same way an
+            # OSRS model is, and still refused when the decoder cannot account for the whole body.
+            if raw[-2:] == b'\xff\xff':
+                ob2, m, why = convert_checked(raw)
+                if ob2 is None: raise SystemExit(f'loc {oid}: model {mid} ({why})')
+                raw = ob2
+            else:
+                m = parse_ob2(raw)
             if bake:
                 for i in range(m['fcount']):
                     if m['finfo'] and m['finfo'][i] & 2: continue
@@ -235,10 +243,22 @@ def main():
                          ' you looked at it and it can go.')
     ap.add_argument('--header', action='append', default=[],
                     help="a comment line for the top of the .loc (repeatable); without one the file says only where it came from")
+    ap.add_argument('--only-loc', action='append', type=int, default=[], metavar='ID',
+                    help='import ONLY these 474 loc ids, repeatable. With --merge this is how locs an'
+                         ' earlier import dropped are added to a map that already exists.')
+    ap.add_argument('--merge', action='store_true',
+                    help='add the placements to the existing m<region>.jm2 instead of writing a new one,'
+                         ' and APPEND the configs to --out.loc instead of replacing it. The terrain is'
+                         ' left exactly as it is: only LOC lines are added, and a placement already in'
+                         ' the file is not duplicated. Without --only-loc this would re-add the whole'
+                         ' square, so the two go together.')
     a = ap.parse_args()
     C = a.content
     c = Cache474(a.cache); c3 = Content377(C); R = Resolver(c, c3)
     skip = set(a.skip_loc)
+    only = set(a.only_loc)
+    if a.merge and not only:
+        raise SystemExit('--merge without --only-loc would re-add every loc on the square; name the ids')
     rename = {}
     for spec in a.rename:
         i, _, n = spec.partition(':')
@@ -248,6 +268,8 @@ def main():
     dropped = {}
     for r in a.region:
         land, ls = c.terrain(r), c.locs_of(r)
+        if only:
+            ls = [l for l in ls if l[0] in only]
         if skip:
             for l in ls:
                 if l[0] in skip: dropped[l[0]] = dropped.get(l[0], 0) + 1
@@ -262,7 +284,10 @@ def main():
     kinds = {}
     for v in plan.values(): kinds[v[0]] = kinds.get(v[0], 0) + 1
     print(f'{len(used)} distinct 474 locs: {kinds}')
-    lines = ['// Imported from the rev 474 cache by tools/models/import474map.py: ' + ', '.join('m' + r for r in a.region) + '.']
+    # Merging appends to a .loc that already says where it came from, so only the --header lines go
+    # in - the provenance line would just be the same sentence twice in one file.
+    lines = [] if a.merge else ['// Imported from the rev 474 cache by tools/models/import474map.py: '
+                                + ', '.join('m' + r for r in a.region) + '.']
     lines += ['// ' + h for h in a.header] + ['']
     model_files = {}; notes = []; newname = {}
     for oid, (k, v) in sorted(plan.items()):
@@ -276,7 +301,9 @@ def main():
     os.makedirs(os.path.join(C, 'models', 'loc'), exist_ok=True)
     for n, b in model_files.items():
         open(os.path.join(C, 'models', 'loc', n + '.ob2'), 'wb').write(b)
-    open(a.out + '.loc', 'w', newline='').write('\r\n'.join(lines))
+    mode = 'a' if a.merge else 'w'
+    with open(a.out + '.loc', mode, newline='') as f:
+        f.write(('\r\n' if a.merge else '') + '\r\n'.join(lines))
     idmap = {}
     for oid, (k, v) in plan.items():
         if k == 'reuse': idmap[oid] = v
@@ -284,8 +311,17 @@ def main():
     for reg, (land, ls) in regions.items():
         locs = [(idmap[l[0]], l[1], l[2], l[3], l[4], l[5]) for l in ls if l[0] in idmap]
         path = os.path.join(C, 'maps', f'm{reg}.jm2')
-        if os.path.exists(path): raise SystemExit(f'{path} already exists - refusing to overwrite')
-        jm2.write(path, land, locs, [], [], nl='\r\n')
+        if not a.merge:
+            if os.path.exists(path): raise SystemExit(f'{path} already exists - refusing to overwrite')
+            jm2.write(path, land, locs, [], [], nl='\r\n')
+            continue
+        # MERGE: the square's terrain, npcs and objs are whatever the file already says, and only
+        # LOC lines are added. Re-running is safe - a placement already there is left alone - so a
+        # half-finished merge can simply be run again.
+        if not os.path.exists(path): raise SystemExit(f'{path} does not exist - drop --merge to write it')
+        added = jm2.add_locs(path, locs)
+        print(f'm{reg}: {added} placement(s) added, {len(locs) - added} already there,'
+              f' every other line left byte for byte as it was')
         # a map square the build has never had needs its m/l names in the tracked map.pack, or the
         # map packer never looks at the .jm2 (it walks MapPack, not the maps folder)
         ids, _ = pack_append(os.path.join(C, 'pack', 'map.pack'), [f'm{reg}', f'l{reg}'])
