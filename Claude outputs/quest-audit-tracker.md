@@ -1293,6 +1293,78 @@ Current tallies, all seven: falador 79/10, seers 41/2, rellekka 33/7, ardougne 3
 canifis 13/15, pollnivneach not re-run. Falador's deck repaint is **confirmed in the client** - grey
 slate under the whole lap, not dwarf_red - and so is the imported slate texture on Varrock's roofs.
 
+### THE CAPTURE, AND THE CELL THAT WAS NEVER USED (27 Oct)
+"Monkey Guards will appear if players talk to a monkey on Ape Atoll while in human form", one of
+five named ninja monkeys with one or two guards, and "if they hit the player, the player will appear
+in the Ape Atoll prison". That was the entry on this list. It is built now, and four things
+underneath it were wrong in ways that each made something else pointless.
+
+**^mm_jail_cell was eight tiles out, so the arrest was free.** A coord literal is
+`level_squarex_squarez_LOCALx_LOCALz`, and 2771 on mapsquare 43 is local **19**, not 27 — the
+comment beside it said 2771,2794 and the coord said 2779,2794. `walkgraph.ts 2758 2792 2784 2810 0`
+puts 2771,2794 in a **sealed 21-tile room** with NO ROUTE to anywhere, and 2779,2794 in the
+747-tile region Marim itself is in. So being shot at the gate put the player down **already
+outside**, with the lockpick, the cell door and the whole of wiki steps 13-14 bypassed. The jail
+sequence has existed since stage three was built and has never once happened.
+
+**Seven level-149 monsters had no combat stats at all.** The five named monkeys, the ninja Monkey
+Guard and Padulah: no hitpoints, no attack, no strength, no defence. A comment left by the
+2026-09-08 combat-stat audit says the numbers were read off the wiki, and then none of them was
+written. They had the engine's default of 1 across the board, so they died to one hit and never
+landed one. 130/130/130/130, 50 attack bonus, slash — and 130 strength is what produces the wiki's
+own max hit of 14.
+
+**The ninja Monkey Guard could not move** (`moverestrict=nomove`), which for an npc whose whole job
+is to be summoned beside you and reach you is the same as not existing. The wiki's accounts of these
+turn on their pathing: "trapping them behind an obstacle", "often stuck behind a jungle plant" at
+Solihib's hut.
+
+**Two wrong drops.** The guards dropped MEDIUM ninja bones - "unlike the named ninja monkeys, the
+monkey guards only drop small ninja monkey bones" - so they handed out the wrong greegree's
+material; and Padulah, the one ninja monkey with a static spawn and therefore the only one a player
+can reliably kill, dropped an ordinary monkey's.
+
+**And twenty-two Talk-tos did nothing whatsoever.** A sweep of all.npc against every
+[opnpc]/[apnpc] trigger in the repo: twenty-two npcs in this quest carried `op1=Talk-to` with
+nothing behind it, so the click was thrown away in silence. Three of them are the **10th Squad
+standing in the jail right now** — Lumo at 2775,2796, Bunkdo at 2775,2798, Carado at 2775,2801,
+each in a six-tile cell behind an unpickable door. They are the squad Garkor keeps talking about.
+They stay in prison by choice to keep gathering intelligence, and **Lumo keeps the count** — which
+is what `%mm_jail_count`, the cache's own eight-bit counter, has been for: the arrest has been
+incrementing it since the gate was built and nothing had ever read it.
+
+Lumo had to be an **approach** trigger, not an op: `beside.ts` puts all four tiles beside him inside
+his own cell, so no tile outside the bars counts as adjacent and `[opnpc1]` alone would have ended
+in "I can't reach that" for ever. Same problem Kruk had, same answer.
+
+Karam is wired up too: "he instantly kills any monkeys trying to apprehend the player, as long as he
+can see both the player and those monkeys". He has stood in Marim twice over since stage three was
+built with nothing to do. It is also how the bones are farmed.
+
+`tools/sim/mmcapture.ts` drives it: the cell's 21 tiles, the stats, the drops, all twenty-two
+Talk-tos, and then one real Talk-to as a human — Uwogo refuses to speak, **three monkeys arrive on
+tick four**, one of them clubs the player on tick five, and the player wakes at 2771,2794 with the
+count one higher. A greegree put back on makes one that is already swinging vanish.
+
+### THE FIVE STALLS OF MARIM (27 Oct)
+Ape Atoll has a food stall, a crafting stall, a general stall, a magic stall and a scimitar stall,
+all five in the 377 cache with `op2=Steal from`, all five placed on m43_43, and not one had a
+stealing row or a trigger. The last two are 65-Thieving stalls; between them they are what the skill
+is trained on at that level. Levels, experience and respawns are the OSRS Thieving table's, which
+lists them under Ape Atoll.
+
+They needed one change to the generic path. **Every stall in the game is `loc_change`d to `market`
+when robbed** — a 2x2 Varrock silver stall, which fits the seven that were already there and would
+drop a piece of Varrock onto a 1x1 monkey table. The 377 cache ships no emptied monkey stall: five
+stall models and no sixth. So each names its own picked-over twin in `next_loc_stage` (the param the
+banana tree already uses for exactly this), the generic path reads it, and the seven old stalls
+still become `market` because they still name nothing.
+
+No owner on these five, on purpose: their owners stand at the counter, so naming them would make the
+stall uncatchable at a range of one tile. Padulah is the guard instead — "he will accost players if
+he sees them stealing from various stalls around the town" — and at eleven tiles from the nearest
+stall he only does so if he has wandered over, which is the wiki's own "if he sees them".
+
 ### MARIM IS NOT MISSING ITS MONKEY GUARDS (26 Oct)
 Recorded here as five npcs with no static spawn needing coordinates off the wiki. Both halves were
 wrong, and `osrsnpcspawns.py` says so in one run.
