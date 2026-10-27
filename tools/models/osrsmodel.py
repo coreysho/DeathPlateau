@@ -30,6 +30,85 @@ def version(b):
     return 0
 
 
+def _layout1(b):
+    """Revision 474's "new" model format - the one whose footer is FF FF.
+
+    Neither importer could read these. import474map.py refuses them outright ("model N is the
+    newer format") and osrsmodel only knew types 2 and 3, so every loc built from one was dropped
+    at import; the God Wars doors lost the five locs that flank them that way.
+
+    Derived from the cache rather than from a specification, against the 110 version-1 models the
+    474 cache holds. The header sits at len-23 and reads
+
+        vc g2, fc g2, tc g1, f0 g1, pri g1, f2 g1, f3 g1, f4 g1, f5 g1,
+        xl g2, yl g2, zl g2, fil g2, misc g2
+
+    and the sections follow in the order below, with ONE trailing byte after the last of them
+    (type 2 has the same byte). What each flag costs was solved by subtracting the known sections
+    from the body across the whole corpus and grouping by flag pattern: f0, f2 and f3 are each one
+    byte per FACE, f5 is one per VERTEX, and pri costs a face byte only when it reads 255 - the
+    same shape type 2 has. f0 sits between the vertex flags and the face types, which is the one
+    position that puts the face data where the indices come out inside the vertex array; it is
+    also the only placement under which the vertex-flag bytes stay inside their three bits.
+
+    All 110 reconcile and have every face index in range.
+
+    f4 is "this model has textures" - every one of the eight models that set it has tc > 0 and
+    every one of the 102 that does not has tc = 0. It costs 2*fc + tc bytes, and those sit in
+    three places, which was settled by brute-forcing the section offsets rather than guessing:
+    the texture RENDER TYPES go in a tc-byte block at offset 0 (all 57 of them in this cache
+    read 0 = a simple three-vertex projection), the FACE TEXTURES in an fc*2 block right after
+    the face data, and the TEXTURE COORDINATES in the `misc` section that follows it. The giveaway
+    was that the vertex flags start at offset tc, not 0, in all eight.
+
+    `misc` is the count of TEXTURED faces, one coordinate byte each - which is why it reads 0 for
+    every model that does not set f4, and why moving the section here breaks none of them. The
+    face-texture shorts hold texture id + 1 and the coordinate bytes triangle index + 1, with 0
+    for "none", the same convention type 3 uses; the non-zero count matches `misc` exactly in all
+    eight, and every coordinate lands inside 1..tc.
+    """
+    h = P(b, len(b) - 23)
+    vc, fc = h.g2(), h.g2()
+    tc = h.g1()
+    f0 = h.g1(); pri = h.g1(); f2 = h.g1(); f3 = h.g1(); f4 = h.g1(); f5 = h.g1()
+    xl, yl, zl, fil, misc = h.g2(), h.g2(), h.g2(), h.g2(), h.g2()
+
+    o = 0
+    trt   = o;  o += tc                  # texture render types, as type 3 has at offset 0
+    vflag = o;  o += vc
+    frt   = o
+    if f0: o += fc
+    ftype = o;  o += fc
+    fpri  = o
+    if pri == 255: o += fc
+    tskin = o
+    if f3: o += fc
+    vlabel = o
+    if f5: o += vc
+    falpha = o
+    if f2: o += fc
+    fdata = o;  o += fil
+    ftexture = o
+    if f4: o += fc * 2
+    texcoord = o; o += misc              # one byte per textured face
+    colour = o; o += fc * 2
+    xo    = o;  o += xl
+    yo    = o;  o += yl
+    zo    = o;  o += zl
+    tex   = o;  o += tc * 6              # all simple, so three shorts each
+    o += 1                               # the trailing byte, as in type 2
+    del trt                              # read straight from b[:tc], as type 3's are
+    return dict(ver=1, vc=vc, fc=fc, tc=tc, body=len(b) - 23, walked=o,
+                vflag=vflag, ftype=ftype, fpri=fpri, frt=frt, falpha=falpha,
+                fdata=fdata, colour=colour, tex=tex, xo=xo, yo=yo, zo=zo,
+                vgroup=vlabel, has_vgroup=f5 == 1,
+                tskin=tskin, has_tskin=f3 == 1,
+                ftexture=ftexture, texcoord=texcoord, has_ftex=f4 == 1,
+                simple=tc, complexn=0,
+                has_rtype=f0 == 1, has_pri=pri == 255, pri=pri,
+                has_alpha=f2 == 1, has_zoff=False)
+
+
 def _layout2(b):
     """RuneLite decodeType2. Note two things the offset block alone does not tell you:
     packedVertexGroups is read from INSIDE the var22 section (not a section of its own),
@@ -131,6 +210,7 @@ def _layout3(b):
 
 def layout(b):
     v = version(b)
+    if v == 1: return _layout1(b)
     if v == 2: return _layout2(b)
     if v == 3: return _layout3(b)
     return None
