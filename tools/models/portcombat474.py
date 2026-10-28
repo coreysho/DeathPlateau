@@ -27,7 +27,8 @@ settings, moved into 474's bar frame.
 name instead. ~weapon_category_tab_attack no longer takes a preview component.
 
 Tabs with no 474 twin - combat_powered_staff - and the staff tab, whose 474 form (90) carries the
-autocast list, are not done here.
+autocast list, are not done here. port_staff does the staff tab, and gives it a special attack bar
+474 drew but no 2008 staff could use.
 """
 import os, re, subprocess, sys
 
@@ -161,20 +162,23 @@ def port_staff(cache):
     autocastable spell, showing that spell's icon in the Spell box - that a 474 client script swaps
     between. This server names the chosen spell in text instead (auto_spell, set by auto_cast.rs2)
     and picks it on a screen of its own (staff_spells), so those layers are left out, and 474's two
-    Spell buttons become the content's autocast toggle and chooser."""
+    Spell buttons become the content's autocast toggle and chooser. The special attack bar is added
+    from combat_blunt.if - see SPECBAR below."""
     from port474if import Converter
     ifname, gid = 'combat_staff_2', 90
     path = find_if(ifname)
     old = dict(parse_if(open(path, encoding='utf-8').read()))
     comps = cache.load(gid)
 
-    # everything under a hidden layer, and the special attack layer (no staff here has a special)
+    # everything under a hidden layer, 474's own special attack bar (fid 87) included - it is put
+    # back below from combat_blunt.if, because 474 draws its energy segments with models this
+    # build's cache does not have
     def under(fid):
         seen = set()
         while fid is not None and fid not in seen:
             seen.add(fid)
             c = comps[fid]
-            if c['type'] == 0 and (c.get('hide') or fid == 87):
+            if c['type'] == 0 and c.get('hide'):
                 return True
             fid = c['parent']
         return False
@@ -210,11 +214,32 @@ def port_staff(cache):
             kv = [(k, v) for k, v in kv if k not in ('text', 'activetext', 'colour', 'activecolour')]
             kv += [(k, v) for k, v in old['auto_spell'] if k in ('text', 'activetext', 'colour', 'activecolour')]
         fixed.append((name, kv))
+    # SPECBAR. The staff of the dead and the staff of light have a special attack - Power of Death
+    # and Power of Light - so this tab needs the bar. 474's interface 90 has one of its own at fid
+    # 87, deleted above with the other hidden layers, but its energy segments are 474 models 18552
+    # -18562 which this build does not have. So the bar comes whole from combat_blunt.if: every
+    # combat tab's specbar_layer sits at the same x=19 y=205 158x64, so the block transplants
+    # unchanged and this bar then behaves exactly like the other fourteen - the same com_i3/com_i4
+    # segments, the same pushvar,sa_energy scripts, the same i474_657 frame.
+    #
+    # hide=yes comes with it and is correct: ~weapon_category_tab_attack unhides the layer only for
+    # a weapon carrying specwep, so every other staff still shows no bar.
+    donor = parse_if(open(find_if('combat_blunt'), encoding='utf-8').read())
+    specbar = [(n, kv) for n, kv in donor
+               if n == 'specbar_layer' or get(kv, 'layer') == 'specbar_layer']
+    if not specbar:
+        raise SystemExit('combat_staff_2: combat_blunt.if has no specbar to copy')
+    clash = sorted({n for n, _ in specbar} & {n for n, _ in fixed})
+    if clash:
+        raise SystemExit('combat_staff_2: specbar names already on the tab: %s' % ', '.join(clash))
+    fixed += specbar
+
     conv.write_sprites(os.path.join(CONTENT, 'sprites'))
 
     lines = ['// 474\'s staff tab (474 interface 90), ported by LostCityServer tools/models/portcombat474.py -',
              '// regenerate it rather than editing by hand. 474\'s per-spell icon layers are left out: the',
-             '// chosen spell is named in auto_spell and picked on staff_spells, as before.',
+             '// chosen spell is named in auto_spell and picked on staff_spells, as before. The special',
+             '// attack bar is combat_blunt.if\'s, for the staff of the dead and the staff of light.',
              'type=overlay']
     for name, kv in fixed:
         lines.append('')
