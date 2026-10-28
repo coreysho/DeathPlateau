@@ -28,7 +28,8 @@ name instead. ~weapon_category_tab_attack no longer takes a preview component.
 
 Tabs with no 474 twin - combat_powered_staff - and the staff tab, whose 474 form (90) carries the
 autocast list, are not done here. port_staff does the staff tab, and gives it a special attack bar
-474 drew but no 2008 staff could use.
+474 drew but no 2008 staff could use; port_bladed_staff then relabels that tab into
+combat_bladed_staff, for the two staves Old School gives Jab, Swipe and Fend.
 """
 import os, re, subprocess, sys
 
@@ -250,12 +251,73 @@ def port_staff(cache):
     return path, conv.notes
 
 
+# combat_bladed_staff. A BLADED STAFF - the staff of the dead and the staff of light - has the staff
+# tab's exact layout, three melee boxes and the two Spell boxes, and different styles on them: Jab
+# (stab, accurate), Swipe (slash, aggressive) and Fend (crush, defensive), where a plain staff's
+# Bash, Pound and Focus are three crushes.
+#
+# DERIVED from combat_staff_2.if rather than ported, because 474 has no bladed staff: there is no
+# interface to take and no 474 artwork for one. So the icons stay the staff tab's and only what the
+# player READS changes - the three option labels, the three names under the boxes, and the two
+# hover texts whose attack type is now wrong. Fend is crush and defensive on both tabs, so its
+# hover text is left alone, and so are both Spell boxes.
+BLADED_TEXT = {
+    'Bash': 'Jab',
+    'Pound': 'Swipe',
+    'Focus': 'Fend',
+    r'(Accurate)\n(Crush)\n(Attack XP)': r'(Accurate)\n(Stab)\n(Attack XP)',
+    r'(Aggressive)\n(Crush)\n(Strength XP)': r'(Aggressive)\n(Slash)\n(Strength XP)',
+}
+
+
+def port_bladed_staff(cache=None):
+    """combat_bladed_staff.if from combat_staff_2.if, with the labels Old School gives it."""
+    src = find_if('combat_staff_2')
+    path = os.path.join(os.path.dirname(src), 'combat_bladed_staff.if')
+    entries = parse_if(open(src, encoding='utf-8').read())
+    swapped = 0
+    out = []
+    for name, kv in entries:
+        new_kv = []
+        for k, v in kv:
+            if k in ('option', 'text', 'activetext') and v in BLADED_TEXT:
+                v = BLADED_TEXT[v]
+                swapped += 1
+            new_kv.append((k, v))
+        out.append((name, new_kv))
+    # six: three option labels and three names under the boxes, plus the two hover texts
+    if swapped < 8:
+        raise SystemExit('combat_bladed_staff: only %d label(s) swapped - has the staff tab '
+                         'been relabelled?' % swapped)
+    lines = ['// The bladed staff tab: combat_staff_2.if relabelled by',
+             '// LostCityServer tools/models/portcombat474.py - regenerate it rather than editing by',
+             '// hand, and edit the staff tab for anything that is not one of the labels below.',
+             '//',
+             '// Jab, Swipe and Fend - stab, slash and crush - where a plain staff has Bash, Pound and',
+             '// Focus, all three crush. 474 has no bladed staff and so no icons for one, so the artwork',
+             '// is the staff tab\'s and only the words change.',
+             'type=overlay']
+    for name, kv in out:
+        lines.append('')
+        lines.append('[%s]' % name)
+        lines += ['%s=%s' % (k, v) for k, v in kv]
+    with open(path, 'w', encoding='utf-8', newline='\r\n') as f:
+        f.write('\n'.join(lines) + '\n')
+    return path, ['%d labels swapped' % swapped]
+
+
 def main():
     from if3_474 import Cache
     cache = Cache(sys.argv[1])
-    todo = sys.argv[2:] or sorted(TABS) + ['combat_staff_2']
+    todo = sys.argv[2:] or sorted(TABS) + ['combat_staff_2', 'combat_bladed_staff']
     for ifname in todo:
-        path, notes = port_staff(cache) if ifname == 'combat_staff_2' else port(cache, ifname)
+        # combat_bladed_staff is derived from combat_staff_2's output, so it goes last
+        if ifname == 'combat_bladed_staff':
+            path, notes = port_bladed_staff()
+        elif ifname == 'combat_staff_2':
+            path, notes = port_staff(cache)
+        else:
+            path, notes = port(cache, ifname)
         notes = [n for n in notes if 'model' not in n and 'clientcode' not in n]
         print('%-18s %s%s' % (ifname, os.path.relpath(path, CONTENT), ('  (%d notes)' % len(notes)) if notes else ''))
         for n in notes:
