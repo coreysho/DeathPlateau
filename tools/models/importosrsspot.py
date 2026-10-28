@@ -29,6 +29,7 @@ def main():
     ap.add_argument('--content', required=True)
     ap.add_argument('--out', required=True, help='config path without extension')
     ap.add_argument('--dry-run', action='store_true')
+    ap.add_argument('--force', action='store_true', help='replace an existing --out file')
     a = ap.parse_args()
 
     st = Store(a.cache)
@@ -64,6 +65,15 @@ def main():
         convert_seqs(st, seq_names, None); return
 
     C = a.content
+    # DO NOT SILENTLY OVERWRITE. --out names a config file, and it is written with 'w': pointing it
+    # at a name that already exists destroys every entry in it. One run of this took out seventeen
+    # animations - the whip set and the two-handed set - and the only sign was the NEXT build
+    # failing on "osrs_whip_attack was not found in any .seq files", which reads as a missing
+    # import rather than a deleted file.
+    for ext in ('.seq', '.spotanim'):
+        if os.path.exists(a.out + ext) and not a.force:
+            raise SystemExit('%s already exists - pick another --out, or pass --force to replace it '
+                             '(it would be rewritten from scratch, not appended to)' % (a.out + ext))
     ids, _ = pack_append(os.path.join(C, 'pack', 'model.pack'), list(models))
     for n, b in models.items():
         open(os.path.join(C, 'models', 'spot', n + '.ob2'), 'wb').write(b)
