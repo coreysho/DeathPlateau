@@ -38,6 +38,8 @@ public class PlayerRender {
         List<Integer> frames = new ArrayList<>();
         int yan = 0, dist = 250, cols = 0, size = 320;
         String dump = null;
+        List<int[]> hide = new ArrayList<>();
+        List<int[]> repri = new ArrayList<>();
         for (int i = 2; i < a.length; i++) {
             switch (a[i]) {
                 case "--part":  parts.add(a[++i]); break;
@@ -52,6 +54,18 @@ public class PlayerRender {
                     }
                     break;
                 case "--dump":  dump = a[++i]; break;
+                case "--repri":
+                    for (String r : a[++i].split(",")) {
+                        String[] se = r.split("[:=]");
+                        repri.add(new int[] { Integer.parseInt(se[0]), Integer.parseInt(se[1]), Integer.parseInt(se[2]) });
+                    }
+                    break;
+                case "--hide":
+                    for (String r : a[++i].split(",")) {
+                        String[] se = r.split(":");
+                        hide.add(new int[] { Integer.parseInt(se[0]), Integer.parseInt(se[1]) });
+                    }
+                    break;
                 default: throw new IllegalArgumentException("no such option: " + a[i]);
             }
         }
@@ -96,6 +110,33 @@ public class PlayerRender {
             Model[] kit = new Model[parts.size()];
             for (int i = 0; i < parts.size(); i++) kit[i] = Model.tryGet(i);
             Model body = new Model(kit.length, kit, (byte) -89);
+            // method382 skips a face whose field1206 is -1, which is the only switch the client
+            // already has for "do not draw this one". Bisecting with it is how a sliver of one
+            // worn model drawn over another gets traced back to the faces that drew it.
+            if (!hide.isEmpty()) {
+                if (body.field1206 == null) {
+                    body.field1206 = new int[body.field1199];
+                }
+                for (int[] r : hide) {
+                    for (int n = Math.max(0, r[0]); n <= Math.min(body.field1199 - 1, r[1]); n++) {
+                        body.field1206[n] = -1;
+                    }
+                }
+            }
+            // The face priorities are what decide the order the merged parts are painted in, and
+            // 10 is the one that is sorted by real depth instead of by group. Moving faces into it
+            // here is how that is tried out before anything is written back to a model.
+            if (!repri.isEmpty()) {
+                if (body.field1207 == null) {
+                    body.field1207 = new int[body.field1199];
+                    Arrays.fill(body.field1207, body.field1210 < 0 ? 0 : body.field1210);
+                }
+                for (int[] r : repri) {
+                    for (int n = Math.max(0, r[0]); n <= Math.min(body.field1199 - 1, r[1]); n++) {
+                        body.field1207[n] = r[2];
+                    }
+                }
+            }
             body.createLabelReferences();
             body.calculateNormals(64, 850, -30, -50, -30, true);
 
