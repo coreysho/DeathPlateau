@@ -18,7 +18,13 @@ is painted through the middle of the cape - a hole, where the fixed priority had
 cape shut over the body exactly as it holds a helmet shut over a head. Measured over all 164
 cape-slot models with WearSweep --selfdiff, against the authored bytes and a gender-matched kit:
 63,742 pixels gained from the front and 529,170 lost from the back, and 152 of the 164 worse off.
-Only twelve survived, and the rest were put back.
+
+Twelve capes survived that and still had to go back, because a silhouette test cannot see a model
+beating ITSELF. The infernal Max cape read clean on both counts while 10,951 pixels of its own
+surface were being drawn by the wrong face - the dark straps and the backing coming through the
+lava sheet they were authored to sit under, which in game is black cracks down the cape. The
+split between 4, 5, 6 and 7 inside one cape is layering the artist meant, and flattening it to a
+single group throws it away. WearSweep --selfdiff reports that as inner.
 
 So this script is for ONE MODEL AT A TIME, with the back view rendered before and after, and
 content/tools/capepriority_battery.py will fail until its table is updated to say so.

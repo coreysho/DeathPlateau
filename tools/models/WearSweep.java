@@ -49,8 +49,8 @@ import java.nio.file.*; import java.util.*; import java.io.*;
 // change, over the changed files, cannot see the change. The real figures above are from the
 // authored bytes, recovered out of git, and 152 of the 164 came out worse: from behind the armour
 // under the cape is painted through the middle of it, which is a hole in the back of the cape.
-// All but twelve were put back; content/tools/capepriority_battery.py now holds every back-slot
-// model's priorities so the next one has to be argued for by name.
+// All 164 were put back; content/tools/capepriority_battery.py now holds every back-slot model's
+// priorities so the next one has to be argued for by name.
 //
 // --selfdiff IS THE MEASUREMENT THAT CAN SEE THAT. Everything above looks INSIDE THE BODY'S
 // SILHOUETTE at what the model does to the body. --selfdiff looks at the model itself over the
@@ -58,6 +58,23 @@ import java.nio.file.*; import java.util.*; import java.io.*;
 // and gained. From the front a cape losing ground is the fix working; from the back it is the
 // body coming through the cape. Give it <objdir> pointing at the AUTHORED bytes, never at the
 // shipped ones, or it measures a drawing against itself exactly as the zero above did.
+//
+// lost AND gained ARE STILL ONLY A SILHOUETTE TEST, and the twelve capes that survived the figures
+// above are what that costs. Is this pixel the model or is it not - so a face of the model beating
+// ANOTHER FACE OF THE SAME MODEL is neither lost nor gained, and twelve capes came through reading
+// clean while the infernal Max cape had 10,951 pixels of its own surface drawn by the wrong face:
+// the dark straps and the cape's own backing winning over the lava sheet they were authored to sit
+// under, which in game is black cracks down a cape. inner counts those. All twelve went back too.
+//
+//     model                            front  back   inner(back)
+//     infernal max cape manwear        3,382   623        10,951
+//     infernal max cape womanwear      2,998   158         8,795
+//     fire max cape manwear            3,010   546         7,759
+//     castlewars cloak saradomin w.    3,832   438           802
+//
+// A cape's own layering between groups 4, 5, 6 and 7 is load-bearing in the same way the fixed
+// order is that holds a helmet shut. Three separate measurements were needed to see it, and each
+// one only after the artefact had already shipped.
 //
 // --islands IS THE OTHER FAULT: mesh genuinely coming through mesh, rather than being painted over
 // it. A patch of the model with no path to the background through its own pixels is surrounded on
@@ -215,7 +232,18 @@ public class WearSweep {
                             gained++;
                         }
                     }
-                    System.out.println(name + " lost=" + lost + " gained=" + gained
+                    // AND THE PIXELS THAT ARE STILL THE MODEL BUT NO LONGER THE SAME FACE.
+                    // lost and gained are a silhouette test - is this pixel the model or not -
+                    // so a face of the model beating ANOTHER FACE OF THE SAME MODEL registers as
+                    // neither. That is what the black cracks down the infernal Max cape were: the
+                    // dark straps and the cape's own backing winning over the lava sheet they
+                    // were authored to sit under. A model whose own layering is load-bearing
+                    // fails here and nowhere else.
+                    int inner = 0;
+                    for (int i = 0; i < px.length; i++) {
+                        if (asis[i] != bare[i] && px[i] != bare[i] && px[i] != asis[i]) inner++;
+                    }
+                    System.out.println(name + " lost=" + lost + " gained=" + gained + " inner=" + inner
                         + " selfhole=" + (islands(asis, bare) + "->" + islands(px, bare))
                         + " bbox=" + (lost == 0 ? "-" : lx0 + "," + ly0 + ".." + lx1 + "," + ly1));
                 } else if (holes) {
