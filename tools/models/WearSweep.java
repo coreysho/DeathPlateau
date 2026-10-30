@@ -30,6 +30,16 @@ import java.nio.file.*; import java.util.*; import java.io.*;
 // count is what is being fixed. On hats that leaves 489 of 501 disqualified and one worth 91
 // pixels, which is why hats were measured and then left alone. On capes it left all 164.
 //
+// THE SECOND SWEEP IS THE BACK VIEW, and it is the one that has disqualified every slot tried
+// since. Amulets gain 4,521 pixels from the front and lose 10,941 from the back - the collar of a
+// stole, which wraps the neck and is only visible there because its priority puts it over the
+// armour. Boots are 2,648 against 3,315, and both too small to see. Feet and front were measured
+// on 30 October and neither was changed.
+//
+// What makes the cape slot different is not its priorities - every slot splits them the same way -
+// but that a cape is OUTSIDE the body. A helmet encloses a head and a stole is threaded through a
+// collar, so for those the fixed order is load-bearing and depth has no way to know it.
+//
 //   java -cp javaclient/build/classes/java/main:. jagex2.client.WearSweep <dir> <objdir> <list> \
 //        [--under a,b] [--frame N] [--yan N] [--dist N] [--size N]
 //
