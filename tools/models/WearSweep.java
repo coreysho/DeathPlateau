@@ -83,6 +83,7 @@ public class WearSweep {
         int frame = 2422, yan = 0, dist = 150, size = 700;
         boolean islands = false, depth = false;
         String bisect = null;
+        boolean holes = false;
         for (int i = 3; i < a.length; i++) {
             switch (a[i]) {
                 case "--under": under = a[++i]; break;
@@ -97,6 +98,10 @@ public class WearSweep {
                 // name the faces of one model that make the island, in THIS process - see the
                 // note on Pix3D.initColourTable below for why it cannot be done across two
                 case "--bisect": bisect = a[++i]; break;
+                // count the background showing THROUGH the dressed player instead: a hole is what
+                // lets a cape be seen between an arm and a chestplate, and no amount of draw order
+                // or priority will close one
+                case "--holes": holes = true; break;
                 default: throw new IllegalArgumentException("no such option: " + a[i]);
             }
         }
@@ -169,7 +174,9 @@ public class WearSweep {
                 // depth", which is the only thing that can put a model in front of a body it is
                 // behind. Counted inside the body's own silhouette, so the model's outline against
                 // the floor is not counted.
-                if (islands) {
+                if (holes) {
+                    System.out.println(name + " " + holes(asis) + " " + visible(asis, bare));
+                } else if (islands) {
                     int[] look = depth ? px : asis;
                     System.out.println(name + " " + islands(look, bare) + " " + visible(look, bare));
                 } else {
@@ -264,6 +271,44 @@ public class WearSweep {
             out.field1225 = null;
         }
         out.method381(yan, 0, 65536, 0, 65536, 0, 85, dist, 0);
+    }
+
+    /**
+     * Background pixels with no way out: the dressed player has a hole in it there.
+     *
+     * This is the third fault, and the one neither of the others can see. Two worn models that do
+     * not meet leave a gap, and whatever is behind the player - a cape, the floor - is seen
+     * through it. Nothing about priorities or depth is wrong; there is simply nothing drawn.
+     */
+    static int holes(int[] img) {
+        boolean[] seen = new boolean[img.length];
+        int[] stack = new int[img.length];
+        int sp = 0;
+        for (int x = 0; x < W; x++) {
+            for (int y : new int[] { 0, H - 1 }) {
+                int i = y * W + x;
+                if (img[i] == 0x141414 && !seen[i]) { seen[i] = true; stack[sp++] = i; }
+            }
+        }
+        for (int y = 0; y < H; y++) {
+            for (int x : new int[] { 0, W - 1 }) {
+                int i = y * W + x;
+                if (img[i] == 0x141414 && !seen[i]) { seen[i] = true; stack[sp++] = i; }
+            }
+        }
+        while (sp > 0) {
+            int i = stack[--sp];
+            int x = i % W, y = i / W;
+            if (x > 0 && img[i - 1] == 0x141414 && !seen[i - 1]) { seen[i - 1] = true; stack[sp++] = i - 1; }
+            if (x < W - 1 && img[i + 1] == 0x141414 && !seen[i + 1]) { seen[i + 1] = true; stack[sp++] = i + 1; }
+            if (y > 0 && img[i - W] == 0x141414 && !seen[i - W]) { seen[i - W] = true; stack[sp++] = i - W; }
+            if (y < H - 1 && img[i + W] == 0x141414 && !seen[i + W]) { seen[i + W] = true; stack[sp++] = i + W; }
+        }
+        int n = 0;
+        for (int i = 0; i < img.length; i++) {
+            if (img[i] == 0x141414 && !seen[i]) n++;
+        }
+        return n;
     }
 
     /** How many pixels of the model under test are visible at all. */
