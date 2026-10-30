@@ -43,6 +43,17 @@ import java.nio.file.*; import java.util.*; import java.io.*;
 //
 // A back figure larger than the front one is the slot saying no.
 //
+// --islands IS THE OTHER FAULT: mesh genuinely coming through mesh, rather than being painted over
+// it. A patch of the model with no path to the background through its own pixels is surrounded on
+// every side by the body, which is what a poke-through looks like and what an outline does not.
+// Run it with --depth as well and draw order is taken out of the comparison, so what is left is
+// the geometry.
+//
+// Swept on 30 October, after the capes: 61 of 2,135 models make an island at all, 760 pixels in
+// total, and 53 of them survive depth sorting. The largest is 91 pixels. They are hood linings
+// through a face - the max hoods, the Castle Wars prize hood, the HAM hood - and amulet strings
+// across a neck at six pixels each. There is no third class of fault hiding in the wardrobe.
+//
 // What makes the cape slot different is not its priorities - every slot splits them the same way -
 // but that a cape is OUTSIDE the body. A helmet encloses a head and a stole is threaded through a
 // collar, so for those the fixed order is load-bearing and depth has no way to know it.
@@ -63,6 +74,7 @@ public class WearSweep {
         String dir = a[0], objdir = a[1], list = a[2];
         String under = "obj_saradomin_platebody_manwear,obj_saradomin_plateskirt_manwear";
         int frame = 2422, yan = 0, dist = 150, size = 700;
+        boolean islands = false, depth = false;
         for (int i = 3; i < a.length; i++) {
             switch (a[i]) {
                 case "--under": under = a[++i]; break;
@@ -70,6 +82,10 @@ public class WearSweep {
                 case "--yan":   yan = Integer.parseInt(a[++i]); break;
                 case "--dist":  dist = Integer.parseInt(a[++i]); break;
                 case "--size":  size = Integer.parseInt(a[++i]); break;
+                case "--islands": islands = true; break;
+                // measure the islands on the depth-sorted drawing instead: what is left when draw
+                // order is taken out of it is the mesh actually coming through
+                case "--depth": depth = true; break;
                 default: throw new IllegalArgumentException("no such option: " + a[i]);
             }
         }
@@ -118,38 +134,130 @@ public class WearSweep {
             if (kit.isEmpty()) { System.out.println(name + " 0 no-reference"); continue; }
             try {
                 Model.method357(Files.readAllBytes(file), 0, (byte) 7);
-                draw(kit, -1, frame, yan, dist, false);                // the kit alone
+                // THE KIT ALONE STILL HAS THE MODEL MERGED INTO IT, with its faces switched off.
+                // Leaving it out entirely changes the merge - method362 welds vertices by position
+                // and calculateNormals averages across what it welded - so the body's own SHADING
+                // moves, and a with-against-without comparison counts that as the model.
+                draw(kit, 0, frame, yan, dist, false, true);           // the kit, model hidden
                 System.arraycopy(px, 0, bare, 0, px.length);
-                draw(kit, 0, frame, yan, dist, false);                 // as the model asks to be drawn
+                draw(kit, 0, frame, yan, dist, false, false);          // as the model asks to be drawn
                 System.arraycopy(px, 0, asis, 0, px.length);
-                draw(kit, 0, frame, yan, dist, true);                  // and as depth says it should be
+                draw(kit, 0, frame, yan, dist, true, false);           // and as depth says it should be
                 // THE MEASUREMENT. Not "does it cover the body" - a pauldron covers the body and is
                 // meant to. It is "where does the model's own priority group disagree with its real
                 // depth", which is the only thing that can put a model in front of a body it is
                 // behind. Counted inside the body's own silhouette, so the model's outline against
                 // the floor is not counted.
-                int over = 0, body = 0;
-                for (int i = 0; i < px.length; i++) {
-                    if (bare[i] != 0x141414) {
-                        body++;
-                        if (asis[i] != px[i]) over++;
+                if (islands) {
+                    int[] look = depth ? px : asis;
+                    System.out.println(name + " " + islands(look, bare) + " " + visible(look, bare));
+                } else {
+                    int over = 0, body = 0;
+                    for (int i = 0; i < px.length; i++) {
+                        if (bare[i] != 0x141414) {
+                            body++;
+                            if (asis[i] != px[i]) over++;
+                        }
                     }
+                    System.out.println(name + " " + over + " " + body);
                 }
-                System.out.println(name + " " + over + " " + body);
             } catch (Exception | Error e) {
                 System.out.println(name + " THREW " + e);
             }
         }
     }
 
+
+    /** How many pixels of the model under test are visible at all. */
+    static int visible(int[] with, int[] without) {
+        int n = 0;
+        for (int i = 0; i < with.length; i++) {
+            if (with[i] != without[i]) n++;
+        }
+        return n;
+    }
+
+    /**
+     * The model's visible pixels that form an ISLAND - a patch with no path to the background
+     * through its own pixels, so it is surrounded on every side by the body it is drawn against.
+     *
+     * THIS IS THE GEOMETRY FAULT, as distinct from the draw-order one. A cape hanging beside a
+     * player reaches the background, and so does a pauldron's outline; a sliver of mesh that has
+     * come through the middle of a skirt does not. Draw order can produce an island too - the max
+     * capes' marks were islands - so a count here is not proof of an intersection, but an
+     * intersection cannot help being one.
+     */
+    static int islands(int[] with, int[] without) {
+        boolean[] mine = new boolean[with.length];
+        for (int i = 0; i < with.length; i++) {
+            mine[i] = with[i] != without[i];
+        }
+        // flood from the frame edge through everything that is NOT the model; whatever the flood
+        // reaches is background or body, and any of the model's pixels next to it are on its outline
+        boolean[] outside = new boolean[with.length];
+        int[] stack = new int[with.length];
+        int sp = 0;
+        for (int x = 0; x < W; x++) {
+            for (int y : new int[] { 0, H - 1 }) {
+                int i = y * W + x;
+                if (!mine[i] && !outside[i]) { outside[i] = true; stack[sp++] = i; }
+            }
+        }
+        for (int y = 0; y < H; y++) {
+            for (int x : new int[] { 0, W - 1 }) {
+                int i = y * W + x;
+                if (!mine[i] && !outside[i]) { outside[i] = true; stack[sp++] = i; }
+            }
+        }
+        while (sp > 0) {
+            int i = stack[--sp];
+            int x = i % W, y = i / W;
+            if (x > 0 && !mine[i - 1] && !outside[i - 1]) { outside[i - 1] = true; stack[sp++] = i - 1; }
+            if (x < W - 1 && !mine[i + 1] && !outside[i + 1]) { outside[i + 1] = true; stack[sp++] = i + 1; }
+            if (y > 0 && !mine[i - W] && !outside[i - W]) { outside[i - W] = true; stack[sp++] = i - W; }
+            if (y < H - 1 && !mine[i + W] && !outside[i + W]) { outside[i + W] = true; stack[sp++] = i + W; }
+        }
+        // now flood the model's own pixels, starting from the ones that touch what the first flood
+        // reached: those are its outline, and everything connected to them is its body
+        boolean[] reached = new boolean[with.length];
+        sp = 0;
+        for (int i = 0; i < with.length; i++) {
+            if (!mine[i]) continue;
+            int x = i % W, y = i / W;
+            boolean edge = x == 0 || y == 0 || x == W - 1 || y == H - 1
+                || (x > 0 && outside[i - 1]) || (x < W - 1 && outside[i + 1])
+                || (y > 0 && outside[i - W]) || (y < H - 1 && outside[i + W]);
+            if (edge) { reached[i] = true; stack[sp++] = i; }
+        }
+        while (sp > 0) {
+            int i = stack[--sp];
+            int x = i % W, y = i / W;
+            if (x > 0 && mine[i - 1] && !reached[i - 1]) { reached[i - 1] = true; stack[sp++] = i - 1; }
+            if (x < W - 1 && mine[i + 1] && !reached[i + 1]) { reached[i + 1] = true; stack[sp++] = i + 1; }
+            if (y > 0 && mine[i - W] && !reached[i - W]) { reached[i - W] = true; stack[sp++] = i - W; }
+            if (y < H - 1 && mine[i + W] && !reached[i + W]) { reached[i + W] = true; stack[sp++] = i + W; }
+        }
+        int n = 0;
+        for (int i = 0; i < with.length; i++) {
+            if (mine[i] && !reached[i]) n++;
+        }
+        return n;
+    }
+
     /** Draw the reference kit, with model id `with` merged in when it is not -1. */
-    static void draw(List<Integer> kit, int with, int frame, int yan, int dist, boolean depthSorted) {
+    static void draw(List<Integer> kit, int with, int frame, int yan, int dist, boolean depthSorted, boolean hide) {
         Arrays.fill(px, 0x141414);
         Model[] parts = new Model[kit.size() + 1];
         int n = 0;
         if (with >= 0) parts[n++] = Model.tryGet(with);               // the cape slot comes first
         for (int id : kit) parts[n++] = Model.tryGet(id);
         Model body = new Model(n, parts, (byte) -89);
+        if (hide && with >= 0) {
+            if (body.field1206 == null) {
+                body.field1206 = new int[body.field1199];
+            }
+            Arrays.fill(body.field1206, 0, parts[0].field1199, -1);
+        }
         if (depthSorted && with >= 0) {
             // the merge keeps face order, so the model under test is faces 0.. of the result
             int faces = parts[0].field1199;
