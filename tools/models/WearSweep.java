@@ -49,10 +49,17 @@ import java.nio.file.*; import java.util.*; import java.io.*;
 // Run it with --depth as well and draw order is taken out of the comparison, so what is left is
 // the geometry.
 //
-// Swept on 30 October, after the capes: 61 of 2,135 models make an island at all, 760 pixels in
-// total, and 53 of them survive depth sorting. The largest is 91 pixels. They are hood linings
-// through a face - the max hoods, the Castle Wars prize hood, the HAM hood - and amulet strings
-// across a neck at six pixels each. There is no third class of fault hiding in the wardrobe.
+// Swept on 30 October, after the capes and after two faults in this file were fixed (below):
+// 26 of 2,135 models make an island at all, 171 pixels in total, and the ones that survive depth
+// sorting come to 247 across 22 models. The largest single thing in the wardrobe is an amulet
+// string crossing a neck at SIX PIXELS. There is no third class of fault here.
+//
+// The first numbers out of this said 61 models and 760 pixels, with hood linings through a face at
+// 56 to 91 each. That was this file's own baseline: it hid the model by writing -1 into field1206,
+// and on a merged kit that array is usually null, so ALLOCATING IT CHANGED HOW THE WHOLE KIT DREW -
+// 16,139 pixels of body that had not moved. Faces are now hidden by pointing their three corners
+// at one vertex, which has no area, fails method382's cross-product test and is culled, and leaves
+// every other face and all the lighting exactly as they were.
 //
 // What makes the cape slot different is not its priorities - every slot splits them the same way -
 // but that a cape is OUTSIDE the body. A helmet encloses a head and a stole is threaded through a
@@ -75,6 +82,7 @@ public class WearSweep {
         String under = "obj_saradomin_platebody_manwear,obj_saradomin_plateskirt_manwear";
         int frame = 2422, yan = 0, dist = 150, size = 700;
         boolean islands = false, depth = false;
+        String bisect = null;
         for (int i = 3; i < a.length; i++) {
             switch (a[i]) {
                 case "--under": under = a[++i]; break;
@@ -86,6 +94,9 @@ public class WearSweep {
                 // measure the islands on the depth-sorted drawing instead: what is left when draw
                 // order is taken out of it is the mesh actually coming through
                 case "--depth": depth = true; break;
+                // name the faces of one model that make the island, in THIS process - see the
+                // note on Pix3D.initColourTable below for why it cannot be done across two
+                case "--bisect": bisect = a[++i]; break;
                 default: throw new IllegalArgumentException("no such option: " + a[i]);
             }
         }
@@ -96,10 +107,15 @@ public class WearSweep {
         Model.init(8, null);
         AnimFrame.init(70000);
         Path anims = Paths.get(dir, "anims");
+        // sorted: see PlayerRender. Two .anim files can carry the same frame id and the last read
+        // wins, so an unsorted listing poses the model differently from one run to the next.
+        List<Path> animFiles = new ArrayList<>();
         try (DirectoryStream<Path> ds = Files.newDirectoryStream(anims, "*.anim")) {
-            for (Path p : ds) {
-                try { AnimFrame.method262(Files.readAllBytes(p)); } catch (Exception | Error e) { }
-            }
+            for (Path p : ds) animFiles.add(p);
+        }
+        Collections.sort(animFiles);
+        for (Path p : animFiles) {
+            try { AnimFrame.method262(Files.readAllBytes(p)); } catch (Exception | Error e) { }
         }
         W = size; H = (int) (size * 1.4);
         px = new int[W * H];
@@ -117,6 +133,11 @@ public class WearSweep {
 
         int[] bare = new int[W * H];
         int[] asis = new int[W * H];
+
+        if (bisect != null) {
+            bisectOne(bisect, objdir, underNames, frame, yan, dist);
+            return;
+        }
         for (String line : Files.readAllLines(Paths.get(list))) {
             line = line.trim();
             if (line.isEmpty() || line.startsWith("#")) continue;
@@ -167,6 +188,83 @@ public class WearSweep {
         }
     }
 
+
+    /**
+     * Which faces of one model make the island, found by collapsing ranges of them until it goes.
+     *
+     * IN ONE PROCESS, DELIBERATELY. Pix3D.initColourTable jitters the palette by a random amount
+     * on every startup - `arg0 + (Math.random() * 0.03 - 0.015)` - which is the client being the
+     * client, and means two runs of the same render differ by ten thousand pixels. Anything that
+     * compares one drawing against another has to make both of them without leaving the JVM.
+     */
+    static void bisectOne(String name, String objdir, String[] underNames, int frame, int yan, int dist) throws Exception {
+        List<Integer> kit = new ArrayList<>();
+        for (int i = 0; i < underNames.length; i++) kit.add(i + 1);
+        Model.method357(Files.readAllBytes(Paths.get(objdir, name + ".ob2")), 0, (byte) 7);
+        int nf = Model.tryGet(0).field1199;
+        int[] base = new int[W * H];
+        draw(kit, 0, frame, yan, dist, false, true);
+        System.arraycopy(px, 0, base, 0, px.length);
+
+        List<int[]> hidden = new ArrayList<>();
+        int total = islandsWith(kit, hidden, nf, frame, yan, dist, base);
+        System.out.println(name + " " + total + " island px over " + nf + " faces");
+        while (total > 0 && hidden.size() < 24) {
+            int lo = 0, hi = nf - 1;
+            hidden.add(new int[] { lo, hi });
+            boolean helps = islandsWith(kit, hidden, nf, frame, yan, dist, base) < total;
+            hidden.remove(hidden.size() - 1);
+            if (!helps) break;
+            while (lo < hi) {
+                int mid = (lo + hi) / 2;
+                hidden.add(new int[] { lo, mid });
+                boolean half = islandsWith(kit, hidden, nf, frame, yan, dist, base) < total;
+                hidden.remove(hidden.size() - 1);
+                if (half) hi = mid; else lo = mid + 1;
+            }
+            hidden.add(new int[] { lo, lo });
+            int after = islandsWith(kit, hidden, nf, frame, yan, dist, base);
+            if (after >= total) { System.out.println("  no single face accounts for the last " + total); break; }
+            System.out.println("  face " + lo + "  -" + (total - after) + " px  (" + after + " left)");
+            total = after;
+        }
+        StringBuilder sb = new StringBuilder();
+        for (int[] h : hidden) { if (sb.length() > 0) sb.append(','); sb.append(h[0]); }
+        System.out.println("faces: " + sb);
+    }
+
+    static int islandsWith(List<Integer> kit, List<int[]> hidden, int nf, int frame, int yan, int dist, int[] base) {
+        drawHiding(kit, frame, yan, dist, hidden, nf);
+        return islands(px, base);
+    }
+
+    /** Draw the kit with the model merged, collapsing the listed face ranges of it. */
+    static void drawHiding(List<Integer> kit, int frame, int yan, int dist, List<int[]> hidden, int nf) {
+        Arrays.fill(px, 0x141414);
+        Model[] parts = new Model[kit.size() + 1];
+        int n = 0;
+        parts[n++] = Model.tryGet(0);
+        for (int id : kit) parts[n++] = Model.tryGet(id);
+        Model body = new Model(n, parts, (byte) -89);
+        for (int[] h : hidden) {
+            for (int f = Math.max(0, h[0]); f <= Math.min(nf - 1, h[1]); f++) {
+                body.field1201[f] = body.field1200[f];
+                body.field1202[f] = body.field1200[f];
+            }
+        }
+        body.createLabelReferences();
+        body.calculateNormals(64, 850, -30, -50, -30, true);
+        Model out = body;
+        if (frame > 0 && !AnimFrame.isNull(frame)) {
+            out = Model.field1190;
+            out.method361(false, body);
+            out.applyTransform(frame);
+            out.method363();
+            out.field1226 = null;
+            out.field1225 = null;
+        }
+        out.method381(yan, 0, 65536, 0, 65536, 0, 85, dist, 0);
+    }
 
     /** How many pixels of the model under test are visible at all. */
     static int visible(int[] with, int[] without) {
@@ -253,10 +351,12 @@ public class WearSweep {
         for (int id : kit) parts[n++] = Model.tryGet(id);
         Model body = new Model(n, parts, (byte) -89);
         if (hide && with >= 0) {
-            if (body.field1206 == null) {
-                body.field1206 = new int[body.field1199];
+            // collapsed, not flagged through field1206: allocating that array changes how the rest
+            // of the kit draws, which is the one thing a baseline must not do. See PlayerRender.
+            for (int f = 0; f < parts[0].field1199; f++) {
+                body.field1201[f] = body.field1200[f];
+                body.field1202[f] = body.field1200[f];
             }
-            Arrays.fill(body.field1206, 0, parts[0].field1199, -1);
         }
         if (depthSorted && with >= 0) {
             // the merge keeps face order, so the model under test is faces 0.. of the result

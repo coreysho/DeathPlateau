@@ -85,11 +85,19 @@ public class PlayerRender {
         AnimFrame.init(70000);
         Path anims = Paths.get(dir, "anims");
         if (Files.isDirectory(anims)) {
+            // SORTED, because the order matters and a directory listing has none. Two animation
+            // files can carry the same frame id, and whichever is read last is the one that wins -
+            // so an unsorted listing gives a different pose from run to run. Two identical renders
+            // came out 23,118 pixels apart before this, which is enough to wreck any before-and-
+            // after that spans two invocations.
+            List<Path> files = new ArrayList<>();
             try (DirectoryStream<Path> ds = Files.newDirectoryStream(anims, "*.anim")) {
-                for (Path p : ds) {
-                    try { AnimFrame.method262(Files.readAllBytes(p)); }
-                    catch (Exception | Error e) { System.out.println("skipped " + p.getFileName() + ": " + e); }
-                }
+                for (Path p : ds) files.add(p);
+            }
+            Collections.sort(files);
+            for (Path p : files) {
+                try { AnimFrame.method262(Files.readAllBytes(p)); }
+                catch (Exception | Error e) { System.out.println("skipped " + p.getFileName() + ": " + e); }
             }
         }
 
@@ -113,17 +121,17 @@ public class PlayerRender {
             Model[] kit = new Model[parts.size()];
             for (int i = 0; i < parts.size(); i++) kit[i] = Model.tryGet(i);
             Model body = new Model(kit.length, kit, (byte) -89);
-            // method382 skips a face whose field1206 is -1, which is the only switch the client
-            // already has for "do not draw this one". Bisecting with it is how a sliver of one
-            // worn model drawn over another gets traced back to the faces that drew it.
-            if (!hide.isEmpty()) {
-                if (body.field1206 == null) {
-                    body.field1206 = new int[body.field1199];
-                }
-                for (int[] r : hide) {
-                    for (int n = Math.max(0, r[0]); n <= Math.min(body.field1199 - 1, r[1]); n++) {
-                        body.field1206[n] = -1;
-                    }
+            // HIDING A FACE BY COLLAPSING IT, not by writing -1 into field1206. method382 does
+            // skip a face whose field1206 is -1, but field1206 is usually null on a merged kit and
+            // ALLOCATING IT CHANGES THE WHOLE DRAWING - 16,139 pixels on a hood and a body that
+            // should not have moved at all - which quietly ruins any before-and-after built on it.
+            // Pointing a face's three corners at one vertex gives it no area, so the cross product
+            // in method382 is 0, it fails the > 0 test and is culled. Nothing else is touched: the
+            // vertices stay, so the welding and the normals are the ones the kit really has.
+            for (int[] r : hide) {
+                for (int n = Math.max(0, r[0]); n <= Math.min(body.field1199 - 1, r[1]); n++) {
+                    body.field1201[n] = body.field1200[n];
+                    body.field1202[n] = body.field1200[n];
                 }
             }
             // The face priorities are what decide the order the merged parts are painted in, and
