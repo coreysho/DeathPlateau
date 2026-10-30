@@ -10,13 +10,21 @@ depth instead, which is the whole reason they exist.
 Measured on 29 October with tools/models/wearpoke.py, against Saradomin armour, walking: the
 infernal max cape puts 133 pixels of itself on the armour, the plain and imbued ancient 111, the
 fire 67. Every one of the faces behind it was checked and every one is genuinely BEHIND the armour
-- 29 to 70 units behind - so none of it is the mesh poking through. It is all draw order. Moving
-the lot to 10 takes all four to zero and leaves the back view alone, because from behind those
-faces are in front and depth sorting says so.
+- 29 to 70 units behind - so none of it is the mesh poking through. It is all draw order.
+
+IT DOES NOT LEAVE THE BACK VIEW ALONE, whatever this file said for a day. Bucket-granularity depth
+is not fine enough to keep a cape clear of the body it is draped over, so from behind the armour
+is painted through the middle of the cape - a hole, where the fixed priority had been holding the
+cape shut over the body exactly as it holds a helmet shut over a head. Measured over all 164
+cape-slot models with WearSweep --selfdiff, against the authored bytes and a gender-matched kit:
+63,742 pixels gained from the front and 529,170 lost from the back, and 152 of the 164 worse off.
+Only twelve survived, and the rest were put back.
+
+So this script is for ONE MODEL AT A TIME, with the back view rendered before and after, and
+content/tools/capepriority_battery.py will fail until its table is updated to say so.
 
 Jagex splits a cape between 10 and 4-7 in nearly every cape in the cache - 149 of the 164 here -
-so this is the convention rather than a fault in one model, and the same artefact is latent in all
-of them.
+and that split is the convention doing real work, not a fault to be flattened away.
 
   python3 tools/models/wearpriority.py --priority 10 content/models/obj/obj_max_cape_manwear.ob2
   python3 tools/models/wearpriority.py --dry-run --priority 10 content/models/obj/*max_cape_*wear.ob2

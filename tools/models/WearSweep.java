@@ -28,20 +28,36 @@ import java.nio.file.*; import java.util.*; import java.io.*;
 // So the rule a change has to pass is two sweeps, not one: against the thing the model must still
 // COVER, where the count has to stay 0, and against the thing it must not paint over, where the
 // count is what is being fixed. On hats that leaves 489 of 501 disqualified and one worth 91
-// pixels, which is why hats were measured and then left alone. On capes it left all 164.
+// pixels, which is why hats were measured and then left alone. It appeared to leave all 164
+// capes, and that is the finding --selfdiff overturned.
 //
 // THE SECOND SWEEP IS THE BACK VIEW, and it is the one that has disqualified every slot tried
 // since. Every slot was measured on 30 October and only the cape slot was changed:
 //
 //     slot    models  front px  back px  verdict
-//     back       164    57,123        0  changed - all 164 now read zero
+//     back       164    63,742  529,170  CHANGED AND THEN REVERTED - see below
 //     hat        501         -        -  489 of 501 let the hair through the helmet
 //     front      145     4,521   10,941  a stole's collar at the nape disappears
 //     feet       119     2,648    3,315  tens of pixels either way, invisible
 //     legs       299    60,522  113,844  all 299 disturbed; the boot clips the trouser
 //     torso      308    12,864   59,599  the skirt comes through the coat
 //
-// A back figure larger than the front one is the slot saying no.
+// A back figure larger than the front one is the slot saying no. The cape row first read
+// "57,123 front, 0 back - all 164 now read zero", AND THAT ZERO WAS THE SWEEP MEASURING NOTHING.
+// It compares a model as it ships against the same model forced to priority 10, and by then the
+// models on disk were already at 10, so both renders were the same drawing. A sweep run after a
+// change, over the changed files, cannot see the change. The real figures above are from the
+// authored bytes, recovered out of git, and 152 of the 164 came out worse: from behind the armour
+// under the cape is painted through the middle of it, which is a hole in the back of the cape.
+// All but twelve were put back; content/tools/capepriority_battery.py now holds every back-slot
+// model's priorities so the next one has to be argued for by name.
+//
+// --selfdiff IS THE MEASUREMENT THAT CAN SEE THAT. Everything above looks INSIDE THE BODY'S
+// SILHOUETTE at what the model does to the body. --selfdiff looks at the model itself over the
+// whole frame: what it covers as authored against what it covers depth-sorted, reported as lost
+// and gained. From the front a cape losing ground is the fix working; from the back it is the
+// body coming through the cape. Give it <objdir> pointing at the AUTHORED bytes, never at the
+// shipped ones, or it measures a drawing against itself exactly as the zero above did.
 //
 // --islands IS THE OTHER FAULT: mesh genuinely coming through mesh, rather than being painted over
 // it. A patch of the model with no path to the background through its own pixels is surrounded on
@@ -66,7 +82,7 @@ import java.nio.file.*; import java.util.*; import java.io.*;
 // collar, so for those the fixed order is load-bearing and depth has no way to know it.
 //
 //   java -cp javaclient/build/classes/java/main:. jagex2.client.WearSweep <dir> <objdir> <list> \
-//        [--under a,b] [--frame N] [--yan N] [--dist N] [--size N]
+//        [--under a,b] [--frame N] [--yan N] [--dist N] [--size N] [--selfdiff]
 //
 // <objdir> may be content/models with names given as obj/<name> or idk/<name>, which is how a
 // reference kit gets a head in it.
@@ -84,6 +100,7 @@ public class WearSweep {
         boolean islands = false, depth = false;
         String bisect = null;
         boolean holes = false;
+        boolean selfdiff = false;
         for (int i = 3; i < a.length; i++) {
             switch (a[i]) {
                 case "--under": under = a[++i]; break;
@@ -102,6 +119,12 @@ public class WearSweep {
                 // lets a cape be seen between an arm and a chestplate, and no amount of draw order
                 // or priority will close one
                 case "--holes": holes = true; break;
+                // what the change does to the MODEL ITSELF, not to the body under it. The sweep
+                // above only ever looked inside the body's silhouette, so a face the model loses
+                // to its OWN mesh - against the floor, where a cape hem hangs clear of the body -
+                // was outside everything it measured. That is the shape a hole in the back of a
+                // cape has, and this is the measurement that can see one.
+                case "--selfdiff": selfdiff = true; break;
                 default: throw new IllegalArgumentException("no such option: " + a[i]);
             }
         }
@@ -174,7 +197,28 @@ public class WearSweep {
                 // depth", which is the only thing that can put a model in front of a body it is
                 // behind. Counted inside the body's own silhouette, so the model's outline against
                 // the floor is not counted.
-                if (holes) {
+                if (selfdiff) {
+                    // A = what the model covers as authored, B = what it covers depth-sorted.
+                    // A \ B is ground the model has GIVEN UP, which is the only way the change
+                    // can take a piece out of it; B \ A is ground it has taken.
+                    int lost = 0, gained = 0, lx0 = W, ly0 = H, lx1 = -1, ly1 = -1;
+                    for (int i = 0; i < px.length; i++) {
+                        boolean wasMine = asis[i] != bare[i], nowMine = px[i] != bare[i];
+                        if (wasMine && !nowMine) {
+                            lost++;
+                            int x = i % W, y = i / W;
+                            if (x < lx0) lx0 = x;
+                            if (y < ly0) ly0 = y;
+                            if (x > lx1) lx1 = x;
+                            if (y > ly1) ly1 = y;
+                        } else if (nowMine && !wasMine) {
+                            gained++;
+                        }
+                    }
+                    System.out.println(name + " lost=" + lost + " gained=" + gained
+                        + " selfhole=" + (islands(asis, bare) + "->" + islands(px, bare))
+                        + " bbox=" + (lost == 0 ? "-" : lx0 + "," + ly0 + ".." + lx1 + "," + ly1));
+                } else if (holes) {
                     System.out.println(name + " " + holes(asis) + " " + visible(asis, bare));
                 } else if (islands) {
                     int[] look = depth ? px : asis;
