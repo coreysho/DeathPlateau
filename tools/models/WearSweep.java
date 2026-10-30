@@ -76,6 +76,26 @@ import java.nio.file.*; import java.util.*; import java.io.*;
 // order is that holds a helmet shut. Three separate measurements were needed to see it, and each
 // one only after the artefact had already shipped.
 //
+// --culprits IS WHAT TO DO INSTEAD, and it is the whole lesson of the three rows above: the model
+// is not the unit of the fix, the face is. Only some of a cape's faces are painted over a body
+// they are behind, and those are the ones the artefact pixels belong to - found by moving each
+// face into group 10 alone and seeing which pixels go. On the infernal Max cape in Armadyl
+// armour it is SEVENTEEN of 645 faces, and moving those seventeen takes the marks across the
+// skirt to zero while the back view changes by 277 pixels of near-black hem.
+//
+//   --culprits <model>|list   the faces, with --yaws and --frames to sweep angles and poses
+//   --trial <model> --faces   what one face list costs, from any angle
+//   --trial <model> --probe   the same one face at a time
+//   --trial <model> --variant <file>   the same for a rewritten copy of the model
+//
+// THE SET HAS TO BE NARROW. Taken over three kits, six angles and two poses the union is 57
+// faces, and that version puts hairline cracks back down the cape from behind - 360 pixels of
+// 1-px line along the strap edges, which is the same artefact in miniature. Collapsing the cape
+// into the two depth-sorted groups, 10 for the sheet and 11 for the straps, is worse again:
+// 11,000 to 17,000 inner pixels, because four authored layers do not fit in two. What ships is
+// the union over the FRONT view only, where the artefact lives, checked as a whole across the
+// grid: nothing gained, no more than 500 inner pixels, and every one of them looked at.
+//
 // --islands IS THE OTHER FAULT: mesh genuinely coming through mesh, rather than being painted over
 // it. A patch of the model with no path to the background through its own pixels is surrounded on
 // every side by the body, which is what a poke-through looks like and what an outline does not.
@@ -118,6 +138,11 @@ public class WearSweep {
         String bisect = null;
         boolean holes = false;
         boolean selfdiff = false;
+        String culprits = null;
+        String trial = null, trialFaces = "";
+        String yaws = null, frameList = null;
+        boolean probe = false;
+        String variant = null;
         for (int i = 3; i < a.length; i++) {
             switch (a[i]) {
                 case "--under": under = a[++i]; break;
@@ -142,6 +167,26 @@ public class WearSweep {
                 // was outside everything it measured. That is the shape a hole in the back of a
                 // cape has, and this is the measurement that can see one.
                 case "--selfdiff": selfdiff = true; break;
+                // name the FACES of one model that paint themselves onto the body, so those alone
+                // can go to the depth-sorted group and the rest keep the layering the artist gave
+                // them. Moving the whole model is what tore holes in the back of every cape.
+                case "--culprits": culprits = a[++i]; break;
+                // and check a face list that --culprits produced, from any angle: the set is only
+                // worth having if the back view and the model's own layering survive it
+                case "--trial": trial = a[++i]; break;
+                case "--faces": trialFaces = a[++i]; break;
+                // ONE FACE AT A TIME. A set that fixes the front can still cost something from
+                // behind, and the face responsible is the one to leave out: a face is only worth
+                // admitting if moving it alone costs nothing from the angles where the cape wins.
+                case "--probe": probe = true; break;
+                // measure a whole rewritten model rather than a face list: the two depth-sorted
+                // groups are 10 AND 11, and 11 is drawn after 10, so a cape can keep its layering
+                // and still be depth-sorted against the body - which no single group can do
+                case "--variant": variant = a[++i]; break;
+                // a face is only a culprit from the angles and poses it is one in, so --culprits
+                // and --trial sweep a set of each and report the union
+                case "--yaws": yaws = a[++i]; break;
+                case "--frames": frameList = a[++i]; break;
                 default: throw new IllegalArgumentException("no such option: " + a[i]);
             }
         }
@@ -179,6 +224,38 @@ public class WearSweep {
         int[] bare = new int[W * H];
         int[] asis = new int[W * H];
 
+        int[] yanSet = split(yaws, yan), frameSet = split(frameList, frame);
+        if (variant != null) {
+            for (int fr : frameSet) for (int y : yanSet) variantOf(trial, variant, objdir, underNames, fr, y, dist);
+            return;
+        }
+        if (trial != null) {
+            if (probe) {
+                for (String t : trialFaces.split(",")) {
+                    if (t.trim().isEmpty()) continue;
+                    for (int fr : frameSet) for (int y : yanSet) trialOf(trial, t.trim(), objdir, underNames, fr, y, dist);
+                }
+            } else {
+                for (int fr : frameSet) for (int y : yanSet) trialOf(trial, trialFaces, objdir, underNames, fr, y, dist);
+            }
+            return;
+        }
+        if (culprits != null) {
+            // the list file names the models when --culprits is given "list", one per line
+            List<String> names = new ArrayList<>();
+            if (culprits.equals("list")) {
+                for (String l : Files.readAllLines(Paths.get(list))) if (!l.trim().isEmpty()) names.add(l.trim());
+            } else names.add(culprits);
+            for (String nm : names) {
+                TreeSet<Integer> union = new TreeSet<>();
+                int worst = 0;
+                for (int fr : frameSet) for (int y : yanSet) worst = Math.max(worst, culpritsOf(nm, objdir, underNames, fr, y, dist, union));
+                StringBuilder sb = new StringBuilder();
+                for (int f : union) { if (sb.length() > 0) sb.append(','); sb.append(f); }
+                System.out.println("UNION " + nm + " " + union.size() + " faces: " + sb);
+            }
+            return;
+        }
         if (bisect != null) {
             bisectOne(bisect, objdir, underNames, frame, yan, dist);
             return;
@@ -267,6 +344,170 @@ public class WearSweep {
         }
     }
 
+
+    /**
+     * The faces of one model that are painted over a body they are BEHIND.
+     *
+     * Moving a whole cape to the depth-sorted group fixes these and breaks everything else: the
+     * body comes through the back of the cape, and the cape's own layering between groups 4, 5, 6
+     * and 7 collapses into cracks. Only some of its faces are at fault, and this names them.
+     *
+     * The artefact pixels are the ones the model wins as authored and LOSES once depth decides -
+     * so depth says the body is in front there and the fixed priority was overruling it. Each face
+     * is then put in group 10 on its own, and the artefact pixels that go are that face's.
+     */
+    static int[] split(String csv, int fallback) {
+        if (csv == null) return new int[] { fallback };
+        String[] t = csv.split(",");
+        int[] out = new int[t.length];
+        for (int i = 0; i < t.length; i++) out[i] = Integer.parseInt(t[i].trim());
+        return out;
+    }
+
+    static int culpritsOf(String name, String objdir, String[] underNames, int frame, int yan, int dist, TreeSet<Integer> union) throws Exception {
+        List<Integer> kit = new ArrayList<>();
+        for (int i = 0; i < underNames.length; i++) kit.add(i + 1);
+        Model.method357(Files.readAllBytes(Paths.get(objdir, name + ".ob2")), 0, (byte) 7);
+        int nf = Model.tryGet(0).field1199;
+
+        int[] bare = new int[W * H], asis = new int[W * H];
+        draw(kit, 0, frame, yan, dist, false, true);
+        System.arraycopy(px, 0, bare, 0, px.length);
+        draw(kit, 0, frame, yan, dist, false, false);
+        System.arraycopy(px, 0, asis, 0, px.length);
+        draw(kit, 0, frame, yan, dist, true, false);            // every face depth-sorted
+
+        List<Integer> bad = new ArrayList<>();
+        for (int i = 0; i < px.length; i++) {
+            if (asis[i] != bare[i] && px[i] == bare[i]) bad.add(i);
+        }
+        int[] spot = new int[bad.size()];
+        for (int i = 0; i < spot.length; i++) spot[i] = bad.get(i);
+        System.out.println(name + " frame=" + frame + " yan=" + yan + ": " + nf + " faces, "
+            + spot.length + " pixels painted over a body in front of them");
+        if (spot.length == 0) return 0;
+
+        StringBuilder list = new StringBuilder();
+        int claimed = 0, n = 0;
+        for (int f = 0; f < nf; f++) {
+            drawRepri(kit, frame, yan, dist, f, f);
+            int fixed = 0;
+            for (int i : spot) if (px[i] == bare[i]) fixed++;
+            if (fixed > 0) {
+                claimed += fixed; n++;
+                union.add(f);
+                if (list.length() > 0) list.append(',');
+                list.append(f);
+            }
+        }
+        System.out.println("  " + n + " of " + nf + " faces account for " + claimed + " of " + spot.length + " pixels: " + list);
+
+        // and what that subset actually costs, measured the same three ways as --selfdiff
+        int[] sub = new int[n];
+        int k = 0;
+        for (String t : list.toString().split(",")) if (!t.isEmpty()) sub[k++] = Integer.parseInt(t);
+        drawRepriSet(kit, frame, yan, dist, sub);
+        int left = 0, lost = 0, inner = 0;
+        for (int i = 0; i < px.length; i++) {
+            boolean wasMine = asis[i] != bare[i], nowMine = px[i] != bare[i];
+            if (wasMine && !nowMine) lost++;
+            if (wasMine && nowMine && px[i] != asis[i]) inner++;
+        }
+        for (int i : spot) if (px[i] != bare[i]) left++;
+        System.out.println("  with only those faces at 10: " + left + " artefact px left, "
+            + lost + " px of the model given up, " + inner + " px of it drawn by a different face");
+        return spot.length;
+    }
+
+    /** The same three numbers for a rewritten copy of the model, plus what is left of the artefact. */
+    static void variantOf(String name, String file, String objdir, String[] underNames, int frame, int yan, int dist) throws Exception {
+        List<Integer> kit = new ArrayList<>();
+        for (int i = 0; i < underNames.length; i++) kit.add(i + 1);
+        int[] bare = new int[W * H], asis = new int[W * H], dpth = new int[W * H];
+        Model.method357(Files.readAllBytes(Paths.get(objdir, name + ".ob2")), 0, (byte) 7);
+        draw(kit, 0, frame, yan, dist, false, true);
+        System.arraycopy(px, 0, bare, 0, px.length);
+        draw(kit, 0, frame, yan, dist, false, false);
+        System.arraycopy(px, 0, asis, 0, px.length);
+        draw(kit, 0, frame, yan, dist, true, false);
+        System.arraycopy(px, 0, dpth, 0, px.length);
+
+        Model.method357(Files.readAllBytes(Paths.get(file)), 0, (byte) 7);
+        draw(kit, 0, frame, yan, dist, false, false);
+
+        int lost = 0, gained = 0, inner = 0, artefact = 0, left = 0;
+        for (int i = 0; i < px.length; i++) {
+            boolean wasMine = asis[i] != bare[i], nowMine = px[i] != bare[i];
+            if (wasMine && !nowMine) lost++;
+            else if (nowMine && !wasMine) gained++;
+            else if (wasMine && px[i] != asis[i]) inner++;
+            if (wasMine && dpth[i] == bare[i]) { artefact++; if (nowMine) left++; }
+        }
+        System.out.println(name + " frame=" + frame + " yan=" + yan
+            + " artefact=" + left + "/" + artefact + " lost=" + lost + " gained=" + gained + " inner=" + inner);
+    }
+
+    /** What one face list costs from one angle: the three numbers --selfdiff reports. */
+    static void trialOf(String name, String faces, String objdir, String[] underNames, int frame, int yan, int dist) throws Exception {
+        List<Integer> kit = new ArrayList<>();
+        for (int i = 0; i < underNames.length; i++) kit.add(i + 1);
+        Model.method357(Files.readAllBytes(Paths.get(objdir, name + ".ob2")), 0, (byte) 7);
+        int[] bare = new int[W * H], asis = new int[W * H];
+        draw(kit, 0, frame, yan, dist, false, true);
+        System.arraycopy(px, 0, bare, 0, px.length);
+        draw(kit, 0, frame, yan, dist, false, false);
+        System.arraycopy(px, 0, asis, 0, px.length);
+
+        List<Integer> f = new ArrayList<>();
+        for (String t : faces.split(",")) if (!t.trim().isEmpty()) f.add(Integer.parseInt(t.trim()));
+        int[] set = new int[f.size()];
+        for (int i = 0; i < set.length; i++) set[i] = f.get(i);
+        drawRepriSet(kit, frame, yan, dist, set);
+
+        int lost = 0, gained = 0, inner = 0;
+        for (int i = 0; i < px.length; i++) {
+            boolean wasMine = asis[i] != bare[i], nowMine = px[i] != bare[i];
+            if (wasMine && !nowMine) lost++;
+            else if (nowMine && !wasMine) gained++;
+            else if (wasMine && px[i] != asis[i]) inner++;
+        }
+        System.out.println(name + " frame=" + frame + " yan=" + yan
+            + (set.length == 1 ? " face=" + set[0] : " faces=" + set.length)
+            + " lost=" + lost + " gained=" + gained + " inner=" + inner);
+    }
+
+    /** Draw the kit with faces lo..hi of the model under test moved to the depth-sorted group. */
+    static void drawRepri(List<Integer> kit, int frame, int yan, int dist, int lo, int hi) {
+        int[] f = new int[hi - lo + 1];
+        for (int i = 0; i < f.length; i++) f[i] = lo + i;
+        drawRepriSet(kit, frame, yan, dist, f);
+    }
+
+    static void drawRepriSet(List<Integer> kit, int frame, int yan, int dist, int[] faces) {
+        Arrays.fill(px, 0x141414);
+        Model[] parts = new Model[kit.size() + 1];
+        int n = 0;
+        parts[n++] = Model.tryGet(0);
+        for (int id : kit) parts[n++] = Model.tryGet(id);
+        Model body = new Model(n, parts, (byte) -89);
+        if (body.field1207 == null) {
+            body.field1207 = new int[body.field1199];
+            Arrays.fill(body.field1207, body.field1210 < 0 ? 0 : body.field1210);
+        }
+        for (int f : faces) body.field1207[f] = 10;
+        body.createLabelReferences();
+        body.calculateNormals(64, 850, -30, -50, -30, true);
+        Model out = body;
+        if (frame > 0 && !AnimFrame.isNull(frame)) {
+            out = Model.field1190;
+            out.method361(false, body);
+            out.applyTransform(frame);
+            out.method363();
+            out.field1226 = null;
+            out.field1225 = null;
+        }
+        out.method381(yan, 0, 65536, 0, 65536, 0, 85, dist, 0);
+    }
 
     /**
      * Which faces of one model make the island, found by collapsing ranges of them until it goes.
