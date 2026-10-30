@@ -31,10 +31,17 @@ import java.nio.file.*; import java.util.*; import java.io.*;
 // pixels, which is why hats were measured and then left alone. On capes it left all 164.
 //
 // THE SECOND SWEEP IS THE BACK VIEW, and it is the one that has disqualified every slot tried
-// since. Amulets gain 4,521 pixels from the front and lose 10,941 from the back - the collar of a
-// stole, which wraps the neck and is only visible there because its priority puts it over the
-// armour. Boots are 2,648 against 3,315, and both too small to see. Feet and front were measured
-// on 30 October and neither was changed.
+// since. Every slot was measured on 30 October and only the cape slot was changed:
+//
+//     slot    models  front px  back px  verdict
+//     back       164    57,123        0  changed - all 164 now read zero
+//     hat        501         -        -  489 of 501 let the hair through the helmet
+//     front      145     4,521   10,941  a stole's collar at the nape disappears
+//     feet       119     2,648    3,315  tens of pixels either way, invisible
+//     legs       299    60,522  113,844  all 299 disturbed; the boot clips the trouser
+//     torso      308    12,864   59,599  the skirt comes through the coat
+//
+// A back figure larger than the front one is the slot saying no.
 //
 // What makes the cape slot different is not its priorities - every slot splits them the same way -
 // but that a cape is OUTSIDE the body. A helmet encloses a head and a stole is threaded through a
