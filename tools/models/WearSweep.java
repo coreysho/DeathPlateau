@@ -20,8 +20,21 @@ import java.nio.file.*; import java.util.*; import java.io.*;
 // interleaved by real depth. So a count here is the model asking to be drawn in front of a body
 // it is behind, which is what the max capes were doing on 29 October.
 //
+// A NUMBER HERE IS A CANDIDATE, NOT A VERDICT, and the hat slot is why. 475 of 501 hats score
+// something, and moving them to the depth-sorted group breaks every one of them: a helmet's shell
+// and the head inside it interleave, so depth at bucket granularity lets the HAIR THROUGH THE BACK
+// OF THE HELMET. The fixed priority is what was holding the helmet shut.
+//
+// So the rule a change has to pass is two sweeps, not one: against the thing the model must still
+// COVER, where the count has to stay 0, and against the thing it must not paint over, where the
+// count is what is being fixed. On hats that leaves 489 of 501 disqualified and one worth 91
+// pixels, which is why hats were measured and then left alone. On capes it left all 164.
+//
 //   java -cp javaclient/build/classes/java/main:. jagex2.client.WearSweep <dir> <objdir> <list> \
 //        [--under a,b] [--frame N] [--yan N] [--dist N] [--size N]
+//
+// <objdir> may be content/models with names given as obj/<name> or idk/<name>, which is how a
+// reference kit gets a head in it.
 //
 // <list> is one model name per line, optionally "name slot" - a torso is measured against the legs
 // alone and legs against the torso alone, so a model is never measured against its own slot.

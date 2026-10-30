@@ -36,7 +36,7 @@ public class PlayerRender {
         String dir = a[0], out = a[1];
         List<String> parts = new ArrayList<>();
         List<Integer> frames = new ArrayList<>();
-        int yan = 0, dist = 250, cols = 0, size = 320;
+        int yan = 0, dist = 250, cols = 0, size = 320, yof = 85;
         String dump = null;
         List<int[]> hide = new ArrayList<>();
         List<int[]> repri = new ArrayList<>();
@@ -46,6 +46,9 @@ public class PlayerRender {
                 case "--frame": frames.add(Integer.parseInt(a[++i])); break;
                 case "--yan":   yan = Integer.parseInt(a[++i]); break;
                 case "--dist":  dist = Integer.parseInt(a[++i]); break;
+                // how far up the model sits in the frame: 85 centres a whole player, more of it
+                // brings the head down into view when the camera is close enough to crop
+                case "--yof":   yof = Integer.parseInt(a[++i]); break;
                 case "--cols":  cols = Integer.parseInt(a[++i]); break;
                 case "--size":  size = Integer.parseInt(a[++i]); break;
                 case "--frames-file":
@@ -151,7 +154,7 @@ public class PlayerRender {
             }
             // pitch 0 looks level, so the only offsets needed are the vertical centring and the
             // camera distance; arg0 spins the model on the spot.
-            draw.method381(yan, 0, 65536, 0, 65536, 0, 85, dist, 0);
+            draw.method381(yan, 0, 65536, 0, 65536, 0, yof, dist, 0);
             if (dumper != null) {
                 for (int i = 0; i < draw.field1199; i++) {
                     int x = (draw.field1196[draw.field1200[i]] + draw.field1196[draw.field1201[i]] + draw.field1196[draw.field1202[i]]) / 3;
