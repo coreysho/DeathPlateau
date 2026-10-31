@@ -108,6 +108,19 @@ WEAR_KEYS = (('manwear', 'manwear'), ('manwear2', 'manwear2'), ('womanwear', 'wo
              ('womanwear2', 'womanwear2'), ('manhead', 'manhead'), ('womanhead', 'womanhead'))
 
 
+# DELIBERATE DEPARTURES, so they do not read as drift for ever. A line here is a model this
+# build has knowingly changed from its OSRS original, and the reason it was changed. Anything
+# not listed that differs is still a finding.
+ADAPTED = {
+    'obj_falador_shield_1_womanwear': 'OSRS labels a woman\'s shield 161; this skeleton has no '
+                                      'bone 161, so the shield never moved. 28 is what all 16 of '
+                                      'the 2006 cache\'s own shields use.',
+    'obj_falador_shield_2_womanwear': 'as falador shield 1',
+    'obj_falador_shield_3_womanwear': 'as falador shield 1',
+    'obj_falador_shield_4_womanwear': 'as falador shield 1',
+}
+
+
 def models_2006():
     """Every worn model the 2006 cache's own item table names.
 
@@ -288,6 +301,13 @@ def main():
             labdiff = bool(lmoves)
 
         if moves or labdiff:
+            if name in ADAPTED:
+                tally['deliberately adapted'] += 1
+                if not a.quiet:
+                    for l in lines:
+                        print(l)
+                    print('   adapted on purpose: %s' % ADAPTED[name])
+                continue
             if name in native:
                 # a 2006 model: our source is the 377 cache, not Old School's later copy of it
                 tally["2006 model, OSRS has changed its copy since"] += 1
