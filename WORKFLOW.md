@@ -12,7 +12,7 @@ inside it, each its own git repo:
 |---|---|---|
 | `C:\LostCityServer` | coreysho/DeathPlateau | `main` |
 | `C:\LostCityServer\content` | coreysho/DeathPlateau-Content | `377-wip` |
-| `C:\LostCityServer\engine` | coreysho/DeathPlateau-Engine | `377-wip` |
+| `C:\LostCityServer\Engine-TS` | coreysho/DeathPlateau-Engine | `377-wip` |
 | `C:\LostCityServer\javaclient` | coreysho/DeathPlateau-Client | `dev-logging` |
 
 Each has two remotes: `origin` is the fork, `upstream` is LostCityRS, so
@@ -96,7 +96,15 @@ build.
 - **The live server:** the LXC, `cd /opt/lostcity && ./deploy.sh`. That pulls
   `377-wip` for content and engine. It does not touch the java client, so a
   client change needs a rebuilt jar distributed separately.
-- **Stale packs:** `rebuild-pack.bat` deletes `engine\data\pack`. The build
+- **Only one engine checkout.** It is `Engine-TS`. There was a second one at
+  `engine\` for a long time - same repo, cloned and then abandoned: 761 commits
+  behind, no `data\pack` because it had never been built, and 420 lines of
+  September work that had already landed upstream by another route. Deleted on
+  31 October 2026; that work is kept as a patch in
+  `Claude outputs\engine-clone-rescue\` and its `.env` was NOT copied over, so
+  `Engine-TS` still runs on `.env.example` defaults. `start.js` still clones
+  into `engine\`, so running the start script would make a fresh one.
+- **Stale packs:** `rebuild-pack.bat` deletes `Engine-TS\data\pack`. The build
   regenerates the server-only packs on its own when their sources move, so this
   is a shortcut for when it does not, not a required step.
 
