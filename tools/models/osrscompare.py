@@ -50,7 +50,7 @@ put in the depth-sorted group - and those are worth looking at.
 
 Exit status is 1 if any pair differs, so it can be a check rather than a report.
 """
-import argparse, collections, json, os, sys
+import argparse, collections, json, os, re, sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
@@ -106,6 +106,26 @@ def hist(pri):
 
 WEAR_KEYS = (('manwear', 'manwear'), ('manwear2', 'manwear2'), ('womanwear', 'womanwear'),
              ('womanwear2', 'womanwear2'), ('manhead', 'manhead'), ('womanhead', 'womanhead'))
+
+
+def models_2006():
+    """Every worn model the 2006 cache's own item table names.
+
+    OSRS IS NOT THE REFERENCE FOR THESE. The unpacked 377 configs are this build's source for
+    them, their files have one commit apiece - the bulk import - and Old School has had twenty
+    years to change its own copy. The pirate diving backpack has 28 faces at priority 1 in OSRS
+    and 10 here, and 10 is what Jagex shipped in 2006; "fixing" it would have been importing a
+    later revision of someone else's game into a 377 server. Twenty-one of the first sweep's
+    thirty-one differences were this.
+    """
+    p = os.path.join(ROOT, 'content', 'scripts', '_unpack', '377', 'all.obj')
+    if not os.path.exists(p):
+        return set()
+    txt = open(p, encoding='utf-8', errors='replace').read()
+    out = set()
+    for k in ('manwear', 'manwear2', 'womanwear', 'womanwear2', 'manhead', 'womanhead'):
+        out.update(m.split(',')[0].strip() for m in re.findall(r'^%s=(.+)$' % k, txt, re.M))
+    return {n for n in out if n}
 
 
 def our_items():
@@ -208,6 +228,7 @@ def main():
         ap.error('give at least one name=osrs_id, or --variants, or --sweep')
 
     store = Store(a.cache)
+    native = models_2006()
     bad = 0
     tally = collections.Counter()
     for name, mid in jobs:
@@ -267,6 +288,14 @@ def main():
             labdiff = bool(lmoves)
 
         if moves or labdiff:
+            if name in native:
+                # a 2006 model: our source is the 377 cache, not Old School's later copy of it
+                tally["2006 model, OSRS has changed its copy since"] += 1
+                if not a.quiet:
+                    for l in lines:
+                        print(l)
+                        print('   (2006 model - OSRS is not the reference for this one)')
+                continue
             bad += 1
             tally['priorities differ'] += bool(moves)
             tally['labels differ'] += bool(labdiff)
