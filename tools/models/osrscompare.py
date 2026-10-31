@@ -111,14 +111,25 @@ WEAR_KEYS = (('manwear', 'manwear'), ('manwear2', 'manwear2'), ('womanwear', 'wo
 # DELIBERATE DEPARTURES, so they do not read as drift for ever. A line here is a model this
 # build has knowingly changed from its OSRS original, and the reason it was changed. Anything
 # not listed that differs is still a finding.
-ADAPTED = {
-    'obj_falador_shield_1_womanwear': 'OSRS labels a woman\'s shield 161; this skeleton has no '
-                                      'bone 161, so the shield never moved. 28 is what all 16 of '
-                                      'the 2006 cache\'s own shields use.',
-    'obj_falador_shield_2_womanwear': 'as falador shield 1',
-    'obj_falador_shield_3_womanwear': 'as falador shield 1',
-    'obj_falador_shield_4_womanwear': 'as falador shield 1',
-}
+_DEAD_BONE = ('a label with no bone behind it in this skeleton: the vertices followed nothing. '
+              'Remapped to the 377 bone that owns that part of the body')
+ADAPTED = dict(
+    [(n, '161 -> 28, ' + _DEAD_BONE + ' - every one of the 2006 cache\'s sixteen shields uses 28')
+     for n in ('obj_falador_shield_1_womanwear', 'obj_falador_shield_2_womanwear',
+               'obj_falador_shield_3_womanwear', 'obj_falador_shield_4_womanwear')] +
+    [(n, '157 -> 1, ' + _DEAD_BONE + ' - the whole hat was on 157 and never moved at all')
+     for n in ('obj_crier_hat_manwear', 'obj_crier_hat_womanwear',
+               'obj_farmers_strawhat_manwear')] +
+    [(n, '166/167/168 -> 44/43/39, ' + _DEAD_BONE + ' - the robe\'s trim tore at the hip')
+     for n in ('obj_ancient_robe_legs_womanwear', 'obj_armadyl_robe_legs_womanwear',
+               'obj_bandos_robe_legs_womanwear', 'obj_guthix_robe_legs_womanwear',
+               'obj_saradomin_robe_legs_womanwear', 'obj_zamorak_robe_legs_womanwear',
+               'obj_eye_bottoms_manwear', 'obj_eye_bottoms_womanwear',
+               'obj_hunter_legs_manwear', 'obj_hunter_legs_womanwear',
+               'obj_third_age_druidic_robe_bottoms_manwear',
+               'obj_third_age_druidic_robe_bottoms_womanwear',
+               'obj_zealots_bottom_manwear', 'obj_zealots_bottom_womanwear')]
+)
 
 
 def models_2006():
