@@ -26,7 +26,27 @@ was hiding them.
 
     python3 tools/models/osrscompare.py obj_infernal_max_cape_manwear=33102
     python3 tools/models/osrscompare.py --variants          # every Max cape variant in the spec
-    python3 tools/models/osrscompare.py --cache caches/osrs obj_clue_hunter_cloak_manwear=31626
+    python3 tools/models/osrscompare.py --sweep --quiet     # the whole wardrobe, differences only
+
+--sweep needs no ids at all: objconfig474.load_all reads the modern cache's own item table, so
+our item NAME finds OSRS's record and its model slots pair up with ours. 2,793 worn models in
+three seconds, 31 October:
+
+     2572  identical, face for face and label for label
+      190  different mesh (two items sharing a name)
+       18  priorities differ
+       14  labels differ
+
+GEOMETRY IS COMPARED EVEN THOUGH NOTHING HERE CARES ABOUT IT. Without that, two different items
+with the same face count read as a model whose priorities have drifted, and the first run of this
+called 36 models divergent when half of them were this build's 2006 Red cape being held up
+against Old School's. A pair whose vertices differ is reported as a different mesh instead.
+
+A difference is a QUESTION, not a fault. Some of these are deliberate: OSRS numbers a shield's
+bones 161 where this build uses 28, and a held item 50 where this uses 27, so the dragon defender
+and the fishing rod being relabelled is a port rather than a slip. Others are the same shape as
+the cape lining fault - the pirate diving backpack has 28 faces OSRS puts under the body and we
+put in the depth-sorted group - and those are worth looking at.
 
 Exit status is 1 if any pair differs, so it can be a check rather than a report.
 """
@@ -37,7 +57,7 @@ ROOT = os.path.dirname(os.path.dirname(HERE))
 sys.path.insert(0, HERE)
 from flatcache import Store
 from osrsmodel import layout
-from osrs2ob2 import parse_ob2
+from osrs2ob2 import parse_ob2, decode
 
 # what each priority group means for a worn model, as Model.method382 paints it
 WHERE = {0: 'under the body', 1: 'under the body', 2: 'under the body',
@@ -47,15 +67,26 @@ WHERE = {0: 'under the body', 1: 'under the body', 2: 'under the body',
 
 
 def osrs_model(store, mid):
-    """Face priorities and vertex labels, the two things that decide how a worn model meets another."""
-    raw = store.read(7, mid)
-    L = layout(raw)
-    if L is None:
+    """Geometry, face priorities and vertex labels, through the importer's own decoder.
+
+    GEOMETRY MATTERS HERE even though nothing compares it for its own sake: without it, two
+    different items that happen to share a face count read as a model whose priorities have
+    drifted. A sweep keyed on item NAME turns up plenty of those - this build's Red cape is the
+    2006 one and OSRS's is not the same mesh - and 36 "divergences" in the first run were mostly
+    that.
+    """
+    try:
+        m = decode(store.read(7, mid))
+    except Exception:
         return None
-    pri = (list(raw[L['fpri']:L['fpri'] + L['fc']]) if L['has_pri']
-           else [L['pri']] * L['fc'])
-    lab = list(raw[L['vgroup']:L['vgroup'] + L['vc']]) if L['has_vgroup'] else None
-    return {'fcount': L['fc'], 'vcount': L['vc'], 'pri': pri, 'vlab': lab}
+    if m is None:
+        return None
+    # decode leaves pri None when the model carries ONE priority for all its faces, in the
+    # header rather than a per-face section; 377 stores that the same way and parse_ob2 expands
+    # it, so expand it here too or the two sides are not comparable
+    pri = m['pri'] if m['pri'] is not None else [m['priority']] * m['fcount']
+    return {'fcount': m['fcount'], 'vcount': m['vcount'], 'pri': pri, 'vlab': m['vlab'],
+            'geom': (m['vx'], m['vy'], m['vz'], m['fa'], m['fb'], m['fc'])}
 
 
 def ours_model(name):
@@ -64,12 +95,78 @@ def ours_model(name):
         if os.path.exists(p):
             m = parse_ob2(open(p, 'rb').read())
             return {'fcount': m['fcount'], 'vcount': len(m['vx']),
-                    'pri': m['pri'], 'vlab': m['vlab']}
+                    'pri': m['pri'], 'vlab': m['vlab'],
+                    'geom': (m['vx'], m['vy'], m['vz'], m['fa'], m['fb'], m['fc'])}
     return None
 
 
 def hist(pri):
     return dict(sorted(collections.Counter(pri).items()))
+
+
+WEAR_KEYS = (('manwear', 'manwear'), ('manwear2', 'manwear2'), ('womanwear', 'womanwear'),
+             ('womanwear2', 'womanwear2'), ('manhead', 'manhead'), ('womanhead', 'womanhead'))
+
+
+def our_items():
+    """Every worn item this build ships: name -> {slot key: local model name}."""
+    content = os.path.join(ROOT, 'content')
+    out = {}
+    for root, _, files in os.walk(content):
+        if os.sep + '.git' in root:
+            continue
+        for f in files:
+            if not f.endswith('.obj'):
+                continue
+            name, worn = None, {}
+            def flush():
+                if name and worn:
+                    out.setdefault(name.lower(), worn)
+            for ln in open(os.path.join(root, f), encoding='utf-8', errors='replace'):
+                ln = ln.strip()
+                if ln.startswith('['):
+                    flush(); name, worn = None, {}
+                elif ln.startswith('name='):
+                    name = ln.split('=', 1)[1].strip()
+                else:
+                    k = ln.split('=', 1)[0]
+                    if k in [a for a, _ in WEAR_KEYS]:
+                        v = ln.split('=', 1)[1].split(',')[0].strip()
+                        if v:
+                            worn[k] = v
+            flush()
+    return out
+
+
+def sweep_pairs(cache):
+    """Match our worn items to OSRS's by item name, and pair model slot for model slot.
+
+    NAME IS THE ONLY KEY THERE IS. The import records no OSRS id against most of what it
+    brought over, so the item table's own names are what joins the two. A name that matches
+    the wrong item is caught downstream: a pair whose face counts disagree is reported as a
+    different mesh rather than as a divergence.
+    """
+    from objconfig474 import load_all
+    osrs = {}
+    for i, o in load_all(cache).items():
+        nm = (o.get('name') or '').lower()
+        if nm and nm != 'null':
+            osrs.setdefault(nm, o)
+    pairs, unmatched = [], 0
+    for nm, worn in sorted(our_items().items()):
+        o = osrs.get(nm)
+        if o is None:
+            unmatched += 1
+            continue
+        for ours_key, osrs_key in WEAR_KEYS:
+            if ours_key in worn and o.get(osrs_key):
+                pairs.append((worn[ours_key], o[osrs_key]))
+    # one local model can be named by several items; compare each once
+    seen, out = set(), []
+    for n, m in pairs:
+        if (n, m) not in seen:
+            seen.add((n, m)); out.append((n, m))
+    return out, unmatched
 
 
 def variants_from_spec():
@@ -94,46 +191,65 @@ def main():
     ap.add_argument('--cache', default=os.path.join(ROOT, 'caches', 'osrs'))
     ap.add_argument('--variants', action='store_true',
                     help='every Max cape variant whose OSRS id the spec records')
+    ap.add_argument('--sweep', action='store_true',
+                    help='every worn model whose item name matches an OSRS item, by that name')
+    ap.add_argument('--quiet', action='store_true', help='only print models that differ')
     a = ap.parse_args()
 
     jobs = [(p.split('=')[0], int(p.split('=')[1])) for p in a.pairs]
     if a.variants:
         jobs += variants_from_spec()
+    if a.sweep:
+        pairs, unmatched = sweep_pairs(a.cache)
+        jobs += pairs
+        print('# %d worn models matched to an OSRS item by name; %d of our items have no '
+              'OSRS item of that name' % (len(pairs), unmatched))
     if not jobs:
-        ap.error('give at least one name=osrs_id, or --variants')
+        ap.error('give at least one name=osrs_id, or --variants, or --sweep')
 
     store = Store(a.cache)
     bad = 0
+    tally = collections.Counter()
     for name, mid in jobs:
         o = osrs_model(store, mid)
         n = ours_model(name)
-        fo, po = (o['fcount'], o['pri']) if o else (None, None)
-        fn, pn = (n['fcount'], n['pri']) if n else (None, None)
-        if pn is None:
-            # the god variants have no mesh of their own: they are the plain Max cape with a
-            # config recolour, so there is nothing here to compare and that is not a fault
-            print('%-44s no mesh of its own (a config recolour)' % name)
+        lines = []
+        def out(line):
+            lines.append(line)
+        if n is None:
+            # a god Max cape variant has no mesh of its own: it is the plain cape with a config
+            # recolour, so there is nothing here to compare and that is not a fault
+            tally['no mesh of its own'] += 1
+            if not a.quiet:
+                print('%-46s no mesh of its own (a config recolour)' % name)
             continue
-        if po is None:
-            print('%-44s OSRS %-6d unreadable' % (name, mid))
+        if o is None:
+            tally['OSRS model unreadable'] += 1
+            print('%-46s OSRS %-6d unreadable' % (name, mid))
             continue
-        print('%s' % name)
-        print('   OSRS %-6d %4df  %s' % (mid, fo, hist(po)))
-        print('   ours        %4df  %s' % (fn, hist(pn)))
-        if fo != fn:
-            print('   DIFFERENT MESH: %d faces against %d, so the priorities are not comparable'
-                  % (fn, fo))
-            bad += 1
+        fo, po, fn, pn = o['fcount'], o['pri'], n['fcount'], n['pri']
+        out('%s' % name)
+        out('   OSRS %-6d %4df  %s' % (mid, fo, hist(po)))
+        out('   ours        %4df  %s' % (fn, hist(pn)))
+
+        if fo != fn or o['geom'] != n['geom']:
+            # a name collision, not a fault: two different items called the same thing. The
+            # priorities of two different meshes are not comparable at all.
+            out('   DIFFERENT MESH (%d faces against %d, geometry %s) - not comparable'
+                % (fn, fo, 'differs' if fo == fn else 'n/a'))
+            tally['different mesh (name collision)'] += 1
+            if not a.quiet:
+                for l in lines:
+                    print(l)
             continue
+
         moves = collections.Counter((x, y) for x, y in zip(po, pn) if x != y)
-        if moves:
-            bad += 1
-            for (src, dst), k in sorted(moves.items(), key=lambda kv: -kv[1]):
-                print('   %4d faces moved %d -> %d   (%s -> %s)'
-                      % (k, src, dst, WHERE.get(src, '?'), WHERE.get(dst, '?')))
+        for (src, dst), k in sorted(moves.items(), key=lambda kv: -kv[1]):
+            out('   %4d faces moved %d -> %d   (%s -> %s)'
+                % (k, src, dst, WHERE.get(src, '?'), WHERE.get(dst, '?')))
 
         # VERTEX LABELS ARE THE OTHER HALF. A priority says what covers what; a label says which
-        # bone a vertex follows, and two models that share a vertex POSITION but not its label come
+        # bone a vertex follows, and two models sharing a vertex POSITION but not its label come
         # apart the moment the limb bends. That is what a gap at a wrist is, and no draw order
         # closes one.
         lo, ln = o.get('vlab'), n.get('vlab')
@@ -141,18 +257,32 @@ def main():
         if lo is None and ln is None:
             pass
         elif lo is None or ln is None or len(lo) != len(ln):
-            print('   vertex labels: OSRS %s, ours %s'
-                  % ('none' if lo is None else len(lo), 'none' if ln is None else len(ln)))
+            out('   vertex labels: OSRS %s, ours %s'
+                % ('none' if lo is None else len(lo), 'none' if ln is None else len(ln)))
             labdiff = True
         else:
             lmoves = collections.Counter((x, y) for x, y in zip(lo, ln) if x != y)
             for (src, dst), k in sorted(lmoves.items(), key=lambda kv: -kv[1]):
-                print('   %4d vertices relabelled %d -> %d' % (k, src, dst))
+                out('   %4d vertices relabelled %d -> %d' % (k, src, dst))
             labdiff = bool(lmoves)
-        if labdiff:
+
+        if moves or labdiff:
             bad += 1
-        if not moves and not labdiff:
-            print('   identical, face for face and label for label')
+            tally['priorities differ'] += bool(moves)
+            tally['labels differ'] += bool(labdiff)
+            for l in lines:
+                print(l)
+        else:
+            tally['identical'] += 1
+            if not a.quiet:
+                for l in lines:
+                    print(l)
+                print('   identical, face for face and label for label')
+
+    if a.sweep or a.quiet:
+        print()
+        for k, v in sorted(tally.items(), key=lambda kv: -kv[1]):
+            print('%6d  %s' % (v, k))
     return 1 if bad else 0
 
 
