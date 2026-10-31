@@ -142,7 +142,7 @@ public class WearSweep {
         String trial = null, trialFaces = "";
         String yaws = null, frameList = null;
         boolean probe = false;
-        String variant = null;
+        String variant = null, variantDir = null;
         for (int i = 3; i < a.length; i++) {
             switch (a[i]) {
                 case "--under": under = a[++i]; break;
@@ -183,6 +183,10 @@ public class WearSweep {
                 // groups are 10 AND 11, and 11 is drawn after 10, so a cape can keep its layering
                 // and still be depth-sorted against the body - which no single group can do
                 case "--variant": variant = a[++i]; break;
+                // the same comparison for a whole list: <dir>/<name>.ob2 is the OTHER version of
+                // each model in <list>, which is how a change to a hundred capes gets measured
+                // without a hundred JVM starts
+                case "--variantdir": variantDir = a[++i]; break;
                 // a face is only a culprit from the angles and poses it is one in, so --culprits
                 // and --trial sweep a set of each and report the union
                 case "--yaws": yaws = a[++i]; break;
@@ -225,6 +229,20 @@ public class WearSweep {
         int[] asis = new int[W * H];
 
         int[] yanSet = split(yaws, yan), frameSet = split(frameList, frame);
+        if (variantDir != null) {
+            for (String line : Files.readAllLines(Paths.get(list))) {
+                String nm = line.trim();
+                if (nm.isEmpty() || nm.startsWith("#")) continue;
+                String base = nm.substring(nm.lastIndexOf('/') + 1);
+                Path other = Paths.get(variantDir, base + ".ob2");
+                if (!Files.exists(other)) { System.out.println(nm + " NO-OTHER-VERSION"); continue; }
+                try {
+                    for (int fr : frameSet) for (int y : yanSet)
+                        variantOf(nm, other.toString(), objdir, underNames, fr, y, dist);
+                } catch (Exception | Error e) { System.out.println(nm + " THREW " + e); }
+            }
+            return;
+        }
         if (variant != null) {
             for (int fr : frameSet) for (int y : yanSet) variantOf(trial, variant, objdir, underNames, fr, y, dist);
             return;
