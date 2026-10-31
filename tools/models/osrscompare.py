@@ -46,23 +46,26 @@ WHERE = {0: 'under the body', 1: 'under the body', 2: 'under the body',
          10: 'depth-sorted', 11: 'depth-sorted'}
 
 
-def osrs_priorities(store, mid):
+def osrs_model(store, mid):
+    """Face priorities and vertex labels, the two things that decide how a worn model meets another."""
     raw = store.read(7, mid)
     L = layout(raw)
     if L is None:
-        return None, None
-    if L['has_pri']:
-        return L['fc'], list(raw[L['fpri']:L['fpri'] + L['fc']])
-    return L['fc'], [L['pri']] * L['fc']
+        return None
+    pri = (list(raw[L['fpri']:L['fpri'] + L['fc']]) if L['has_pri']
+           else [L['pri']] * L['fc'])
+    lab = list(raw[L['vgroup']:L['vgroup'] + L['vc']]) if L['has_vgroup'] else None
+    return {'fcount': L['fc'], 'vcount': L['vc'], 'pri': pri, 'vlab': lab}
 
 
-def ours_priorities(name):
+def ours_model(name):
     for sub in ('obj', 'idk'):
         p = os.path.join(ROOT, 'content', 'models', sub, name + '.ob2')
         if os.path.exists(p):
             m = parse_ob2(open(p, 'rb').read())
-            return m['fcount'], m['pri']
-    return None, None
+            return {'fcount': m['fcount'], 'vcount': len(m['vx']),
+                    'pri': m['pri'], 'vlab': m['vlab']}
+    return None
 
 
 def hist(pri):
@@ -102,8 +105,10 @@ def main():
     store = Store(a.cache)
     bad = 0
     for name, mid in jobs:
-        fo, po = osrs_priorities(store, mid)
-        fn, pn = ours_priorities(name)
+        o = osrs_model(store, mid)
+        n = ours_model(name)
+        fo, po = (o['fcount'], o['pri']) if o else (None, None)
+        fn, pn = (n['fcount'], n['pri']) if n else (None, None)
         if pn is None:
             # the god variants have no mesh of their own: they are the plain Max cape with a
             # config recolour, so there is nothing here to compare and that is not a fault
@@ -121,13 +126,33 @@ def main():
             bad += 1
             continue
         moves = collections.Counter((x, y) for x, y in zip(po, pn) if x != y)
-        if not moves:
-            print('   identical, face for face')
-            continue
-        bad += 1
-        for (src, dst), n in sorted(moves.items(), key=lambda kv: -kv[1]):
-            print('   %4d faces moved %d -> %d   (%s -> %s)'
-                  % (n, src, dst, WHERE.get(src, '?'), WHERE.get(dst, '?')))
+        if moves:
+            bad += 1
+            for (src, dst), k in sorted(moves.items(), key=lambda kv: -kv[1]):
+                print('   %4d faces moved %d -> %d   (%s -> %s)'
+                      % (k, src, dst, WHERE.get(src, '?'), WHERE.get(dst, '?')))
+
+        # VERTEX LABELS ARE THE OTHER HALF. A priority says what covers what; a label says which
+        # bone a vertex follows, and two models that share a vertex POSITION but not its label come
+        # apart the moment the limb bends. That is what a gap at a wrist is, and no draw order
+        # closes one.
+        lo, ln = o.get('vlab'), n.get('vlab')
+        labdiff = False
+        if lo is None and ln is None:
+            pass
+        elif lo is None or ln is None or len(lo) != len(ln):
+            print('   vertex labels: OSRS %s, ours %s'
+                  % ('none' if lo is None else len(lo), 'none' if ln is None else len(ln)))
+            labdiff = True
+        else:
+            lmoves = collections.Counter((x, y) for x, y in zip(lo, ln) if x != y)
+            for (src, dst), k in sorted(lmoves.items(), key=lambda kv: -kv[1]):
+                print('   %4d vertices relabelled %d -> %d' % (k, src, dst))
+            labdiff = bool(lmoves)
+        if labdiff:
+            bad += 1
+        if not moves and not labdiff:
+            print('   identical, face for face and label for label')
     return 1 if bad else 0
 
 
