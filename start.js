@@ -7,11 +7,17 @@ const { ExitPromptError } = require('@inquirer/core');
 const { select } = require('@inquirer/prompts');
 
 // if you're forking this feel free to change these :) it does make some assumptions elsewhere (branch names)
-const repoOrg = 'https://github.com/LostCityRS';
-const engineRepo = 'Engine-TS';
-const contentRepo = 'Content';
-const webRepo = 'Client-TS';
-const javaRepo = 'Client-Java';
+// THE FORK, NOT UPSTREAM. This script clones whichever of the four folders is missing, and it
+// cloned LostCityRS - so a folder that went away came back as the upstream project's code rather
+// than ours. Not as a visible failure either: LostCityRS/Engine-TS really does have a 377-wip
+// branch, so it would clone cleanly, build, and run a server with none of Death Plateau's engine
+// work in it. Nearly happened on 31 October 2026, the day the spare engine checkout was deleted.
+// (The file's own comment above invites this change.)
+const repoOrg = 'https://github.com/coreysho';
+const engineRepo = 'DeathPlateau-Engine';
+const contentRepo = 'DeathPlateau-Content';
+const webRepo = 'DeathPlateau-Client-TS';
+const javaRepo = 'DeathPlateau-Client';
 
 function cloneRepo(repo, dir, branch) {
     child_process.execSync(`git clone ${repoOrg}/${repo} --single-branch -b ${branch} ${dir}`, {
@@ -68,7 +74,7 @@ const revInfo = {
     '377-wip': {
         description: 'May 5, 2006',
         wip: true,
-        clientBranch: '377'
+        clientBranch: 'dev-logging'
     }
 };
 
@@ -80,8 +86,8 @@ async function main() {
 
     config = JSON.parse(fs.readFileSync('server.json', 'utf8'));
 
-    if (!fs.existsSync('engine')) {
-        cloneRepo(engineRepo, 'engine', config.rev);
+    if (!fs.existsSync('Engine-TS')) {
+        cloneRepo(engineRepo, 'Engine-TS', config.rev);
     }
 
     if (!fs.existsSync('content')) {
@@ -100,13 +106,13 @@ async function main() {
         child_process.spawnSync('npm install', {
             shell: true,
             stdio: 'inherit',
-            cwd: 'engine'
+            cwd: 'Engine-TS'
         });
 
         child_process.spawnSync('npm run setup', {
             shell: true,
             stdio: 'inherit',
-            cwd: 'engine'
+            cwd: 'Engine-TS'
         });
     }
 
@@ -148,10 +154,10 @@ async function main() {
     if (choice === 'start') {
         child_process.execSync('npm start', {
             stdio: 'inherit',
-            cwd: 'engine'
+            cwd: 'Engine-TS'
         });
     } else if (choice === 'update') {
-        updateRepo('engine');
+        updateRepo('Engine-TS');
         updateRepo('content');
         updateRepo('webclient');
         updateRepo('javaclient');
@@ -250,23 +256,23 @@ async function promptAdvanced() {
     if (choice === 'start-dev') {
         child_process.execSync('npm run dev', {
             stdio: 'inherit',
-            cwd: 'engine'
+            cwd: 'Engine-TS'
         });
     } else if (choice === 'configure') {
         child_process.spawnSync('npm run setup', {
             shell: true,
             stdio: 'inherit',
-            cwd: 'engine'
+            cwd: 'Engine-TS'
         });
     } else if (choice === 'clean-build') {
         child_process.execSync('npm run clean', {
             stdio: 'inherit',
-            cwd: 'engine'
+            cwd: 'Engine-TS'
         });
 
         child_process.execSync('npm run build', {
             stdio: 'inherit',
-            cwd: 'engine'
+            cwd: 'Engine-TS'
         });
     } else if (choice === 'build-web') {
         child_process.execSync('npm run build', {
@@ -284,7 +290,7 @@ async function promptAdvanced() {
     } else if (choice === 'change-version') {
         await promptConfig();
 
-        fs.rmSync('engine', { recursive: true, force: true });
+        fs.rmSync('Engine-TS', { recursive: true, force: true });
         fs.rmSync('content', { recursive: true, force: true });
         fs.rmSync('webclient', { recursive: true, force: true });
         fs.rmSync('javaclient', { recursive: true, force: true });
