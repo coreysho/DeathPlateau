@@ -65,6 +65,25 @@ Fire cape face for face. **Do not reverse an imported mesh's winding** on a pixe
   the client's own AnimFrame and Model. Reads the .anim sets straight out of `<content>/models`, so it
   needs no cache. Written for the Lunar spellbook's 474 cast animations, because 474's Home Teleport
   ones pulled the head off this build's bodies; `-Dpose.h=` / `-Dpose.y=` for taller poses.
+- `NpcPose.java <config.jag> <textures.jag> <content> <out.png|-> <npcId>:<label>:<param>=<seq>=<name>,... `
+  and its driver `npcpose.py` - an NPC built through the client's own `NpcType.method475` and posed
+  with the combat animations the build has actually wired to it. The driver imports
+  `content/tools/bossanims.py` so there is one parser for what the configs say, resolves
+  `combat.param`'s fallbacks, and reads the ids out of `pack/npc.pack` and `pack/seq.pack`.
+  `--measure` prints numbers for every fighting npc in about seven seconds and writes no pictures;
+  `--npc <name> ...` draws contact sheets. `-Dpose.tilt=` / `-Dpose.yaw=` / `-Dpose.zoom=` to frame
+  something awkward. Specs can come from a file as `@file`, one per line - this runs on Java 8,
+  where `java @argfile` is read as a class name.
+
+  **It measures geometry, never pixels.** The vertex arrays do not have rule 2's problem: every
+  frame starts from the same cached base mesh, so the numbers repeat. It reports how far a mesh
+  travels from its base pose and what percentage of the creature's own biggest animation that is,
+  and it passes judgement on exactly one thing - a combat animation that moves the mesh zero units.
+  An earlier version also flagged anything under 15% and immediately called a vampire leech's block
+  broken, because a block is *supposed* to be a flinch beside a lunge. The percentage is for a
+  person to read. So is the picture, and the picture is the only thing that can catch the bug this
+  was built for: the right rig playing the wrong sequence.
+
 - `IfRender.java <data/pack/client> <content> <out.png> <interface> [magic=N] [runes=obj:n,...]
   [hover=<layer>]` - a side-tab interface drawn by `Client.drawInterface` on the tab's own stone,
   with its client scripts run against the player you describe, so an icon is lit exactly when the
