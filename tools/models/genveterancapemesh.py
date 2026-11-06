@@ -33,13 +33,21 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
 
 # Bronze, the same ramp the Veteran chat icon is drawn in.
-OUTER = (190, 118, 58)
-TRIM = (232, 162, 102)
+OUTER = (198, 126, 64)
+# The same bronze, deepened, for the hem.
+OUTER_HEM = (142, 84, 40)
+TRIM = (242, 186, 126)
+# A darker lip right at the rim, so the cape has an edge rather than just stopping.
+EDGE = (118, 68, 30)
 LINING = (64, 38, 18)
 # A DARK DEVICE ON BRONZE CLOTH. With no disc behind it the mark is read against the cape itself,
 # and the cape is bronze - so a bronze mark has nothing to contrast with. Dark is also this
 # shape's own idiom: the skillcape it is modelled on wears a dark grey sword on its gold shield.
 EMBLEM = (58, 32, 14)
+# A lighter rim just behind the device, so it reads as inlaid rather than painted on. The chat
+# icon is a bronze mark with a DARK outline; on bronze cloth the device is the dark one, so the
+# outline is the light one - the same idea the other way up.
+EMBLEM_RIM = (236, 170, 110)
 
 COLS, ROWS = 11, 13          # vertices across and down
 SKIN = 'obj_attack_cape_manwear'   # whose animation labels we borrow
@@ -89,7 +97,7 @@ def shape(s, t):
     # few soft vertical folds. THE FOLDS ARE GEOMETRY, NOT PAINT: the client shades a face from
     # its own normal, so undulating the surface is what gives a cape its light and dark bands.
     # Without them the whole sheet faces one way and reads as flat card.
-    folds = 2.2 * math.cos(4.0 * math.pi * s) * (0.35 + 0.65 * t)
+    folds = 3.6 * math.cos(5.0 * math.pi * s) * (0.30 + 0.70 * t)
     z = 24.0 - 3.0 * t - 36.0 * s * s + folds
     return x, y, z
 
@@ -113,9 +121,14 @@ def build(mirror_emblem, lab_src):
         m['colour'].append(colour); m['pri'].append(pri)
         m['fcount'] += 1
 
-    outer = rgb_to_hsl16(*OUTER)
     trim = rgb_to_hsl16(*TRIM)
+    edge = rgb_to_hsl16(*EDGE)
     lining = rgb_to_hsl16(*LINING)
+    # One tone per row, bright at the collar and deepening toward the hem.
+    body = []
+    for r in range(ROWS):
+        k = r / (ROWS - 1)
+        body.append(rgb_to_hsl16(*(round(a + (b - a) * k) for a, b in zip(OUTER, OUTER_HEM))))
 
     # Two sheets of vertices: the outer surface, and a lining a little behind it. Separate
     # vertices, so the client works out each sheet's normals from its own faces only - sharing
@@ -133,10 +146,22 @@ def build(mirror_emblem, lab_src):
     PRI = 6
     for r in range(ROWS - 1):
         for c in range(COLS - 1):
-            # A lighter band down each edge and across the collar - the two markings every cape
-            # in this game has, and what stops a plain sheet of one colour reading as cardboard.
-            edge = c == 0 or c == COLS - 2
-            col = trim if (edge or r == 0) else outer
+            # A TRIM ALL THE WAY ROUND, not just down the sides. A border on every edge - collar,
+            # hem and both flanks - is what a cape in this game has and what stops a sheet of one
+            # colour reading as cardboard; the first version banded only the sides and the collar
+            # and still looked like card.
+            # THE STRIPES ARE INSET, not on the rim. A border on the outermost column was
+            # invisible: those faces are where the cape curls away from the viewer and the light
+            # has already fallen off them, so whatever colour they are they render dark. One
+            # column in, on the flat of the cape, is where the attack cape wears its stripes too.
+            if c == 0 or c == COLS - 2:
+                col = edge
+            elif c == 1 or c == COLS - 3 or r == 0:
+                col = trim
+            else:
+                # The body darkens as it falls, so the cloth has depth down its length rather
+                # than being one flat tone from collar to hem.
+                col = body[r]
             a, b = front[r][c], front[r][c + 1]
             d, e = front[r + 1][c + 1], front[r + 1][c]
             face(a, b, d, col, PRI)
@@ -173,21 +198,29 @@ def build(mirror_emblem, lab_src):
     lab = label_for(cy)
     cache = {}
 
-    def evert(nx, ny):
-        key = (round(nx, 4), round(ny, 4))
+    def evert(nx, ny, lift=0.0):
+        key = (round(nx, 4), round(ny, 4), lift)
         if key not in cache:
             m['vx'].append(round(cx + (nx - 0.5) * size))
             m['vy'].append(round(cy + (ny - 0.5) * size))
-            m['vz'].append(round(depth))
+            m['vz'].append(round(depth + lift))
             m['vlab'].append(lab)
             m['vcount'] += 1
             cache[key] = m['vcount'] - 1
         return cache[key]
 
+    rim_ink, _ = dpglyph.veteran(dilate=1)
+    if mirror_emblem:
+        rim_ink = [list(reversed([(1.0 - x, y) for x, y in t])) for t in rim_ink]
+    rc = rgb_to_hsl16(*EMBLEM_RIM)
+    for t in rim_ink:
+        a, b, c = (evert(x, y) for x, y in t)
+        face(a, b, c, rc, PRI + 1)
+
     ec = rgb_to_hsl16(*EMBLEM)
     for t in ink:
-        a, b, c = (evert(x, y) for x, y in t)
-        face(a, b, c, ec, PRI + 1)
+        a, b, c = (evert(x, y, 1.6) for x, y in t)
+        face(a, b, c, ec, PRI + 2)
 
     return m
 
