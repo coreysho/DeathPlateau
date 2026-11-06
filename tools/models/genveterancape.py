@@ -34,6 +34,7 @@ TWO THINGS EVERY NEW VERTEX NEEDS BESIDES A POSITION:
 Re-runnable: it reads the attack cape models and writes new files, touching nothing it reads.
 """
 import argparse
+import math
 import os
 import sys
 
@@ -46,9 +47,26 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
 MASK = os.path.join(ROOT, 'Claude outputs', 'dp-icon', 'dp_silhouette.png')
 
-# The brand's red, as the sigil is drawn. The cloth is bronze, so the monogram needs a hue of its
-# own or it disappears into the cape.
+# The brand's red, as the sigil is drawn.
 EMBLEM_RGB = (184, 50, 40)
+
+# THE BACKING PLATE IS NOT DECORATION. THE CLOTH HAS A HOLE WHERE THE EMBLEM GOES.
+#
+# Render the attack cape with its emblem removed and nothing put back and you see the player's
+# torso - the armour they are wearing - straight through the cape. Jagex's emblem is a solid gold
+# disc, and plugging that hole is half of what it is for. A monogram is open letters: counters,
+# the gap between D and P, the space around the spike. Put one there on its own and the armour
+# shows through every one of those gaps, which is exactly what the first wear render showed.
+#
+# So a disc goes down first, in a light bronze, and the monogram sits on top of it. That plugs the
+# hole and gives the red something to read against - the cape's centre panel is dark, and the
+# brand red on dark brown is mud. It is also what the shape has always done: a light disc with a
+# dark device on it.
+# AND IT CANNOT BE MUCH LIGHTER THAN THIS. hsl24to16 throws saturation away as lightness climbs -
+# s >>= 1 above 179, >>= 2 above 192, >>= 3 above 217 - so a pale bronze plate comes out GREY, and
+# a cream one comes out a flat stone grey with no bronze left in it at all. Both were tried in the
+# client and both lost the colour. This sits at lightness 177, just under the first step down.
+BACKING_RGB = (238, 178, 116)
 # Mid bronze - the same ramp the Veteran chat icon is drawn in, so rank and cape match.
 BRONZE_RGB = (168, 100, 46)
 
@@ -70,13 +88,19 @@ SPEC = {
         out='obj_veteran_cape_manwear',
         colours={11224, 7116, 103, 51, 6563},
         box=(-12, 13, -141, -96, 14, 17),
-        plane='xy', height=44.0, stand=4.0, mirror=True,
+        # HEIGHT IS BOUNDED BY THE ANIMATION LABEL, not by taste. The emblem is rigid on one
+        # label (see emblem_lab below), and on the cape's front face that label's cloth only
+        # spans x -20..20, y -139..-98. Run the emblem past that and it overhangs cloth on
+        # neighbouring labels, which deform away from it under a walk - the cloth pokes through
+        # and the emblem tears into horizontal stripes. 36 keeps it inside at the monogram's own
+        # proportions, and is still half again the width of Jagex's.
+        plane='xy', height=36.0, stand=4.0, mirror=True,
     ),
     'obj_attack_cape_womanwear': dict(
         out='obj_veteran_cape_womanwear',
         colours={11224, 7116, 103, 51, 6563},
         box=(-12, 13, -141, -96, 14, 17),
-        plane='xy', height=44.0, stand=4.0, mirror=True,
+        plane='xy', height=36.0, stand=4.0, mirror=True,
     ),
 }
 
@@ -164,6 +188,27 @@ def grid(mirror):
     return [list(reversed(r)) for r in out] if mirror else out
 
 
+def disc_fan(cols, rows, points=16):
+    """The plate, as a triangle fan from its centre - in grid coordinates.
+
+    A FAN AND NOT A GRID OF QUADS, and this is the difference between a cape that survives being
+    walked in and one that does not. Built row by row like the monogram, the plate's quads do not
+    share their corners: a row spanning columns 4..17 sits against one spanning 3..18, so a vertex
+    of one lands in the middle of the other's edge. Those T-junctions are seamless while the model
+    is still and split into hairline cracks the moment it is posed and the vertices move apart by
+    fractions of a pixel - and what shows through the cracks is the dark cloth, so the plate
+    stripes. A fan has no T-junctions: every triangle shares whole edges with its neighbours.
+
+    Returns (centre, ring) in grid coordinates, for the caller to turn into vertices.
+    """
+    cx, cy = cols / 2.0, rows / 2.0
+    ring = []
+    for i in range(points):
+        t = 2.0 * math.pi * i / points
+        ring.append((cx + cx * math.cos(t), cy + cy * math.sin(t)))
+    return (cx, cy), ring
+
+
 def runs(g):
     """Horizontal runs, so one quad covers a stretch of cells rather than one quad per cell."""
     out = []
@@ -223,11 +268,23 @@ def build(src_dir, src_name, spec, verbose=True):
     if len(cloth) < 20:
         raise SystemExit(f'{src_name}: only {len(cloth)} cloth vertices on the emblem side')
 
+    # ONE ANIMATION LABEL FOR THE WHOLE EMBLEM, taken from the faces being removed.
+    #
+    # Jagex puts all 26 of its emblem's vertices on a single label while the cloth around them
+    # spans eight, so the emblem moves as one rigid piece with that part of the cape. Giving each
+    # new vertex the label of its OWN nearest cloth vertex - the obvious thing, and what this did
+    # first - spreads the monogram across all eight, and the moment the cape is posed they move
+    # apart and the emblem tears into horizontal stripes. It looks perfect standing still, which
+    # is why it has to be rendered mid-walk before it is believed.
+    emblem_lab = 0
+    if m['vlab'] is not None:
+        labs = [m['vlab'][v] for v in ev]
+        emblem_lab = max(set(labs), key=labs.count)
+
     def surface(a, u):
-        """The frontmost local cloth depth, and the animation label to go with it."""
+        """The frontmost local cloth depth at (across, up)."""
         near = sorted(cloth, key=lambda v: (m[A][v] - a) ** 2 + (m[U][v] - u) ** 2)[:6]
-        front = max(near, key=lambda v: sign * m[D][v])
-        return m[D][front], (m['vlab'][front] if m['vlab'] else 0)
+        return m[D][max(near, key=lambda v: sign * m[D][v])]
 
     # Drop the old emblem, and tint every cloth face that remains.
     order = sorted(keep)
@@ -247,40 +304,59 @@ def build(src_dir, src_name, spec, verbose=True):
     w = h * aspect
     a0, u0 = ca - w / 2, cu - h / 2
     cw, ch = w / COLS, h / ROWS
-    base, _ = surface(ca, cu)
+    base = surface(ca, cu)
     stand = max(spec['stand'], abs(max(ed, key=abs) - base))
     if verbose:
         print(f'  monogram {w:.0f}x{h:.0f}, cell {cw:.1f}x{ch:.1f}, standing {stand:.1f} off the cloth')
 
-    colour = rgb_to_hsl16(*EMBLEM_RGB)
     cache = {}
 
-    def vert(ca_, cu_):
-        if (ca_, cu_) in cache:
-            return cache[(ca_, cu_)]
+    def vert(ca_, cu_, off):
+        """One grid corner at a given stand-off, shared between the quads that meet there."""
+        if (ca_, cu_, off) in cache:
+            return cache[(ca_, cu_, off)]
         a = round(a0 + ca_ * cw)
         u = round(u0 + cu_ * ch)
-        d, lab = surface(a, u)
-        pos = {A: a, U: u, D: round(d + sign * stand)}
+        d = surface(a, u)
+        pos = {A: a, U: u, D: round(d + sign * off)}
         m['vx'].append(pos['vx']); m['vy'].append(pos['vy']); m['vz'].append(pos['vz'])
         if m['vlab'] is not None:
-            m['vlab'].append(lab)
+            m['vlab'].append(emblem_lab)
         m['vcount'] += 1
-        cache[(ca_, cu_)] = m['vcount'] - 1
+        cache[(ca_, cu_, off)] = m['vcount'] - 1
         return m['vcount'] - 1
 
     added = 0
+
+    def face(tri, colour, priority):
+        nonlocal added
+        m['fa'].append(tri[0]); m['fb'].append(tri[1]); m['fc'].append(tri[2])
+        m['colour'].append(colour)
+        m['pri'].append(priority)
+        if m['flab'] is not None: m['flab'].append(0)
+        if m['alpha'] is not None: m['alpha'].append(0)
+        if m['finfo'] is not None: m['finfo'].append(0)
+        m['fcount'] += 1
+        added += 1
+
+    # The plate, as a fan, at the emblem's own priority.
+    centre, ring = disc_fan(COLS, ROWS)
+    backing = rgb_to_hsl16(*BACKING_RGB)
+    hub = vert(centre[0], centre[1], stand)
+    rim = [vert(px, py, stand) for px, py in ring]
+    for i in range(len(rim)):
+        face((hub, rim[i], rim[(i + 1) % len(rim)]), backing, pri)
+
+    # The monogram on top, A PRIORITY HIGHER so the two can never be sorted into each other.
+    # They sit a single unit apart, which is within the margin the client's depth sort works to
+    # once a pose has moved everything; the priority makes the order a fact rather than a race.
+    # Cracks between the letters' own quads then show the plate behind them rather than cloth.
+    emblem_colour = rgb_to_hsl16(*EMBLEM_RGB)
     for r, c0, c1 in runs(grid(spec['mirror'])):
-        a, b, c, d = vert(c0, r), vert(c1, r), vert(c1, r + 1), vert(c0, r + 1)
-        for tri in ((a, b, c), (a, c, d)):
-            m['fa'].append(tri[0]); m['fb'].append(tri[1]); m['fc'].append(tri[2])
-            m['colour'].append(colour)
-            m['pri'].append(pri)
-            if m['flab'] is not None: m['flab'].append(0)
-            if m['alpha'] is not None: m['alpha'].append(0)
-            if m['finfo'] is not None: m['finfo'].append(0)
-            m['fcount'] += 1
-            added += 1
+        off = stand + 1.0
+        a, b, c, d = vert(c0, r, off), vert(c1, r, off), vert(c1, r + 1, off), vert(c0, r + 1, off)
+        face((a, b, c), emblem_colour, pri + 1)
+        face((a, c, d), emblem_colour, pri + 1)
 
     data = encode(m)
     # It has to read back, or the client never gets as far as drawing it.
