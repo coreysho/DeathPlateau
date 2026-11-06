@@ -300,14 +300,33 @@ def _grid_mask(rows, upscale=16):
     return cells, len(rows[0]) * upscale, len(rows) * upscale
 
 
-def veteran(eps_cells=0.62, upscale=16):
+def _dilate(rows, by=1):
+    """Grow a character grid outwards, for a backing shaped like the device that sits on it."""
+    h, w = len(rows), len(rows[0])
+    out = [list(r) for r in rows]
+    for _ in range(by):
+        prev = [r[:] for r in out]
+        for y in range(h):
+            for x in range(w):
+                if prev[y][x] == '#':
+                    continue
+                for dy in (-1, 0, 1):
+                    for dx in (-1, 0, 1):
+                        ny, nx = y + dy, x + dx
+                        if 0 <= ny < h and 0 <= nx < w and prev[ny][nx] == '#':
+                            out[y][x] = '#'
+                            break
+    return [''.join(r) for r in out]
+
+
+def veteran(eps_cells=0.62, upscale=16, dilate=0):
     """The chat icon as triangles, normalised to 0..1 with y DOWN.
 
     eps_cells is the Douglas-Peucker tolerance in CELLS of the original 13x13 art: enough to turn
     a staircase of single-cell steps into the one diagonal it stands for, not so much that a horn
     loses its point.
     """
-    cells, w, h = _grid_mask(VETERAN_ICON, upscale)
+    cells, w, h = _grid_mask(_dilate(VETERAN_ICON, dilate) if dilate else VETERAN_ICON, upscale)
     eps = eps_cells * upscale
     ink = []
     for group in _components(cells):

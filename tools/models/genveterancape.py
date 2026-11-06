@@ -1,4 +1,15 @@
 #!/usr/bin/env python3
+# SUPERSEDED BY genveterancapemesh.py, AND IT WRITES THE SAME THREE FILES - running this will
+# clobber the shipped cape with the old one.
+#
+# This built the cape by cutting Jagex's emblem out of the Attack cape and putting ours in its
+# place. That works, but the attack cape has a real hole in the middle of its back which its
+# emblem covers rather than mends, so our open device needed a disc behind it to cover the same
+# hole - and that disc is the circle nobody wanted. The replacement builds a cape with no hole.
+#
+# Kept because the reasoning in it is still true of anything that modifies an existing mesh: how
+# an emblem is found, why a device must be flat and on one animation label, how winding and
+# reflections interact, and why a pale plate renders grey.
 """Build the Veteran cape's three models from the Attack cape's, with the DP monogram on the back.
 
 WHAT THIS MAKES. obj_veteran_cape, _manwear and _womanwear: the skillcape shape, recoloured to
@@ -53,7 +64,11 @@ MASK = os.path.join(ROOT, 'Claude outputs', 'dp-icon', 'dp_silhouette.png')
 # from is a dark grey sword on a gold shield. The brand red was tried and reads well enough, but
 # it belongs to the sigil rather than to this rank, and the chat icon the shape comes from has no
 # red in it. The mark is the shape; the colour is the metal it is struck into.
-EMBLEM_RGB = (62, 34, 16)
+# BRONZE, as the chat icon is. It was dark for as long as there was a bright disc behind it; now
+# that the backing is the cloth's own colour and invisible, the mark is read against the cape
+# itself - which is dark - so it has to be the light one. Which puts it back to exactly the chat
+# icon's arrangement: a bronze mark on a dark ground.
+EMBLEM_RGB = (226, 164, 106)
 
 # THE BACKING PLATE IS NOT DECORATION. THE CLOTH HAS A HOLE WHERE THE EMBLEM GOES.
 #
@@ -80,6 +95,14 @@ COUNTER_RGB = BACKING_RGB
 
 # Which device goes on the plate: the rank's chat icon, or the DP wordmark.
 GLYPH = 'veteran'
+
+# An hsl16 to force the backing to, instead of BACKING_RGB - for trying it in the cloth's own
+# colour, where the point is that the backing is there and not seen.
+PLATE_HSL_OVERRIDE = None
+
+# How far beyond the old emblem to look for cloth the armour is painting over.
+# Match the backing to the cloth around it, rather than making it a visible disc.
+PLATE_MATCH_CLOTH = True
 # Mid bronze - the same ramp the Veteran chat icon is drawn in, so rank and cape match.
 BRONZE_RGB = (168, 100, 46)
 
@@ -241,7 +264,87 @@ def runs(g):
 
 
 # ---------------------------------------------------------------- the model
-def build(src_dir, src_name, spec, verbose=True):
+def _hole(m, keep, A, U, D, sign, box):
+    """Where the cape's OUTER surface has no face: the gap the emblem has to cover.
+
+    This cape really does have a hole. Render it with the emblem stripped and nothing behind it
+    and you see the background straight through the middle of the back - Jagex's solid emblem is
+    what covers it, and that is most of what the emblem is for.
+
+    FRONT-FACING FACES ONLY. Counting every face says the gap is covered, because the cape's INNER
+    surface is behind it and passes through the same place in projection - the client culls that
+    inner surface, so it covers nothing. Getting this wrong is what sent several earlier attempts
+    chasing priorities and winding that were never the problem.
+    """
+    def tri(i):
+        return [(m[A][v], m[U][v]) for v in (m['fa'][i], m['fb'][i], m['fc'][i])]
+
+    def area2(t):
+        (ax, ay), (bx, by), (cx, cy) = t
+        return (bx - ax) * (cy - ay) - (by - ay) * (cx - ax)
+
+    outer = [t for t in (tri(i) for i in keep) if area2(t) > 0]
+
+    def covered(px, py):
+        for (ax, ay), (bx, by), (cx, cy) in outer:
+            d1 = (bx - ax) * (py - ay) - (by - ay) * (px - ax)
+            d2 = (cx - bx) * (py - by) - (cy - by) * (px - bx)
+            d3 = (ax - cx) * (py - cy) - (ay - cy) * (px - cx)
+            if not ((d1 < 0 or d2 < 0 or d3 < 0) and (d1 > 0 or d2 > 0 or d3 > 0)):
+                return True
+        return False
+
+    a0, a1, u0, u1 = box
+    gap = {(a, u) for u in range(int(u0), int(u1) + 1) for a in range(int(a0), int(a1) + 1)
+           if not covered(a + 0.5, u + 0.5)}
+    if not gap:
+        return None
+
+    # ONLY AN ENCLOSED GAP COUNTS. The search window is wider than the cape, so most of what is
+    # uncovered is simply off the side of it - measuring that gave a hole of 49x48 when the real
+    # one is half that. A gap that can walk out to the edge of the window is outside the cape; a
+    # gap that cannot is a hole in it.
+    todo = set(gap)
+    best = None
+    while todo:
+        seed = todo.pop()
+        stack, region, escapes = [seed], {seed}, False
+        while stack:
+            a, u = stack.pop()
+            if a <= a0 or a >= a1 or u <= u0 or u >= u1:
+                escapes = True
+            for n in ((a + 1, u), (a - 1, u), (a, u + 1), (a, u - 1)):
+                if n in todo:
+                    todo.discard(n)
+                    region.add(n)
+                    stack.append(n)
+        if not escapes and (best is None or len(region) > len(best)):
+            best = region
+    if not best:
+        return None
+    ga = [p[0] for p in best]
+    gu = [p[1] for p in best]
+    return (min(ga), max(ga), min(gu), max(gu))
+
+
+def _orient(tris, spec):
+    """Turn a device to face the way this mesh is seen from.
+
+    EVERY REFLECTION ALSO REVERSES WINDING: a straight x -> 1-x left every face pointing away from
+    the camera and the client culled the whole device, which is how this was found. Two
+    reflections make a rotation and cancel, so only an odd count needs the triangles reversed.
+    """
+    refl = 0
+    if spec['mirror']:
+        tris = [[(1.0 - x, y) for x, y in t] for t in tris]
+        refl += 1
+    if spec.get('flip'):
+        tris = [[(x, 1.0 - y) for x, y in t] for t in tris]
+        refl += 1
+    return [list(reversed(t)) for t in tris] if refl % 2 else tris
+
+
+def build(src_dir, src_name, spec, verbose=True, plate='disc', dilate=3):
     m = parse_ob2(open(os.path.join(src_dir, src_name + '.ob2'), 'rb').read())
     x0b, x1b, y0b, y1b, z0b, z1b = spec['box']
 
@@ -379,19 +482,6 @@ def build(src_dir, src_name, spec, verbose=True):
         m['fcount'] += 1
         added += 1
 
-    # The plate, as a fan, at the emblem's own priority.
-    centre, ring = disc_fan(COLS, ROWS)
-    backing = rgb_to_hsl16(*BACKING_RGB)
-    hub = vert(centre[0], centre[1], stand)
-    rim = [vert(px, py, stand) for px, py in ring]
-    for i in range(len(rim)):
-        face((hub, rim[i], rim[(i + 1) % len(rim)]), backing, pri)
-
-    # THE MONOGRAM IS POLYGONS, NOT A GRID OF LITTLE SQUARES. One quad per run of a bitmap is the
-    # obvious way to turn a picture into geometry and it looks wrong for a reason that has nothing
-    # to do with resolution: every edge becomes a staircase. Jagex's device is a handful of large
-    # polygons, so its edges are straight lines at any size, and beside it ours read as a smudge.
-    # dpglyph traces the letterforms and triangulates them instead - see that module.
     # THE RANK'S OWN CHAT ICON, not the DP monogram. The monogram is a wordmark built for a
     # 512-pixel avatar: thin strokes, sharp serifs, a spike - and at the size a cape emblem is
     # actually drawn it reads as a red smudge however cleanly it is traced. The chat icon was
@@ -404,18 +494,8 @@ def build(src_dir, src_name, spec, verbose=True):
     # monogram, which is how this was found. Two reflections make a rotation and cancel out, so
     # what matters is whether the count is odd. The old bitmap version flipped the PICTURE, where
     # winding does not arise - which is why none of this came up until now.
-    reflections = 0
-    if spec['mirror']:
-        ink = [[(1.0 - x, y) for x, y in t] for t in ink]
-        counters = [[(1.0 - x, y) for x, y in t] for t in counters]
-        reflections += 1
-    if spec.get('flip'):
-        ink = [[(x, 1.0 - y) for x, y in t] for t in ink]
-        counters = [[(x, 1.0 - y) for x, y in t] for t in counters]
-        reflections += 1
-    if reflections % 2:
-        ink = [list(reversed(t)) for t in ink]
-        counters = [list(reversed(t)) for t in counters]
+    ink = _orient(ink, spec)
+    counters = _orient(counters, spec)
 
     # SCALED TO FIT INSIDE THE PLATE, exactly. The old emblem put the monogram's bounding box over
     # the plate's, so the corners - the sigil's spike, the D's top serif - landed on bare cloth
@@ -428,6 +508,58 @@ def build(src_dir, src_name, spec, verbose=True):
 
     def place(t, off):
         return tuple(vert(COLS * (0.5 + (x - 0.5) * fit), ROWS * (0.5 + (y - 0.5) * fit), off) for x, y in t)
+
+    # THE BACKING, WHICH IS NOT DECORATION. The cloth has a gap where the emblem goes - strip the
+    # attack cape's emblem and the player's torso shows through - so something solid has to sit
+    # there whatever the device on top looks like.
+    #
+    #   'disc'   a circle, as a skillcape has
+    #   'glyph'  the icon's own outline grown a couple of cells, so there is no circle at all
+    #   False    nothing, for a device that covers the gap by itself
+    # THE CLOTH'S OWN COLOUR BY DEFAULT. The backing is structural - it stops the player's torso
+    # showing through a real gap in the mesh - so the less it looks like a decision the better.
+    # The modal colour of the cloth around the gap makes it read as cape rather than as a badge.
+    if PLATE_HSL_OVERRIDE is not None:
+        backing = PLATE_HSL_OVERRIDE
+    elif PLATE_MATCH_CLOTH:
+        near_hole = [m['colour'][i] for i in range(m['fcount'])
+                     if all(abs(m[A][v] - (min(ea) + max(ea)) / 2) < 26 and abs(m[U][v] - (min(eu) + max(eu)) / 2) < 26
+                            and (m[D][v] > 4 if sign > 0 else m[D][v] < -1)
+                            for v in (m['fa'][i], m['fb'][i], m['fc'][i]))]
+        backing = max(set(near_hole), key=near_hole.count) if near_hole else rgb_to_hsl16(*BACKING_RGB)
+    else:
+        backing = rgb_to_hsl16(*BACKING_RGB)
+    if plate == 'glyph':
+        shape, _ = dpglyph.veteran(dilate=dilate)
+        shape = _orient(shape, spec)
+        for t in shape:
+            face(place(t, stand), backing, pri)
+    elif plate:
+        # SIZED TO THE HOLE, NOT TO THE EMBLEM. The first backing was a disc as wide as the
+        # monogram - 39 units across - when the gap it covers is barely 22. It was four times the
+        # area it needed to be, which is why it read as a deliberate circle rather than as part of
+        # the cape. This measures the gap and covers that, with a couple of units to spare.
+        # range(fcount) and not : the face arrays have already been rebuilt without the
+        # emblem by this point, so the kept faces are 0..fcount-1 under their NEW indices.
+        hole = _hole(m, range(m['fcount']), A, U, D, sign, (a0 - 6, a0 + w + 6, u0 - 6, u0 + h + 6))
+        if hole is None:
+            ha0, ha1, hu0, hu1 = a0, a0 + w, u0, u0 + h
+        else:
+            ha0, ha1, hu0, hu1 = hole
+        pad = 2.0
+        hca, hcu = (ha0 + ha1) / 2.0, (hu0 + hu1) / 2.0
+        rx, ry = (ha1 - ha0) / 2.0 + pad, (hu1 - hu0) / 2.0 + pad
+        if verbose:
+            print(f'  gap in the cloth: {ha1 - ha0:.0f} x {hu1 - hu0:.0f} at '
+                  f'({hca:.0f}, {hcu:.0f}); backing {rx * 2:.0f} x {ry * 2:.0f}')
+        # In grid coordinates, since that is what vert() speaks.
+        gx, gy = (hca - a0) / cw, (hcu - u0) / ch
+        grx, gry = rx / cw, ry / ch
+        hub = vert(gx, gy, stand)
+        rim = [vert(gx + grx * math.cos(2 * math.pi * k / 16), gy + gry * math.sin(2 * math.pi * k / 16), stand)
+               for k in range(16)]
+        for i in range(len(rim)):
+            face((hub, rim[i], rim[(i + 1) % len(rim)]), backing, pri)
 
     # A PRIORITY HIGHER THAN THE PLATE so the two can never be sorted into each other: they sit a
     # unit apart, which is inside the margin the client's depth sort works to once a pose has moved
