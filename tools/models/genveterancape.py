@@ -49,7 +49,11 @@ ROOT = os.path.dirname(os.path.dirname(HERE))
 MASK = os.path.join(ROOT, 'Claude outputs', 'dp-icon', 'dp_silhouette.png')
 
 # The brand's red, as the sigil is drawn.
-EMBLEM_RGB = (184, 50, 40)
+# A DARK DEVICE ON A BRONZE DISC, which is this cape's own idiom: the attack cape it is built
+# from is a dark grey sword on a gold shield. The brand red was tried and reads well enough, but
+# it belongs to the sigil rather than to this rank, and the chat icon the shape comes from has no
+# red in it. The mark is the shape; the colour is the metal it is struck into.
+EMBLEM_RGB = (62, 34, 16)
 
 # THE BACKING PLATE IS NOT DECORATION. THE CLOTH HAS A HOLE WHERE THE EMBLEM GOES.
 #
@@ -73,6 +77,9 @@ BACKING_RGB = (238, 178, 116)
 # holes in the letters - but kept separate so it can be set to something loud to find out whether
 # a bright patch inside a letter is really the counter or a culled triangle showing the plate.
 COUNTER_RGB = BACKING_RGB
+
+# Which device goes on the plate: the rank's chat icon, or the DP wordmark.
+GLYPH = 'veteran'
 # Mid bronze - the same ramp the Veteran chat icon is drawn in, so rank and cape match.
 BRONZE_RGB = (168, 100, 46)
 
@@ -385,7 +392,12 @@ def build(src_dir, src_name, spec, verbose=True):
     # to do with resolution: every edge becomes a staircase. Jagex's device is a handful of large
     # polygons, so its edges are straight lines at any size, and beside it ours read as a smudge.
     # dpglyph traces the letterforms and triangulates them instead - see that module.
-    ink, counters = dpglyph.monogram()
+    # THE RANK'S OWN CHAT ICON, not the DP monogram. The monogram is a wordmark built for a
+    # 512-pixel avatar: thin strokes, sharp serifs, a spike - and at the size a cape emblem is
+    # actually drawn it reads as a red smudge however cleanly it is traced. The chat icon was
+    # DRAWN at thirteen pixels, so it is already the bold shape this needs, and using it here
+    # makes the rank one mark whether you see it beside a name or on somebody's back.
+    ink, counters = dpglyph.veteran() if GLYPH == 'veteran' else dpglyph.monogram()
     # Each mesh is seen from its own side, so the monogram is mirrored, flipped, or both to come
     # out reading the right way round. EVERY REFLECTION ALSO REVERSES WINDING: a straight
     # x -> 1-x left every face pointing away from the camera and the client culled the whole

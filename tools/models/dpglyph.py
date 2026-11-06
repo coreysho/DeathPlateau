@@ -263,6 +263,60 @@ def monogram(eps_frac=0.012, path=SILHOUETTE):
     return norm(ink), norm(counters)
 
 
+# The Veteran rank's own chat icon, as it is drawn on content/sprites/mod_icons.png: two horns
+# sweeping up and out, a spike up the middle, the three merging into a body over a stem and a
+# foot. Thirteen cells, because that is the size a chat icon is drawn at and this shape was
+# designed to survive it.
+#
+# USING THIS ON THE CAPE rather than the DP monogram makes the rank one mark in both places, and
+# a shape drawn to read at thirteen pixels reads at any size. It encloses no holes - every gap
+# between the horns and the spike is open to the top - so it needs no counters.
+VETERAN_ICON = [
+    '.............',
+    '##.........##',
+    '###.......###',
+    '###.......###',
+    '.###..#..###.',
+    '.###.###.###.',
+    '..#########..',
+    '..#########..',
+    '...#######...',
+    '....#####....',
+    '.....###.....',
+    '....#####....',
+    '.............',
+]
+
+
+def _grid_mask(rows, upscale=16):
+    """A character grid blown up, so the tracer has room to round its corners off."""
+    cells = set()
+    for y, row in enumerate(rows):
+        for x, ch in enumerate(row):
+            if ch == '#':
+                for dy in range(upscale):
+                    for dx in range(upscale):
+                        cells.add((x * upscale + dx, y * upscale + dy))
+    return cells, len(rows[0]) * upscale, len(rows) * upscale
+
+
+def veteran(eps_cells=0.62, upscale=16):
+    """The chat icon as triangles, normalised to 0..1 with y DOWN.
+
+    eps_cells is the Douglas-Peucker tolerance in CELLS of the original 13x13 art: enough to turn
+    a staircase of single-cell steps into the one diagonal it stands for, not so much that a horn
+    loses its point.
+    """
+    cells, w, h = _grid_mask(VETERAN_ICON, upscale)
+    eps = eps_cells * upscale
+    ink = []
+    for group in _components(cells):
+        if len(group) < upscale * upscale // 2:
+            continue
+        ink.extend(_earclip(_simplify(_trace(group), eps)))
+    return [tuple((x / w, y / h) for x, y in t) for t in ink], []
+
+
 if __name__ == '__main__':
     import sys
     from PIL import ImageDraw
