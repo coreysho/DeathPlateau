@@ -39,6 +39,9 @@ OUTER_HEM = (142, 84, 40)
 TRIM = (242, 186, 126)
 # A darker lip right at the rim, so the cape has an edge rather than just stopping.
 EDGE = (118, 68, 30)
+# The collar: near-black cloth with bright points over each shoulder, as a skillcape wears it.
+COLLAR = (44, 26, 14)
+COLLAR_TIP = (244, 198, 112)
 LINING = (64, 38, 18)
 # A DARK DEVICE ON BRONZE CLOTH. With no disc behind it the mark is read against the cape itself,
 # and the cape is bronze - so a bronze mark has nothing to contrast with. Dark is also this
@@ -49,7 +52,9 @@ EMBLEM = (58, 32, 14)
 # outline is the light one - the same idea the other way up.
 EMBLEM_RIM = (236, 170, 110)
 
-COLS, ROWS = 11, 13          # vertices across and down
+COLS, ROWS = 13, 15
+# How many of those rows are the collar rather than the cloth - NECK in shape(), in rows.
+COLLAR_ROWS = 3          # vertices across and down
 SKIN = 'obj_attack_cape_manwear'   # whose animation labels we borrow
 
 
@@ -78,27 +83,51 @@ def rgb_to_hsl16(r, g, b):
 def shape(s, t):
     """One point of the cape's outer surface.
 
-    s is -1 at the left edge to +1 at the right; t is 0 at the collar to 1 at the hem.
+    s is -1 at the left edge to +1 at the right; t is 0 at the top of the collar to 1 at the hem.
+
+    MEASURED OFF THE ATTACK CAPE, not invented. A skillcape is an HOURGLASS and that is the thing
+    the first few attempts here got wrong: it is widest at the very top, where the collar spreads
+    across both shoulders (half-width 32), pinches hard at the neck (16), and only then flares out
+    down the body to the hem (31). Drawn as a plain trapezoid - narrow at the top, wide at the
+    bottom - it reads as a tabard or a sheet, never as a cape.
     """
-    # Wider as it falls, the way a cape hangs. The first attempt was 21 to 34 and read as a
-    # tapered board rather than a cape; a skillcape flares.
-    half = 23.0 + 17.0 * t
+    # Where the collar ends and the cloth begins, as a fraction of the drop.
+    NECK = 0.22
+
+    if t < NECK:
+        k = t / NECK
+        half = 32.0 + (16.0 - 32.0) * k
+    else:
+        k = (t - NECK) / (1.0 - NECK)
+        half = 16.0 + (31.0 - 16.0) * (k ** 0.75)
     x = half * s
 
-    # The top edge rises at the corners into the yoke that sits over the shoulders, which is what
-    # makes a skillcape read as one rather than as a sheet; the hem dips to a soft point.
-    # A plain parabola. abs(s) ** 1.5 gave the shoulders a kink either side of the centre that
-    # read as a wavy top edge rather than as a yoke.
-    top = -150.0 - 24.0 * s * s
-    bottom = -20.0 - 9.0 * (1.0 - abs(s) ** 2)
-    y = top + (bottom - top) * t
+    # The collar rises at the shoulders and dips at the neck: -177 at the tips, about -160 in the
+    # middle, which is the gap the player's head sits in.
+    top = -160.0 - 17.0 * s * s
+    neck_y = -150.0
+    hem = -20.0 - 6.0 * (1.0 - abs(s) ** 2)
+    if t < NECK:
+        y = top + (neck_y - top) * (t / NECK)
+    else:
+        y = neck_y + (hem - neck_y) * ((t - NECK) / (1.0 - NECK))
 
-    # Bulging away from the back at the centre and wrapping round the body at the edges, plus a
-    # few soft vertical folds. THE FOLDS ARE GEOMETRY, NOT PAINT: the client shades a face from
-    # its own normal, so undulating the surface is what gives a cape its light and dark bands.
-    # Without them the whole sheet faces one way and reads as flat card.
-    folds = 3.6 * math.cos(5.0 * math.pi * s) * (0.30 + 0.70 * t)
-    z = 24.0 - 3.0 * t - 36.0 * s * s + folds
+    # The collar lies close to the shoulders; the body stands off the back and wraps at the edges.
+    # Folds are GEOMETRY, not paint: the client shades a face from its own normal, so undulating
+    # the surface is the only thing that gives cloth light and dark bands.
+    if t < NECK:
+        k = t / NECK
+        z = 2.0 + 13.0 * k - 10.0 * s * s
+    else:
+        k = (t - NECK) / (1.0 - NECK)
+        # THE EDGES COME FORWARD, THEY DO NOT WRAP BACK. Measured off the attack cape, its
+        # cloth sits at z 15 in the middle and z 20 at the rim - the cross-section is a shallow
+        # bowl facing the viewer, not a bulge. That is the whole reason its two bright stripes
+        # are visible on BOTH sides: edges that curve forward catch the light, edges that wrap
+        # away from the viewer go dark however they are coloured, which is what happened here
+        # when the body was given a -30 s-squared bulge and only the right-hand stripe showed.
+        folds = 2.0 * math.cos(5.0 * math.pi * s) * (0.3 + 0.7 * k)
+        z = 15.0 + 9.0 * k + 6.0 * s * s + folds
     return x, y, z
 
 
@@ -123,6 +152,8 @@ def build(mirror_emblem, lab_src):
 
     trim = rgb_to_hsl16(*TRIM)
     edge = rgb_to_hsl16(*EDGE)
+    collar = rgb_to_hsl16(*COLLAR)
+    tip_c = rgb_to_hsl16(*COLLAR_TIP)
     lining = rgb_to_hsl16(*LINING)
     # One tone per row, bright at the collar and deepening toward the hem.
     body = []
@@ -146,17 +177,19 @@ def build(mirror_emblem, lab_src):
     PRI = 6
     for r in range(ROWS - 1):
         for c in range(COLS - 1):
-            # A TRIM ALL THE WAY ROUND, not just down the sides. A border on every edge - collar,
-            # hem and both flanks - is what a cape in this game has and what stops a sheet of one
-            # colour reading as cardboard; the first version banded only the sides and the collar
-            # and still looked like card.
+            # THE COLLAR IS ITS OWN PIECE, dark, with bright tips where it rises over each
+            # shoulder - which is the detail that makes a skillcape read as one from across a
+            # room. The attack cape does exactly this: a near-black band with gold points.
+            if r < COLLAR_ROWS:
+                tip = c <= 1 or c >= COLS - 3
+                col = tip_c if (tip and r == 0) else collar
             # THE STRIPES ARE INSET, not on the rim. A border on the outermost column was
             # invisible: those faces are where the cape curls away from the viewer and the light
             # has already fallen off them, so whatever colour they are they render dark. One
             # column in, on the flat of the cape, is where the attack cape wears its stripes too.
-            if c == 0 or c == COLS - 2:
+            elif c == 0 or c == COLS - 2:
                 col = edge
-            elif c == 1 or c == COLS - 3 or r == 0:
+            elif c == 1 or c == COLS - 3:
                 col = trim
             else:
                 # The body darkens as it falls, so the cloth has depth down its length rather
@@ -192,7 +225,7 @@ def build(mirror_emblem, lab_src):
     if mirror_emblem:
         ink = [list(reversed([(1.0 - x, y) for x, y in t])) for t in ink]
 
-    size = 34.0
+    size = 28.0
     cx, cy = 0.0, -108.0
     depth = max(m['vz'][v] for v in range(m['vcount'])) + 3.0
     lab = label_for(cy)
