@@ -131,7 +131,7 @@ def shape(s, t):
     return x, y, z
 
 
-def build(mirror_emblem, lab_src):
+def build(mirror_emblem, lab_src, verbose=False):
     m = dict(vcount=0, fcount=0, vx=[], vy=[], vz=[], tris=[], fa=[], fb=[], fc=[],
              colour=[], pri=[], flab=None, finfo=None, vlab=[], alpha=None)
 
@@ -225,8 +225,29 @@ def build(mirror_emblem, lab_src):
     if mirror_emblem:
         ink = [list(reversed([(1.0 - x, y) for x, y in t])) for t in ink]
 
-    size = 28.0
     cx, cy = 0.0, -108.0
+
+    # SIZED SO IT NEVER REACHES THE TRIM, which is how a real skillcape wears its device: the
+    # attack cape's shield sits well inside the panel with clear cloth either side of it, and
+    # never touches the stripes. Ours was set by eye at 28 and ran into them - and because the
+    # cape narrows as it rises, it was the TOP of the device that touched first, which is not
+    # something you would catch by measuring at its centre.
+    #
+    # So it is measured instead: the stripes live on vertex columns 1 and COLS-2, so the clear
+    # panel ends at column 2, and the device has to fit inside that at the narrowest point of its
+    # own height - with a couple of units of cloth to spare.
+    clear_s = abs(-1.0 + 2.0 * 2 / (COLS - 1))
+    span = [t / 400.0 for t in range(int(0.22 * 400), 401)]
+    nominal = 30.0
+    for _ in range(3):
+        rows_in_band = [tt for tt in span if abs(shape(0.0, tt)[1] - cy) <= nominal / 2.0]
+        if not rows_in_band:
+            break
+        narrowest = min(abs(shape(clear_s, tt)[0]) for tt in rows_in_band)
+        nominal = max(10.0, 2.0 * (narrowest - 2.5))
+    size = nominal
+    if verbose:
+        print(f'  device {size:.0f} wide; the clear panel is {2 * narrowest:.0f} at its narrowest')
     depth = max(m['vz'][v] for v in range(m['vcount'])) + 3.0
     lab = label_for(cy)
     cache = {}
@@ -275,7 +296,7 @@ def main():
     for name, mirror in (('obj_veteran_cape_manwear', True),
                          ('obj_veteran_cape_womanwear', True),
                          ('obj_veteran_cape', True)):
-        m = build(mirror, lab_src)
+        m = build(mirror, lab_src, verbose=(name.endswith('manwear') and 'woman' not in name))
         data = encode(m)
         parse_ob2(data)          # it has to read back, or the client never gets as far as drawing it
         path = os.path.join(objdir, name + '.ob2')
