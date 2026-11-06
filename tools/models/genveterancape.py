@@ -42,6 +42,7 @@ from PIL import Image
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from osrs2ob2 import parse_ob2, encode  # noqa: E402
+import dpglyph  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
@@ -82,7 +83,9 @@ SPEC = {
         box=(-12, 8, -12, -6, -12, 22),
         # Mirrored like the worn meshes: the inventory icon's camera (2dxan=504, 2dyan=0) also
         # looks at this face from the far side of it, which the first render showed as "bD".
-        plane='xz', height=30.0, stand=3.0, mirror=True,
+        # Flipped rather than mirrored: this mesh lies flat and its icon camera looks at the
+        # emblem from the opposite side again, so a mirror alone came out rotated 180 degrees.
+        plane='xz', height=30.0, stand=3.0, mirror=False, flip=True,
     ),
     'obj_attack_cape_manwear': dict(
         out='obj_veteran_cape_manwear',
@@ -347,16 +350,53 @@ def build(src_dir, src_name, spec, verbose=True):
     for i in range(len(rim)):
         face((hub, rim[i], rim[(i + 1) % len(rim)]), backing, pri)
 
-    # The monogram on top, A PRIORITY HIGHER so the two can never be sorted into each other.
-    # They sit a single unit apart, which is within the margin the client's depth sort works to
-    # once a pose has moved everything; the priority makes the order a fact rather than a race.
-    # Cracks between the letters' own quads then show the plate behind them rather than cloth.
+    # THE MONOGRAM IS POLYGONS, NOT A GRID OF LITTLE SQUARES. One quad per run of a bitmap is the
+    # obvious way to turn a picture into geometry and it looks wrong for a reason that has nothing
+    # to do with resolution: every edge becomes a staircase. Jagex's device is a handful of large
+    # polygons, so its edges are straight lines at any size, and beside it ours read as a smudge.
+    # dpglyph traces the letterforms and triangulates them instead - see that module.
+    ink, counters = dpglyph.monogram()
+    # Each mesh is seen from its own side, so the monogram is mirrored, flipped, or both to come
+    # out reading the right way round. EVERY REFLECTION ALSO REVERSES WINDING: a straight
+    # x -> 1-x left every face pointing away from the camera and the client culled the whole
+    # monogram, which is how this was found. Two reflections make a rotation and cancel out, so
+    # what matters is whether the count is odd. The old bitmap version flipped the PICTURE, where
+    # winding does not arise - which is why none of this came up until now.
+    reflections = 0
+    if spec['mirror']:
+        ink = [[(1.0 - x, y) for x, y in t] for t in ink]
+        counters = [[(1.0 - x, y) for x, y in t] for t in counters]
+        reflections += 1
+    if spec.get('flip'):
+        ink = [[(x, 1.0 - y) for x, y in t] for t in ink]
+        counters = [[(x, 1.0 - y) for x, y in t] for t in counters]
+        reflections += 1
+    if reflections % 2:
+        ink = [list(reversed(t)) for t in ink]
+        counters = [list(reversed(t)) for t in counters]
+
+    # SCALED TO FIT INSIDE THE PLATE, exactly. The old emblem put the monogram's bounding box over
+    # the plate's, so the corners - the sigil's spike, the D's top serif - landed on bare cloth
+    # outside the disc and read as stray red blocks nobody could explain. This finds the furthest
+    # ink vertex from the centre and shrinks until that one vertex is on the rim, so every part of
+    # the monogram is on the plate and none of it is wasted.
+    pts = [p for t in ink + counters for p in t]
+    reach = max(math.hypot((x - 0.5) * 2, (y - 0.5) * 2) for x, y in pts)
+    fit = 0.94 / reach
+
+    def place(t, off):
+        return tuple(vert(COLS * (0.5 + (x - 0.5) * fit), ROWS * (0.5 + (y - 0.5) * fit), off) for x, y in t)
+
+    # A PRIORITY HIGHER THAN THE PLATE so the two can never be sorted into each other: they sit a
+    # unit apart, which is inside the margin the client's depth sort works to once a pose has moved
+    # everything, and priority makes the order a fact rather than a race.
     emblem_colour = rgb_to_hsl16(*EMBLEM_RGB)
-    for r, c0, c1 in runs(grid(spec['mirror'])):
-        off = stand + 1.0
-        a, b, c, d = vert(c0, r, off), vert(c1, r, off), vert(c1, r + 1, off), vert(c0, r + 1, off)
-        face((a, b, c), emblem_colour, pri + 1)
-        face((a, c, d), emblem_colour, pri + 1)
+    for t in ink:
+        face(place(t, stand + 1.0), emblem_colour, pri + 1)
+    # The counters of the D and the P, painted over the letters in the plate's own colour rather
+    # than cut out of them - the same picture, without stitching a hole into a polygon.
+    for t in counters:
+        face(place(t, stand + 2.0), backing, pri + 2)
 
     data = encode(m)
     # It has to read back, or the client never gets as far as drawing it.
