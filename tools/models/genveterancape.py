@@ -68,6 +68,11 @@ EMBLEM_RGB = (184, 50, 40)
 # a cream one comes out a flat stone grey with no bronze left in it at all. Both were tried in the
 # client and both lost the colour. This sits at lightness 177, just under the first step down.
 BACKING_RGB = (238, 178, 116)
+
+# The counters of the D and the P. Normally the plate's own colour - they are meant to read as
+# holes in the letters - but kept separate so it can be set to something loud to find out whether
+# a bright patch inside a letter is really the counter or a culled triangle showing the plate.
+COUNTER_RGB = BACKING_RGB
 # Mid bronze - the same ramp the Veteran chat icon is drawn in, so rank and cape match.
 BRONZE_RGB = (168, 100, 46)
 
@@ -307,10 +312,34 @@ def build(src_dir, src_name, spec, verbose=True):
     w = h * aspect
     a0, u0 = ca - w / 2, cu - h / 2
     cw, ch = w / COLS, h / ROWS
-    base = surface(ca, cu)
-    stand = max(spec['stand'], abs(max(ed, key=abs) - base))
+    # THE EMBLEM SITS ON A FLAT PLANE, NOT ON THE CLOTH'S CURVE, and this is what stops it looking
+    # choppy. The client shades a face from its own normal. Follow the cape's curve and every
+    # triangle of the monogram gets a slightly different normal and so a slightly different red,
+    # and the letters read as crumpled foil rather than as paint. Jagex's emblem spans ONE unit of
+    # depth across its whole width - it is flat - and shades as a single tone. Ours spanned seven.
+    #
+    # A plane rather than a fixed depth, so it still leans with the cape instead of sticking out
+    # of it: least squares over the cloth under the emblem, then pushed out far enough to clear
+    # the frontmost of that cloth everywhere.
+    # ONE DEPTH FOR EVERY EMBLEM VERTEX, not a tilted plane and certainly not the cloth's curve.
+    #
+    # A tilted plane was the first attempt and it still shaded in steps, because a vertex's depth
+    # is rounded to a whole unit: tilt the plane and the rounding quantises it into a staircase,
+    # the triangles stop being exactly coplanar, and each one picks up its own normal and its own
+    # shade again. A single constant depth rounds to one number everywhere, so every triangle of
+    # the monogram is exactly coplanar and shades as one flat tone - which is what Jagex's does,
+    # and why its 26 vertices span a single unit of depth where ours spanned seven.
+    #
+    # It stands off the FRONTMOST cloth under it, so a flat badge on a curved cape never sinks in.
+    region = [v for v in cloth if a0 - cw <= m[A][v] <= a0 + w + cw and u0 - ch <= m[U][v] <= u0 + h + ch]
+    if len(region) < 6:
+        region = cloth
+    front = max(sign * m[D][v] for v in region)
+    stand = spec['stand']
+    flat = front + stand                      # in sign-space; vert() multiplies it back out
     if verbose:
-        print(f'  monogram {w:.0f}x{h:.0f}, cell {cw:.1f}x{ch:.1f}, standing {stand:.1f} off the cloth')
+        print(f'  monogram {w:.0f}x{h:.0f}, flat at depth {sign * flat:.0f}, '
+              f'{stand:.0f} clear of {len(region)} cloth verts')
 
     cache = {}
 
@@ -320,8 +349,9 @@ def build(src_dir, src_name, spec, verbose=True):
             return cache[(ca_, cu_, off)]
         a = round(a0 + ca_ * cw)
         u = round(u0 + cu_ * ch)
-        d = surface(a, u)
-        pos = {A: a, U: u, D: round(d + sign * off)}
+        # off is measured out from the flat plane, so the plate, the letters and the counters
+        # sit at three fixed depths rather than three curved sheets.
+        pos = {A: a, U: u, D: round(sign * (flat + (off - stand)))}
         m['vx'].append(pos['vx']); m['vy'].append(pos['vy']); m['vz'].append(pos['vz'])
         if m['vlab'] is not None:
             m['vlab'].append(emblem_lab)
@@ -396,7 +426,10 @@ def build(src_dir, src_name, spec, verbose=True):
     # The counters of the D and the P, painted over the letters in the plate's own colour rather
     # than cut out of them - the same picture, without stitching a hole into a polygon.
     for t in counters:
-        face(place(t, stand + 2.0), backing, pri + 2)
+        # LEVEL WITH THE PLATE, not standing in front of the letters. Priority already decides
+        # that these paint last, so they do not need to be physically nearer - and two units of
+        # float would show as a raised island inside each letter at any grazing angle.
+        face(place(t, stand), rgb_to_hsl16(*COUNTER_RGB), pri + 2)
 
     data = encode(m)
     # It has to read back, or the client never gets as far as drawing it.
