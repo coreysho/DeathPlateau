@@ -112,23 +112,30 @@ def shape(s, t):
     else:
         y = neck_y + (hem - neck_y) * ((t - NECK) / (1.0 - NECK))
 
-    # The collar lies close to the shoulders; the body stands off the back and wraps at the edges.
-    # Folds are GEOMETRY, not paint: the client shades a face from its own normal, so undulating
-    # the surface is the only thing that gives cloth light and dark bands.
+    # A NEARLY FLAT PANEL, NOT A BULGE - and the edges are a separate fold, added by the caller.
+    #
+    # In game this cape stood off the player's back like a plank, and the cross-section measured
+    # off the attack cape says why. Its cloth is flat: z 15 below the neck, 23 at the hem, roughly
+    # the same all the way across. What gives a real cape its shape is not a curve in the panel
+    # but the EDGES FOLDING SHARPLY BACK toward the body, to z -12 or so, which is why its total
+    # depth is -17..24 while ours reached 35 with no fold at all.
+    #
+    # Folds in the cloth are still geometry rather than paint - the client shades a face from its
+    # own normal - but they are shallow ripples in a flat sheet, not a barrel.
     if t < NECK:
         k = t / NECK
-        z = 2.0 + 13.0 * k - 10.0 * s * s
+        z = 2.0 + 13.0 * k
     else:
         k = (t - NECK) / (1.0 - NECK)
-        # THE EDGES COME FORWARD, THEY DO NOT WRAP BACK. Measured off the attack cape, its
-        # cloth sits at z 15 in the middle and z 20 at the rim - the cross-section is a shallow
-        # bowl facing the viewer, not a bulge. That is the whole reason its two bright stripes
-        # are visible on BOTH sides: edges that curve forward catch the light, edges that wrap
-        # away from the viewer go dark however they are coloured, which is what happened here
-        # when the body was given a -30 s-squared bulge and only the right-hand stripe showed.
-        folds = 2.0 * math.cos(5.0 * math.pi * s) * (0.3 + 0.7 * k)
-        z = 15.0 + 9.0 * k + 6.0 * s * s + folds
+        folds = 1.8 * math.cos(5.0 * math.pi * s) * (0.3 + 0.7 * k)
+        z = 15.0 + 8.0 * k + folds
     return x, y, z
+
+
+# How far back the cape's side edges fold, and how far in they come as they do. Measured off the
+# attack cape: its rim vertices sit at z -11..-15 while its panel is at 15..23.
+FOLD_Z = -12.0
+FOLD_IN = 0.86
 
 
 def build(mirror_emblem, lab_src, verbose=False):
@@ -164,32 +171,67 @@ def build(mirror_emblem, lab_src, verbose=False):
     # Two sheets of vertices: the outer surface, and a lining a little behind it. Separate
     # vertices, so the client works out each sheet's normals from its own faces only - sharing
     # them makes the lighting of the two fight.
-    front = [[None] * COLS for _ in range(ROWS)]
-    back = [[None] * COLS for _ in range(ROWS)]
+    # One extra column of vertices on each side: the cape's edge, folded back toward the body.
+    # It is what stops the cape reading as a flat board from the side, and the attack cape has the
+    # same thing - a rim at z -12 against a panel at 15..23.
+    NCOLS = COLS + 2
+    front = [[None] * NCOLS for _ in range(ROWS)]
+    back = [[None] * NCOLS for _ in range(ROWS)]
     for r in range(ROWS):
         t = r / (ROWS - 1)
-        for c in range(COLS):
-            s = -1.0 + 2.0 * c / (COLS - 1)
-            x, y, z = shape(s, t)
+        for c in range(NCOLS):
+            if c == 0 or c == NCOLS - 1:
+                side = -1.0 if c == 0 else 1.0
+                px, y, _ = shape(side, t)
+                x, z = px * FOLD_IN, FOLD_Z
+            else:
+                s = -1.0 + 2.0 * (c - 1) / (COLS - 1)
+                x, y, z = shape(s, t)
             front[r][c] = add(x, y, z)
             back[r][c] = add(x * 0.985, y, z - 3.0)
 
+    # THE CLOTH IS PRIORITY 0, WHICH IS THE WHOLE REASON IT STOPPED COVERING THE PLAYER.
+    #
+    # In game the cape was painted over the player's chest from the front. The client sorts faces
+    # by priority before depth, so a cape at priority 6 is painted AFTER a platebody at 3 and
+    # covers it however far behind the body it really is. Jagex's cape puts its 150 cloth faces at
+    # priority 0 - below the body - so the body paints over them, and its collar and emblem at 5
+    # and 6 where they are meant to be seen in front. Ours had everything at 6 and up.
+    #
+    # The emblem can stay high: from the front it faces away from the camera and is culled before
+    # priority ever comes into it.
+    # THE OUTER CLOTH AND THE LINING NEED DIFFERENT PRIORITIES, which is the whole of what was
+    # wrong in game. The client draws priorities 0-9 in strict order, before depth, so:
+    #
+    #   outer, 6   seen from BEHIND the player, where the cape must cover his back. 6 beats a
+    #              platebody at 3, so it does.
+    #   lining, 0  seen from the FRONT, through the player. 0 is drawn before the body at 3, so
+    #              the body covers it - and the chest stays clear.
+    #
+    # Everything was at 6 to begin with, so the lining painted over the player's chest from the
+    # front; putting everything at 0 instead fixed that and let the armour show through his back.
+    # It is not one number, it is which side of the cloth you are looking at.
     PRI = 6
+    PRI_LINING = 0
+    PRI_COLLAR = 6
     for r in range(ROWS - 1):
-        for c in range(COLS - 1):
+        for c in range(NCOLS - 1):
             # THE COLLAR IS ITS OWN PIECE, dark, with bright tips where it rises over each
             # shoulder - which is the detail that makes a skillcape read as one from across a
             # room. The attack cape does exactly this: a near-black band with gold points.
+            pri = PRI
             if r < COLLAR_ROWS:
-                tip = c <= 1 or c >= COLS - 3
+                tip = c <= 2 or c >= NCOLS - 4
                 col = tip_c if (tip and r == 0) else collar
+                pri = PRI_COLLAR
             # THE STRIPES ARE INSET, not on the rim. A border on the outermost column was
             # invisible: those faces are where the cape curls away from the viewer and the light
             # has already fallen off them, so whatever colour they are they render dark. One
             # column in, on the flat of the cape, is where the attack cape wears its stripes too.
-            elif c == 0 or c == COLS - 2:
+            elif c == 0 or c == NCOLS - 2:
+                # The folded edge itself.
                 col = edge
-            elif c == 1 or c == COLS - 3:
+            elif c == 1 or c == NCOLS - 3:
                 col = trim
             else:
                 # The body darkens as it falls, so the cloth has depth down its length rather
@@ -197,25 +239,25 @@ def build(mirror_emblem, lab_src, verbose=False):
                 col = body[r]
             a, b = front[r][c], front[r][c + 1]
             d, e = front[r + 1][c + 1], front[r + 1][c]
-            face(a, b, d, col, PRI)
-            face(a, d, e, col, PRI)
+            face(a, b, d, col, pri)
+            face(a, d, e, col, pri)
             # The lining, wound the other way so it is drawn only from behind.
             a2, b2 = back[r][c], back[r][c + 1]
             d2, e2 = back[r + 1][c + 1], back[r + 1][c]
-            face(d2, b2, a2, lining, PRI)
-            face(e2, d2, a2, lining, PRI)
+            face(d2, b2, a2, lining, PRI_LINING)
+            face(e2, d2, a2, lining, PRI_LINING)
 
     # Close the rim so the two sheets do not show an open edge from the side.
     rim = []
-    rim += [(front[0][c], front[0][c + 1], back[0][c], back[0][c + 1]) for c in range(COLS - 1)]
+    rim += [(front[0][c], front[0][c + 1], back[0][c], back[0][c + 1]) for c in range(NCOLS - 1)]
     rim += [(front[ROWS - 1][c + 1], front[ROWS - 1][c], back[ROWS - 1][c + 1], back[ROWS - 1][c])
-            for c in range(COLS - 1)]
+            for c in range(NCOLS - 1)]
     rim += [(front[r + 1][0], front[r][0], back[r + 1][0], back[r][0]) for r in range(ROWS - 1)]
-    rim += [(front[r][COLS - 1], front[r + 1][COLS - 1], back[r][COLS - 1], back[r + 1][COLS - 1])
+    rim += [(front[r][NCOLS - 1], front[r + 1][NCOLS - 1], back[r][NCOLS - 1], back[r + 1][NCOLS - 1])
             for r in range(ROWS - 1)]
     for fa_, fb_, ba_, bb_ in rim:
-        face(fa_, fb_, bb_, lining, PRI)
-        face(fa_, bb_, ba_, lining, PRI)
+        face(fa_, fb_, bb_, lining, PRI_LINING)
+        face(fa_, bb_, ba_, lining, PRI_LINING)
 
     # ---- the device, flat, on the outer surface
     #
@@ -236,7 +278,7 @@ def build(mirror_emblem, lab_src, verbose=False):
     # So it is measured instead: the stripes live on vertex columns 1 and COLS-2, so the clear
     # panel ends at column 2, and the device has to fit inside that at the narrowest point of its
     # own height - with a couple of units of cloth to spare.
-    clear_s = abs(-1.0 + 2.0 * 2 / (COLS - 1))
+    clear_s = abs(-1.0 + 2.0 * 1 / (COLS - 1))
     span = [t / 400.0 for t in range(int(0.22 * 400), 401)]
     nominal = 30.0
     for _ in range(3):
@@ -248,7 +290,10 @@ def build(mirror_emblem, lab_src, verbose=False):
     size = nominal
     if verbose:
         print(f'  device {size:.0f} wide; the clear panel is {2 * narrowest:.0f} at its narrowest')
-    depth = max(m['vz'][v] for v in range(m['vcount'])) + 3.0
+    # BARELY PROUD. Jagex's emblem sits at z 15..16 on cloth that is at 15 - it is flush, not
+    # raised - and ours standing 3 units off was part of why the cape measured 30 deep against
+    # its 24. It needs no standoff now that priority decides the order rather than depth.
+    depth = max(m['vz'][v] for v in range(m['vcount'])) + 1.0
     lab = label_for(cy)
     cache = {}
 
@@ -269,12 +314,109 @@ def build(mirror_emblem, lab_src, verbose=False):
     rc = rgb_to_hsl16(*EMBLEM_RIM)
     for t in rim_ink:
         a, b, c = (evert(x, y) for x, y in t)
-        face(a, b, c, rc, PRI + 1)
+        face(a, b, c, rc, 5)
 
     ec = rgb_to_hsl16(*EMBLEM)
     for t in ink:
         a, b, c = (evert(x, y, 1.6) for x, y in t)
-        face(a, b, c, ec, PRI + 2)
+        face(a, b, c, ec, 6)
+
+    return m
+
+
+def build_inventory(flip_device=False):
+    """The cape as it lies on the ground and in the bag - flat, not standing up.
+
+    THE WORN MESH IS THE WRONG SHAPE FOR THIS, which the first in-game look made obvious: the
+    inventory icon was an unreadable brown sliver and the ground model a dark blob, because both
+    were drawing a cape standing on its hem. Jagex's inventory models for capes lie DOWN - the
+    attack cape's is 64 wide, 17 tall and 124 long - and the icon camera looks down on them.
+
+    So this is the cloth laid out and draped: a sheet along z, mounded in the middle as if it has
+    been dropped rather than folded flat, with the device on top where it can be seen.
+    """
+    m = dict(vcount=0, fcount=0, vx=[], vy=[], vz=[], tris=[], fa=[], fb=[], fc=[],
+             colour=[], pri=[], flab=None, finfo=None, vlab=None, alpha=None)
+
+    def add(x, y, z):
+        m['vx'].append(round(x)); m['vy'].append(round(y)); m['vz'].append(round(z))
+        m['vcount'] += 1
+        return m['vcount'] - 1
+
+    def face(a, b, c, colour, pri=0):
+        m['fa'].append(a); m['fb'].append(b); m['fc'].append(c)
+        m['colour'].append(colour); m['pri'].append(pri)
+        m['fcount'] += 1
+
+    trim = rgb_to_hsl16(*TRIM)
+    tip_c = rgb_to_hsl16(*COLLAR_TIP)
+    collar = rgb_to_hsl16(*COLLAR)
+    lining = rgb_to_hsl16(*LINING)
+    tone = [rgb_to_hsl16(*(round(a + (b - a) * (r / (ROWS - 1))) for a, b in zip(OUTER, OUTER_HEM)))
+            for r in range(ROWS)]
+
+    NC = 9
+    top = [[None] * NC for _ in range(ROWS)]
+    bot = [[None] * NC for _ in range(ROWS)]
+    for r in range(ROWS):
+        t = r / (ROWS - 1)
+        # Narrow at the collar end, wider at the hem, the same taper the worn cape has.
+        half = 15.0 + 15.0 * t
+        # COLLAR END TOWARD +z, which is the end the icon camera puts at the TOP. The first
+        # version had it the other way round and the icon showed a cape hanging by its hem.
+        z = 58.0 - 116.0 * t
+        for c in range(NC):
+            s = -1.0 + 2.0 * c / (NC - 1)
+            x = half * s
+            # Up is NEGATIVE y here. The mound is highest along the middle and settles at the
+            # edges, so the cloth reads as dropped rather than pressed flat.
+            lift = -13.0 * math.cos(s * math.pi / 2) ** 2 * (0.35 + 0.65 * math.sin(t * math.pi))
+            top[r][c] = add(x, lift, z)
+            bot[r][c] = add(x, 0.0, z)
+
+    for r in range(ROWS - 1):
+        for c in range(NC - 1):
+            if r == 0:
+                # Bright points at the two collar corners, as the worn cape has.
+                col = tip_c if (c == 0 or c == NC - 2) else collar
+            elif c == 0 or c == NC - 2:
+                col = trim
+            else:
+                col = tone[r]
+            a, b = top[r][c], top[r][c + 1]
+            d, e = top[r + 1][c + 1], top[r + 1][c]
+            face(a, d, b, col)
+            face(a, e, d, col)
+            a2, b2 = bot[r][c], bot[r][c + 1]
+            d2, e2 = bot[r + 1][c + 1], bot[r + 1][c]
+            face(a2, b2, d2, lining)
+            face(a2, d2, e2, lining)
+
+    # The device, lying on top of the cloth a third of the way down.
+    ink, _ = dpglyph.veteran()
+    if flip_device:
+        ink = [list(reversed([(1.0 - x, y) for x, y in t])) for t in ink]
+    rim_ink, _ = dpglyph.veteran(dilate=1)
+    if flip_device:
+        rim_ink = [list(reversed([(1.0 - x, y) for x, y in t])) for t in rim_ink]
+
+    size = 23.0
+    cz = 58.0 - 116.0 * 0.42
+    peak = min(m['vy'])
+    cache = {}
+
+    def dvert(nx, ny, lift):
+        key = (round(nx, 4), round(ny, 4), lift)
+        if key not in cache:
+            cache[key] = add((nx - 0.5) * size, peak - lift, cz + (ny - 0.5) * size)
+        return cache[key]
+
+    for t_ in rim_ink:
+        a, b, c = (dvert(x, y, 1.0) for x, y in t_)
+        face(a, b, c, rgb_to_hsl16(*EMBLEM_RIM), 5)
+    for t_ in ink:
+        a, b, c = (dvert(x, y, 2.0) for x, y in t_)
+        face(a, b, c, rgb_to_hsl16(*EMBLEM), 6)
 
     return m
 
@@ -296,7 +438,11 @@ def main():
     for name, mirror in (('obj_veteran_cape_manwear', True),
                          ('obj_veteran_cape_womanwear', True),
                          ('obj_veteran_cape', True)):
-        m = build(mirror, lab_src, verbose=(name.endswith('manwear') and 'woman' not in name))
+        # The inventory and ground model is a different shape entirely - lying down, not worn.
+        if name == 'obj_veteran_cape':
+            m = build_inventory()
+        else:
+            m = build(mirror, lab_src, verbose=name.endswith('_manwear'))
         data = encode(m)
         parse_ob2(data)          # it has to read back, or the client never gets as far as drawing it
         path = os.path.join(objdir, name + '.ob2')
