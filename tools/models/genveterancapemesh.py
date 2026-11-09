@@ -1,4 +1,20 @@
 #!/usr/bin/env python3
+# SUPERSEDED BY genveterancape.py, AND IT WRITES THE SAME THREE FILES - running it clobbers the
+# shipped cape.
+#
+# This built a skillcape from scratch, because the attack cape has a gap in the middle of its back
+# that forced a disc behind our device. It was the right idea and it did not work: in game the
+# cape painted over the player, stood off his back like a plank, and lay on the floor as a lump,
+# and each round of fixes found new faults. A parametric sheet does not come out like an authored
+# mesh.
+#
+# The gap is MENDED now instead - eight faces, found by walking the surface's boundary loops - so
+# the cape keeps Jagex's drape, fold, collar, animation labels and draw priorities, which were the
+# things that kept going wrong here.
+#
+# Kept because what it learned is still true of any worn model built by hand: how the outer cloth
+# and the lining need different draw priorities, that a cape's edges fold back rather than bulge,
+# and that an inventory model lies down while a worn one stands up.
 """Build the Veteran cape's mesh from scratch - a skillcape silhouette with no hole in it.
 
 WHY NOT KEEP USING THE ATTACK CAPE'S MESH. It has a real hole in the middle of its back. Render it
