@@ -215,8 +215,14 @@ def build(objdir, src, spec, verbose=True):
     if m['vlab'] is not None:
         labs = [m['vlab'][v] for v in ev]
         lab = max(set(labs), key=labs.count)
-    cloth = [v for v in range(m['vcount']) if (m[D][v] > 6 if sign > 0 else m[D][v] < -2)]
-    depth = max(sign * m[D][v] for v in cloth) + 1.0
+    # THE DEPTH OF THE EMBLEM WE TOOK OFF, not the deepest point of the whole cape.
+    #
+    # In game the device floated clear of the cloth, and this line is why: it measured the
+    # frontmost cloth ANYWHERE - which is the hem, at z 24 - while the cloth under the emblem sits
+    # at 14..20. The device was placed at 20..26 and stood up to ten units off its own backing.
+    # Jagex's emblem is at 15..16 on that same cloth: flush. Taking the depth from the faces being
+    # replaced puts ours exactly where theirs was, and keeps it right on the other meshes too.
+    depth = max(sign * m[D][v] for v in ev)
 
     ink = orient(dpglyph.veteran()[0], spec)
     rim = orient(dpglyph.veteran(dilate=1)[0], spec)
