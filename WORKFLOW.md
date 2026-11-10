@@ -93,9 +93,23 @@ build.
   `npm install` and pauses so the window survives a crash). Both run `start.js`,
   the upstream orchestrator: a menu with Start Server, Update Source, Run Java
   Client. "Update Source" is `git pull` in all four folders.
-- **The live server:** the LXC, `cd /opt/lostcity && ./deploy.sh`. That pulls
-  `377-wip` for content and engine. It does not touch the java client, so a
+- **The live server:** the LXC, `cd /opt/deathplateau && ./deploy.sh` (the box
+  was named before the server was, and still answers to `/opt/lostcity` too -
+  `deploy.sh` resolves whichever of the two it finds). That pulls `377-wip` for
+  content and engine, snapshots the saves, builds, migrates the database and
+  restarts the world. `--countdown=300` warns players first, and starts the
+  timer only once the build has succeeded, so a failed build leaves them
+  playing. `--dev` does all of it to World 2 instead, which is staff-only with
+  its own saves, database and service. It does not touch the java client, so a
   client change needs a rebuilt jar distributed separately.
+- **Launch day, and the wipe:** `content/tools/launch-day.sh`, on the box. It
+  prints the sequence - off-site backup, deploy, world down, wipe, world up,
+  website, veteran rank - with the reason each step is where it is, and reports
+  what the box says about each one. It acts on nothing: the only thing it runs
+  is the wipe's own dry run. The wipe is `Engine-TS/tools/server/wipe.ts`, which
+  refuses while anybody is logged in, moves saves rather than deleting them, and
+  can be rehearsed against a copy of the live data with the world still up:
+  `tools/server/rehearse-wipe.sh`.
 - **Only one engine checkout.** It is `Engine-TS`. There was a second one at
   `engine\` for a long time - same repo, cloned and then abandoned: 761 commits
   behind, no `data\pack` because it had never been built, and 420 lines of
