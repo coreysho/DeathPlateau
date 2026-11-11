@@ -8,10 +8,12 @@ Built 11 November 2026. One map square nobody can walk to, reached by `::sz`
 | repo | branch | what |
 |---|---|---|
 | DeathPlateau-Engine | `claude/custom-staff-zone-j1ibx8` | **pushed.** The `::sz` command, the rank, the shared free-teleport rule, and `tools/sim/staffzone.ts` |
-| DeathPlateau-Content | `claude/custom-staff-zone-j1ibx8` | **not pushed** - this session was not given push access to the content repo. The commit is `0001-staff-zone-content.patch` beside this file: `git am 0001-staff-zone-content.patch` on `377-wip` |
+| DeathPlateau-Content | `claude/custom-staff-zone-j1ibx8` | **pushed.** The generator, the `.jm2`, its two ids in `pack/map.pack`, the teleport and the login guard |
 
-The patch is here rather than only in the cloud session because a cloud
-container is reclaimed after a while and an unpushed commit goes with it.
+Both halves are on their remotes, so there is nothing here to apply. The patch
+that used to sit beside this file was for the few hours when the session could
+push the engine repo and not the content one; it is gone, and the branch above
+is the same commit it carried.
 
 ## The square
 
