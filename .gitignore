@@ -26,5 +26,12 @@ __pycache__/
 gwdspawns.json
 gwdgarrison.json
 
-# A dev client run log, written beside the tools that start one. Not source.
-tools/dev-client.log
+# A dev client run log. Written to whatever directory the client was started from, which is
+# tools/ for the scripts that launch one and the repo root for tools/models/renderscene.py - so
+# the pattern is unanchored rather than the tools/ path it used to be. Not source.
+dev-client.log
+
+# SceneRender compiled against the java client, which is how a map square is looked at without
+# logging in (tools/models/renderscene.py puts this directory on the classpath). Rebuilt by the
+# javac line in "Claude outputs/staff-zone/staff-zone.md" whenever it is needed. Not source.
+tools/models/jagex2/
