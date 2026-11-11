@@ -15,6 +15,28 @@ that used to sit beside this file was for the few hours when the session could
 push the engine repo and not the content one; it is gone, and the branch above
 is the same commit it carried.
 
+## How it looks, and how to look at it
+
+![before](before-camp.png)
+![after](after-camp.png)
+
+The first build (top) was a brown car park: the palette was Death Plateau's own, which is genuinely
+brown rock, and every colour was one out besides - the client resolves underlay and overlay through
+`FloType.field796[id - 1]`, so a `.jm2` that says 54 draws flo 53. The second (bottom) is White Wolf
+Mountain's `ice` with grey stone, a ring of peaks instead of a void, and some light.
+
+To see it yourself without logging in - this is what every look decision was made from:
+
+```
+cd javaclient && javac -d build/classes/java/main $(find src/main/java launcher/src -name '*.java')
+javac -cp javaclient/build/classes/java/main -d tools/models tools/models/SceneRender.java
+python3 tools/models/renderscene.py --engine Engine-TS --content content --square 22_56 \
+    --out /tmp/sz --view camp:1440:3604:850:0:205:3:0
+```
+
+A view is `name:tileX:tileZ:cameraHeight:yaw:pitch:topLevel:groundLevel` - yaw 0 looks north, 1536
+east; pitch 128 is flat and 383 straight down.
+
 ## The square
 
 `m22_56`, world x 1408..1471, z 3584..3647. `::sz` lands on `0_22_56_32_32`
