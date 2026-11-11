@@ -34,15 +34,57 @@ import dpglyph  # noqa: E402
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
 
-# Mid bronze - the ramp the Veteran chat icon is drawn in, so the rank reads as one thing.
-BRONZE_RGB = (168, 100, 46)
-# The device, dark against the cloth: this cape's own idiom, since it wears a dark grey sword on
-# a gold shield.
-EMBLEM_RGB = (58, 32, 14)
-# A lighter rim just behind it, so it reads as struck into the cloth rather than painted on.
-# Dialled back from (236, 170, 110): at full brightness the rim read louder than the device it
-# was meant to outline.
-EMBLEM_RIM_RGB = (206, 142, 84)
+# TWO MATERIALS, NOT ONE. This was a single bronze tint over the whole cape - cloth and trim
+# alike, "all one metal" - because one hue cannot be two things. The cape is now dark cloth with
+# a gunmetal trim, which needs the two told apart, and the source model already separates them:
+# on the worn model two thirds of the surface is the trim ramp and a third is cloth.
+#
+# Only the HUE AND SATURATION of these constants are used - tint() keeps each face's own
+# lightness, which is what preserves Jagex's shading - so their brightness here is chosen to be
+# readable in a diff, not to set how dark the cape is.
+#
+# NOTE: the bronze these replace was deliberately the ramp the Veteran chat icon is drawn in, so
+# the rank read as one thing. That link is broken until the icon is recoloured to match.
+CLOTH_RGB = (120, 87, 61)
+# Gunmetal: a NEUTRAL dark grey. Saturation 0 on purpose - the first saturation step this palette
+# can express (32..63 of 255, after the >>5) already reads as teal rather than as a cast, and the
+# screenshot this was matched to is itself saturation 0 once quantised. Gunmetal here is a matter
+# of lightness, not of hue.
+TRIM_RGB = (150, 150, 150)
+# Jagex's trim ramp tops out at lightness 103 of 127, which is a bright gold highlight and comes
+# out as near-white silver. Gunmetal sits lower, so the trim ramp is pulled down the same way the
+# cloth is - and separately from it, because the two are the contrast the cape is made of.
+TRIM_LIGHT = 1.0
+# HOW DARK THE CLOTH IS, as a scale on each cloth face's own lightness - the one thing hue and
+# saturation cannot do. Jagex's ramp runs from 12 to 103 across the cape and its lining, and a
+# straight hue swap keeps all of it, which comes out as a mid brown. The cape being asked for is
+# nearly black, so the whole ramp is pulled down together: the relative shading survives, the
+# cape just stops catching the light. Trim and device are not scaled - they are the thing meant
+# to catch it.
+CLOTH_LIGHT = 0.32
+cloth_light = CLOTH_LIGHT
+trim_light = TRIM_LIGHT
+# THE TRIM BANDS ARE MAGENTA IN THE MESH. Resolved through the client palette, hues 52-55 are
+# rgb(249,15,209) and rgb(157,10,167) - a placeholder ramp, not a colour anybody sees, because the
+# Attack cape's own obj config recolours it. The old global tint absorbed it by accident, which is
+# why nothing ever looked wrong; painting the two groups separately means this one has to be
+# handled on purpose instead.
+#
+# Its brightest step is hue 53 at saturation 1, rgb(222,207,222), which reads as a pale lining
+# rather than as part of the ramp - it was excluded on that basis once, and the render said so by
+# keeping brown bands where it wanted grey ones. Saturation is shed as lightness climbs in
+# hsl24to16 above (>>1 past 179, >>2 past 192), so at lightness 103 it survives as 1.
+#
+# Hue alone, then. Everything else on the cape is hue 0, 6 or 8, so one threshold separates them,
+# and the areas printed below say so if that ever stops being true.
+TRIM_HUE = 40
+# The device, LIGHT against the cloth now - the old dark brown device worked on bronze and would
+# disappear into a cape this dark.
+EMBLEM_RGB = (200, 200, 200)
+# A darker rim just behind it, so it reads as struck into the cloth rather than painted on. It was
+# lighter than the device when the cloth was bronze; against dark cloth the separation has to come
+# from the other side.
+EMBLEM_RIM_RGB = (118, 118, 118)
 
 EMBLEM_COLOURS = {11224, 7116, 103, 51, 6563, 9152, 59, 7104}
 
@@ -177,9 +219,30 @@ def build(objdir, src, spec, verbose=True):
             m[k] = [m[k][i] for i in keep]
     m['fcount'] = len(keep)
 
-    bronze = rgb_to_hsl16(*BRONZE_RGB)
-    m['colour'] = [tint(c, bronze) for c in m['colour']]
-    fill_col = tint(fill_col, bronze)
+    cloth = rgb_to_hsl16(*CLOTH_RGB)
+    trim = rgb_to_hsl16(*TRIM_RGB)
+
+    def is_trim(c):
+        return ((c >> 10) & 0x3F) >= TRIM_HUE
+
+    def repaint(c):
+        if is_trim(c):
+            lit = max(1, min(0x7F, int(round((c & 0x7F) * trim_light))))
+            return (trim & 0xFF80) | lit
+        lit = max(1, min(0x7F, int(round((c & 0x7F) * cloth_light))))
+        return (cloth & 0xFF80) | lit
+
+    if verbose:
+        # Said out loud because the split is the whole point: a source model whose trim stopped
+        # being gold would silently come out as cloth, and the cape would lose its border.
+        share = collections.Counter()
+        for i in range(m['fcount']):
+            share['trim' if is_trim(m['colour'][i]) else 'cloth'] += abs(area2(m, i))
+        total = sum(share.values()) or 1
+        print('  %.0f%% cloth, %.0f%% trim' % (100.0 * share['cloth'] / total, 100.0 * share['trim'] / total))
+
+    m['colour'] = [repaint(c) for c in m['colour']]
+    fill_col = repaint(fill_col)
 
     def face(a, b, c, colour, priority):
         m['fa'].append(a); m['fb'].append(b); m['fc'].append(c)
@@ -260,8 +323,15 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--content', default=os.path.join(ROOT, 'content'))
     ap.add_argument('--preview')
+    ap.add_argument('--cloth-light', type=float, default=CLOTH_LIGHT,
+                    help="scale on the cloth lightness ramp (1.0 = Jagex's own)")
+    ap.add_argument('--trim-light', type=float, default=TRIM_LIGHT,
+                    help="scale on the trim lightness ramp (1.0 = Jagex's own)")
     a = ap.parse_args()
 
+    global cloth_light, trim_light
+    cloth_light = a.cloth_light
+    trim_light = a.trim_light
     objdir = os.path.join(a.content, 'models', 'obj')
     written = []
     for src, spec in SPEC.items():
