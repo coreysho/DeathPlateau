@@ -5,8 +5,9 @@ nothing else recorded it. `git remote -v` in each folder confirms all of it.
 
 ## Where things live
 
-`C:\LostCityServer` is the orchestrator - this repo. The other three are nested
-inside it, each its own git repo:
+On the Windows box, `C:\LostCityServer` is the orchestrator - this repo. The
+other three are nested inside it, each its own git repo. **The live server is
+laid out differently; its table is the next section.**
 
 | folder | repo | branch |
 |---|---|---|
@@ -17,6 +18,69 @@ inside it, each its own git repo:
 
 Each has two remotes: `origin` is the fork, `upstream` is LostCityRS, so
 `git fetch upstream` still pulls the project's own updates.
+
+## THE LIVE SERVER IS NOT THAT LAYOUT
+
+The table above is the Windows box. The live server is an LXC container on
+Proxmox and its folders are named differently, which matters because a path
+copied out of this file fails there - `cd: /opt/deathplateau/Engine-TS: No such
+file or directory`, 15 November 2026, from following this very document.
+
+| folder | repo | branch |
+|---|---|---|
+| `/opt/deathplateau` | holds `deploy.sh` and the `players-backup-<date>` snapshots | |
+| `/opt/deathplateau/engine` | coreysho/DeathPlateau-Engine | `377-wip` |
+| `/opt/deathplateau/content` | coreysho/DeathPlateau-Content | `377-wip` |
+| `/opt/deathplateau/web` | coreysho/DeathPlateau-Web | `main` |
+
+`engine`, not `Engine-TS`. **There is no java client on the box at all** -
+`deploy.sh` does not touch it, so a client change needs a jar built and
+distributed separately. `start.bat`, `start-safe.bat` and `start.js` are the
+Windows box's and have no part in the live server: `deploy.sh` is the whole of
+it. PowerShell does not run here either - `Get-ChildItem Env:` and
+`$env:USERPROFILE` belong to the other table.
+
+The box also answers to `/opt/lostcity`; it was named before the server was,
+and `deploy.sh` resolves whichever of the two it finds.
+
+Two systemd units: `deathplateau.service` is the world, `deathplateau-web.service`
+is the website. `deploy.sh` restarts both and then tails the game log, and says
+so: Ctrl-C stops the tail, not the server.
+
+### The commands that only exist on the box
+
+From `/opt/deathplateau/engine` unless stated otherwise:
+
+- `bash tools/server/backup-offsite.sh` - snapshots the four sqlite databases
+  (accounts, tradingpost, clans, vote) and the player saves, writes
+  `/var/backups/dp-offsite/dp-<stamp>.tar.gz` and sends it to
+  `root@10.8.0.1:/var/backups/deathplateau`, keeping 14 archives at each end.
+  **`bash`, not `sh`**: it uses `set -o pipefail`, which dash refuses with
+  "Illegal option -o pipefail". `./tools/server/backup-offsite.sh` is fine too -
+  the shebang is right, and only `sh <file>` overrides it. The archive includes
+  the login key, which it tells you, so treat it as a secret.
+- `npx tsx tools/server/wipe.ts --profile main --confirm` - the wipe. Keeps
+  staff, moves characters to `data/players/main/wiped-<stamp>` rather than
+  deleting them, credits vote tickets back, clears the trading post and the
+  non-staff clan channels, and backs up every database it touches first. World
+  down before it, up after. `tools/server/rehearse-wipe.sh` runs it against a
+  copy with the world still up.
+- `npx tsx tools/server/account.ts <command>` - ranks, items, stats, passwords.
+  Its own file header is the full list. It refuses to write while that account
+  is logged in, and proves the new bytes load before replacing a save.
+- `cd ../web && node scripts/discord-panels.mjs <panel>` posts a Discord panel
+  and prints its message id; `--edit <id>` rewrites that message instead of
+  posting a second copy of it.
+
+Two things about git and sqlite there, both learned the hard way:
+
+- As root, git inside `/opt/deathplateau/web` needs
+  `git -c safe.directory=/opt/deathplateau/web` - git refuses a repository whose
+  owner is not the user running it ("dubious ownership").
+- `sqlite3` is installed, so `engine/db.sqlite` can be edited directly, and
+  sometimes has to be. Prefer `account.ts`: it is the path that checks a save
+  still loads. Either way copy the file first - that is what the
+  `db.sqlite.pre-*` copies sitting in that folder are.
 
 `caches/` holds the source caches for asset imports (474, OSRS). It is
 gitignored, so it exists only on the machine that downloaded it. Measured, not
@@ -106,7 +170,8 @@ build.
   prints the sequence - off-site backup, deploy, world down, wipe, world up,
   website, veteran rank - with the reason each step is where it is, and reports
   what the box says about each one. It acts on nothing: the only thing it runs
-  is the wipe's own dry run. The wipe is `Engine-TS/tools/server/wipe.ts`, which
+  is the wipe's own dry run. The wipe is `tools/server/wipe.ts` in the engine
+  checkout - `engine/` on the box, `Engine-TS\` on Windows - which
   refuses while anybody is logged in, moves saves rather than deleting them, and
   can be rehearsed against a copy of the live data with the world still up:
   `tools/server/rehearse-wipe.sh`.
