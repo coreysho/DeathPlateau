@@ -95,7 +95,45 @@
                  if (class13.children[j] === -1) {
 --- a/osrs/GameShell.ts
 +++ b/osrs/GameShell.ts
-@@ -145,6 +145,17 @@
+@@ -109,9 +109,37 @@
+         this.gameGraphics = new Graphics(canvas);
+     }
+ 
++    /**
++     * Mouse position in CANVAS pixels.
++     *
++     * offsetX/offsetY are CSS pixels relative to the element, which only match the canvas's own
++     * coordinates while the two sizes agree. The page sizes the canvas with CSS so it fits the
++     * window - on a phone it has to - and every click then lands off by the stretch ratio, further
++     * out the nearer the edge. The backing store is the frame the client drew, so scale into it.
++     */
++    private eventX(e: MouseEvent): number {
++        const r = this.canvas.getBoundingClientRect();
++        return r.width > 0 ? Math.round((e.clientX - r.left) * (this.canvas.width / r.width)) : e.offsetX;
++    }
++
++    private eventY(e: MouseEvent): number {
++        const r = this.canvas.getBoundingClientRect();
++        return r.height > 0 ? Math.round((e.clientY - r.top) * (this.canvas.height / r.height)) : e.offsetY;
++    }
++
+     public async initializeApplication(_width: number, _height: number) {
+         this.width = _width;
+         this.height = _height;
++        // Size the canvas BACKING STORE, which nothing else does. Without this it keeps the HTML
++        // default of 300x150, and a canvas only accepts pixels inside its backing store: the 3D
++        // viewport is drawn at 4,4 and survives in part, while the whole UI - tabs at x=553,
++        // chatbox at y=357, minimap at x=722 - is clipped away before it reaches the screen. Any
++        // CSS size then stretches those 300x150 pixels up, which is what made the game look
++        // magnified rather than missing. Frame cost barely moves when this is fixed: the scene is
++        // rasterised into its own 512x334 buffer either way, and only the final blit was being
++        // clipped.
++        this.canvas.width = _width;
++        this.canvas.height = _height;
+         // this.gameFrame = new GameFrame(this, this.width, this.height);
+         this.gameGraphics = new Graphics(this.canvas);
+         this.imageProducer = new ProducingGraphicsBuffer(this.width, this.height);
+@@ -145,6 +173,17 @@
          Game.parallelExecutor.startRaw(this.mainLoop, this);
      }
  
@@ -113,7 +151,7 @@
      public async mainLoop(): Promise<boolean> {
          const ld = this.loopData;
          if (this.gameState > 0) {
-@@ -193,7 +204,19 @@
+@@ -193,7 +232,19 @@
                  this.clickY = this.eventClickY;
                  this.clickTime = this.lastClick;
                  this.eventMouseButtonPressed = 0;
@@ -134,7 +172,7 @@
                  this.readIndex = this.writeIndex;
              }
          }
-@@ -201,7 +224,26 @@
+@@ -201,7 +252,26 @@
          if (this.deltime > 0) {
              this.fps = ((1000 * ld.ratio) / (this.deltime * 256)) | 0;
          }
@@ -162,6 +200,39 @@
          if (this.dumpRequested) {
              console.info("ntime:" + currentTime);
              for (let i: number = 0; i < 10; i++) {
+@@ -279,8 +349,8 @@
+     }
+ 
+     public mousePressed(mouseevent: MouseEvent) {
+-        let mouseX: number = mouseevent.offsetX;
+-        let mouseY: number = mouseevent.offsetY;
++        let mouseX: number = this.eventX(mouseevent);
++        let mouseY: number = this.eventY(mouseevent);
+ 
+         this.idleTime = 0;
+         this.eventClickX = mouseX;
+@@ -314,8 +384,8 @@
+     }
+ 
+     public mouseDragged(mouseevent: DragEvent) {
+-        let mouseX: number = mouseevent.offsetX;
+-        let mouseY: number = mouseevent.offsetY;
++        let mouseX: number = this.eventX(mouseevent);
++        let mouseY: number = this.eventY(mouseevent);
+ 
+         if (this.mouseWheelDown) {
+             mouseY = this.mouseWheelX - mouseevent.x;
+@@ -333,8 +403,8 @@
+     public mouseWheelDragged(param1: number, param2: number) {}
+ 
+     public mouseMoved(mouseevent: MouseEvent) {
+-        let mouseX: number = mouseevent.offsetX;
+-        let mouseY: number = mouseevent.offsetY;
++        let mouseX: number = this.eventX(mouseevent);
++        let mouseY: number = this.eventY(mouseevent);
+         
+         this.idleTime = 0;
+         this.mouseX = mouseX;
 --- a/osrs/util/PacketConstants.ts
 +++ b/osrs/util/PacketConstants.ts
 @@ -1,20 +1,20 @@

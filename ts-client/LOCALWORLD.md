@@ -115,42 +115,71 @@ new-player spawn skips it entirely. That spawn is hardcoded in the engine, `Play
 **This is a rig-only edit and the engine checkout here was restored afterwards.** It is the one
 change needed to get a client into a populated scene without playing through the tutorial.
 
+## It is playable
+
+Against the local world, verified by driving it: the scene renders with the full interface -
+minimap, tab icons, chatbox, status bar - click-to-move walks the character (`movementAnimation`
+819 in transit, idle 808 on arrival), the tabs switch the sidebar (combat 5855, inventory 3213,
+equipment 1644), and typing reaches the chat line. Stable across two minutes at 42-50 fps.
+
+Two bugs stood between "the world renders" and that, and both were in the shell rather than the
+game.
+
+**The canvas backing store was never sized.** `initializeApplication` sets `this.width/height` and
+`Graphics` takes the element, but nothing ever sets `canvas.width`/`canvas.height`, so it kept the
+HTML default of **300x150**. A canvas only accepts pixels inside its backing store, so the 3D
+viewport drawn at 4,4 survived in part while the entire interface - tabs at x=553, chatbox at
+y=357, minimap at x=722 - was clipped away before it reached the screen. Any CSS size then
+stretched those 300x150 pixels up, which is why it looked magnified rather than missing, and why
+"the UI is broken" was the wrong description of it.
+
+**Mouse coordinates were taken in CSS pixels.** The handlers read `offsetX`/`offsetY`, which match
+the canvas's own coordinates only while the two sizes agree. The page sizes the canvas with CSS to
+fit the window - on a phone it must - and every click then landed off by the stretch ratio, worse
+the nearer the edge. `eventX`/`eventY` scale into the backing store instead. This one matters more
+for the phone than the desktop: it is the same class of bug as the long-press offset in the
+CheerpJ client, and it would have made touch input feel broken in a way nothing in the renderer
+could explain.
+
 ## The frame cost, which is the number that matters
 
-Lumbridge castle courtyard - terrain, hedges, stone stairs, an animated fountain, an NPC and two
-player avatars - measured over 50 seconds:
+Lumbridge castle courtyard - terrain, hedges, stone stairs, an animated fountain, an NPC and other
+player avatars - over two minutes:
 
-    fps        50, dipping to 42-47
-    draw       10-13 ms per frame, average
-    draw peak  36.6 ms
+    fps        42-50
+    draw       9-14 ms per frame
+    draw peak  40.9 ms
     logic      0.04 ms
+    budget     20 ms
 
 **fps alone could not have answered this.** The 377 client caps itself at 50 - `fps = 1000 * ratio
 / (deltime * 256)`, with `ratio` capped at 256 and `deltime` 20 - so a machine with ten times the
-headroom reports the same 50 as one with none. Every "50 fps" earlier in this work meant only "not
-yet failing".
+headroom reports the same 50 as one with none.
 
-The frame budget at 50 fps is 20 ms. Drawing uses **half to two thirds of it on a desktop-class
-container CPU**, and the worst frame seen went 80% over budget, which is where the dips to 42 come
-from. Game logic is free by comparison - 0.04 ms - so this is entirely the software rasterizer.
+Sizing the canvas properly barely moved the cost, which is worth knowing: the scene is rasterised
+into its own 512x334 buffer either way, and only the final blit to the canvas was being clipped.
+The renderer was always doing the full work.
 
-That does not settle the phone, and nothing measured in this container can. But it replaces a
-guess with arithmetic: a phone running single-threaded JavaScript at a third of this speed would
-need 30-40 ms a frame and land near 25-30 fps; at a fifth, 50-65 ms and nearer 15-20. Those are
-scaled estimates, not measurements.
+Drawing uses **half to two thirds of the frame budget on a desktop-class container CPU**, and the
+worst frames run over it, which is where the dips to 42 come from. Game logic is free by
+comparison - 0.04 ms - so this is entirely the software rasterizer.
+
+That does not settle the phone, and nothing measured in this container can. It replaces a guess
+with arithmetic: a phone running single-threaded JavaScript at a third of this speed would need
+30-40 ms a frame and land near 25-30 fps; at a fifth, 50-65 ms and nearer 15-20. Scaled estimates,
+not measurements.
 
 **The rig can now produce the real number.** The same page, opened on a phone against this world,
-reports `drawMs` directly - `__game.drawMs`, `__game.drawPeakMs`. That is the Phase 0 gate, and it
-is one device away rather than one project away.
+reports it directly - `__game.drawMs`, `__game.drawPeakMs`, `__game.fps`.
 
 ## Still open
 
 - `PING` (opcode 1) is received and skipped, so the engine never gets a `PONG` and cannot measure
   round-trip time. It does **not** drop the session: `lastResponse` is updated by any inbound
-  bytes (`NetworkPlayer.ts`), and ts377's own keepalive is enough - a session held for 105 seconds,
+  bytes (`NetworkPlayer.ts`), and ts377's own keepalive is enough - a session held 105 seconds,
   well past the 60s timeout. An earlier note here said the opposite; it was wrong.
-- The interface layer draws magnified and clipped - the 3D viewport fills all 765x503 instead of
-  sitting in 512x334 with the UI around it. The world renders correctly; the chrome does not.
-- Two frames still fail at startup on a null buffer: `loggedIn` is set the moment the server
-  replies 2, but `method122()` builds the game-screen buffers several awaits later. Harmless now
-  that a faulty frame is survivable, but it is a real race.
+- Four frames fail at startup on a null buffer: `loggedIn` is set the moment the server replies 2,
+  but `method122()` builds the game-screen buffers several awaits later. Harmless now that a
+  faulty frame is survivable, but it is a real race and the handover wants reading as a state
+  machine.
+- Right-click menus, running, combat and the rest of the interface are untested.
