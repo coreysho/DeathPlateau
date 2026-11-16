@@ -34,21 +34,74 @@ ts377 matches ours exactly - 33 of 33 on ObjType. But thirteen opcodes is a day,
 
 **Protocol.** The opcode numbers are completely different: `IF_OPENCHAT` is 109 for our engine and
 166 in Client-TS; `IF_CLOSE` is 29 against 171. Jagex renumbered between revisions as a matter of
-course. What matters is whether the packets behind those numbers are the same, and they are:
+course. What matters is whether the packets behind those numbers are the same.
 
-    engine server packets            73
-    shared by name with Client-TS    56
-      identical payload size         54   <- renumber only, handler logic untouched
+> **Corrected 2026-11-16, after doing the port.** What this section originally said - 54 of 56
+> packets are "renumber only, handler logic untouched" - was wrong, and wrong in the direction
+> that flattered Client-TS. Two mistakes. I read only `ServerGameProt.ts` and missed
+> `ServerGameZoneProt.ts`, so the engine sends 84 server packets, not 73. And I treated equal
+> payload *size* as equal payload *layout*. It is not. See "The byte order problem" below.
+
+    engine server packets            84   (73 top-level + 11 zone)
+    shared by name with Client-TS    69   (3 of them under a different name)
+      identical payload size         67
       different size                  2   LAST_LOGIN_INFO, MIDI_JINGLE
 
-So the protocol gap is a table, not a rewrite - and `src/network/game/server/ServerGameProt.ts`
-in the engine is the table. Of the seventeen our engine sends that Client-TS has no name for,
-**eight ts377 already handles** and **nine neither client has**, because they are ours:
+Three are the same packet under two names: the engine's `LOC_MERGE` is Client-TS's `P_LOCMERGE`
+(the engine source carries a todo to rename it), `RESET_CLIENT_VARCACHE` is `VARP_SYNC`, and
+`REPORT_ABUSE` is `SEND_SNAPSHOT` - byte-identical, `g8` offender, `g1` reason, `gbool` mute.
+
+Of the fifteen our engine sends that Client-TS has no handler for, **nine neither client has**,
+because they are ours:
 
     IF_SETINVBREAKS · IF_SETINVOP · IF_SETINVWINDOW · MESSAGE_CLAN · PING
     P_DIALOGPROMPT · SET_LOGIN_TOKEN · UPDATE_CLANCHANNEL · VARP_BATCH
 
 Those nine have to be written whichever client is chosen, so they do not separate the two.
+
+## The byte order problem
+
+Equal size does not mean equal layout. Our engine writes many fields in byte orders the 377
+protocol calls for, and `src/io/Packet.ts` in the engine names them `_alt1`, `_alt2`, `_alt3`:
+
+| engine | what it writes | |
+|---|---|---|
+| `p1_alt1` | `v + 128` | |
+| `p1_alt2` | `0 - v` | |
+| `p1_alt3` | `128 - v` | |
+| `p2_alt1` | little-endian | `p2` is big-endian |
+| `p2_alt2` | high byte, then `v + 128` | |
+| `p2_alt3` | `v + 128`, then high byte | |
+
+**42 of the engine's 83 server encoders use them. Client-TS cannot read a single one** - its
+`Packet` has `g1 g2 g3 g4 g8` and nothing else, and the string `_alt` does not appear anywhere in
+its source. The sizes match because byte order does not change length.
+
+`UPDATE_PID` is the clearest case. The engine writes `pbool(members)` then `p2_alt1(uid)`.
+Client-TS reads `g2()` as the slot and `g1()` as the members flag - the fields transposed *and*
+the two-byte field read in the wrong order. Three bytes either way, so the stream stays in sync
+and nothing looks broken; the client just believes the wrong numbers.
+
+Counting only the packets Client-TS already handles:
+
+    handled, byte order matches        32
+    handled, byte order DIFFERS        35   <- field reads must change, after new Packet readers
+    not handled, plain byte order       9
+    not handled, alt byte order         7
+
+The 35 include the ones that matter most: `UPDATE_ZONE_PARTIAL_ENCLOSED`,
+`UPDATE_ZONE_FULL_FOLLOWS`, `UPDATE_ZONE_PARTIAL_FOLLOWS`, `REBUILD_NORMAL`, `VARP_SMALL`,
+`VARP_LARGE`, `UPDATE_STAT`, `UPDATE_INV_FULL`, every `IF_SET*`, and every zone packet.
+
+**ts377 does not have this problem, and cannot.** It is the 377 client, so its `Buffer` already
+carries the whole vocabulary - `getUnsignedLEShort`, `getLittleShortA`, `getByteAdded`,
+`getByteNegated`, `getByteSubtracted`, `getBytesReverse` - and its reads match our engine's
+writes by construction, because our engine was written to feed it.
+
+This is real evidence against the recommendation below, and it is not small. It does not reverse
+it on its own: Client-TS still has the mobile input, the cache routes and a live upstream, and
+ts377 still freezes on boot with the cause unknown. But "the protocol gap is a table, not a
+rewrite" was not true, and the table turned out to be the easy half.
 
 ## What each gives you for free
 
@@ -62,8 +115,12 @@ Those nine have to be written whichever client is chosen, so they do not separat
 
 ## The honest cost of each
 
-**Client-TS**: 54 packets renumbered, 2 payloads fixed, 8 handlers written, 13 config opcodes
-added - plus the same exercise for the 47 client-to-server packets, which has not been measured.
+**Client-TS**: the opcode table is now ported and verified (see `tools/gen-protocol.mjs` and
+`clientts-protocol.patch`). What that leaves: **35 handlers whose field reads are wrong** plus the
+`Packet` readers they need, 15 handlers to write, 2 payload layouts to redo, 13 config opcodes to
+add. The client-to-server side is now measured too - 86 engine packets, 77 of which Client-TS
+already sends, 9 it never sends, and 5 decoy anticheat packets that had to be removed because our
+engine closes the connection on an opcode it does not know.
 
 **ts377**: living in machine-translated code for the length of the project, with no upstream. Six
 bugs turned up in its loader in a single afternoon - a field never constructed, a music fetch that
