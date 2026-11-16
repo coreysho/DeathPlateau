@@ -37037,7 +37037,7 @@
           return;
         }
       } catch (ex) {
-        console.log("SPIKE login threw: " + (ex && ex.stack ? String(ex.stack).split("\n").slice(0, 3).join(" | ") : String(ex)));
+        console.log("SPIKE login threw: " + String(ex && ex.message ? ex.message : ex) + " @ " + String(ex && ex.stack ? String(ex.stack).split("\n")[0] : "?"));
         this.statusLineOne = "";
       }
       this.statusLineTwo = "Error connecting to server.";
@@ -43331,6 +43331,10 @@
       this.anImageRGB1227 = null;
     }
     async startUp() {
+      if (this.mouseCapturer === null || this.mouseCapturer === void 0) {
+        this.mouseCapturer = new MouseCapturer(this);
+        this.mouseCapturer.coord = 0;
+      }
       if (Configuration.JAGGRAB_ENABLED) await this.requestArchiveCrcs();
       await this.loadDpCache();
       await this.drawLoadingText(20, "Starting up");
@@ -45882,7 +45886,7 @@
       const msg = ((g.statusLineOne || "") + " " + (g.statusLineTwo || "")).trim();
       line(msg ? "server says: " + msg : "logged in (no refusal message)");
       line("loggedIn flag = " + g.loggedIn);
-    }).catch((e) => line("login threw: " + String(e).slice(0, 80)));
+    }).catch((e) => line("login threw: " + String(e && e.message ? e.message : e).slice(0, 120)));
   });
   game.initializeApplication(765, 503).catch((e) => line("client stopped: " + String(e).slice(0, 80)));
 })();

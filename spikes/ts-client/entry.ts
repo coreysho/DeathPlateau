@@ -87,7 +87,7 @@ document.getElementById("go")!.addEventListener("click", () => {
         const msg = ((g.statusLineOne || "") + " " + (g.statusLineTwo || "")).trim();
         line(msg ? "server says: " + msg : "logged in (no refusal message)");
         line("loggedIn flag = " + g.loggedIn);
-    }).catch((e: any) => line("login threw: " + String(e).slice(0, 80)));
+    }).catch((e: any) => line("login threw: " + String(e && e.message ? e.message : e).slice(0, 120)));
 });
 
 game.initializeApplication(765, 503).catch((e: any) => line("client stopped: " + String(e).slice(0, 80)));
