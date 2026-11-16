@@ -1,0 +1,198 @@
+--- a/osrs/Game.ts
++++ b/osrs/Game.ts
+@@ -2507,6 +2507,13 @@
+         const k1: number = Rasterizer.bottomX;
+         const l1: number = Rasterizer.bottomY;
+         Rasterizer.setCoordinates(i, j, i + class13.height, j + class13.width);
++        // children is only allocated for container widgets (Component.java), so it can be
++        // null. The Java client folds this into its early return - `arg.type != 0 ||
++        // arg.children == null || ...` - and the port dropped that term.
++        if (class13.children == null) {
++            Rasterizer.setCoordinates(i1, j1, k1, l1);
++            return;
++        }
+         const i2: number = class13.children.length;
+         if (l !== 8) {
+             this.opcode = -1;
+@@ -3324,6 +3331,12 @@
+     public method88(i: number, j: number, byte0: number): boolean {
+         let flag: boolean = false;
+         const class13: Widget = Widget.forId(j);
++        // children is only allocated for container widgets (Component.java), so it can be
++        // null. The Java client folds this into its early return - `arg.type != 0 ||
++        // arg.children == null || ...` - and the port dropped that term.
++        if (class13 == null || class13.children == null) {
++            return flag;
++        }
+         for (let k: number = 0; k < class13.children.length; k++) {
+             {
+                 if (class13.children[k] === -1) {
+@@ -6592,6 +6605,12 @@
+         if (i1 < l || k1 < i || i1 > l + class13.width || k1 > i + class13.height) {
+             return;
+         }
++        // children is only allocated for container widgets (Component.java), so it can be
++        // null. The Java client folds this into its early return - `arg.type != 0 ||
++        // arg.children == null || ...` - and the port dropped that term.
++        if (class13.children == null) {
++            return;
++        }
+         const l1: number = class13.children.length;
+         for (let i2: number = 0; i2 < l1; i2++) {
+             {
+@@ -8972,10 +8991,23 @@
+                 this.opcode = -1;
+                 return true;
+             }
+-            SignLink.reportError(
+-                "T1 - " + this.opcode + "," + this.packetSize + " - " + this.secondLastOpcode + "," + this.thirdLastOpcode
+-            );
+-            this.logout();
++            // Nothing matched. The original logs out here, on the assumption that an opcode it
++            // does not know means the stream has desynced. Against this server that assumption is
++            // wrong: DeathPlateau adds packets of its own (VARP_BATCH 114, RESET_CLIENT_VARCACHE
++            // 113 and seven more) that no stock 377 client has ever seen, and logging out on the
++            // first one is why the client never reached the game world.
++            //
++            // Skipping is safe HERE and only here, because this client's size table agrees with
++            // the engine's on all 84 opcodes - checked, zero disagreements - so the payload length
++            // is known even when its meaning is not, and the stream stays in sync. Each unhandled
++            // opcode is reported once so the list of handlers still to write is visible rather
++            // than silently swallowed.
++            if (!Game.unhandledOpcodes.has(this.opcode)) {
++                Game.unhandledOpcodes.add(this.opcode);
++                console.info(`[UNHANDLED] opcode ${this.opcode} size ${this.packetSize} - skipped (after ${this.secondLastOpcode},${this.thirdLastOpcode})`);
++            }
++            this.opcode = -1;
++            return true;
+         } catch (__e) {
+             // if (__e != null && __e instanceof IOException as any) {
+             //     this.dropClient();
+@@ -9972,6 +10004,9 @@
+         }
+     }
+ 
++    /** Opcodes seen with no handler, reported once each rather than silently dropped. */
++    public static unhandledOpcodes: Set<number> = new Set();
++
+     public logout() {
+         try {
+             if (this.gameConnection != null) {
+@@ -10753,6 +10788,14 @@
+             this.outBuffer.putByte(6);
+         }
+         const class13: Widget = Widget.forId(i);
++        // children is only allocated for container widgets (Component.java: `com.children = new
++        // int[childCount]` sits inside the type-0 branch), so a non-container interface has none.
++        // The Java client guards this everywhere it walks children; the port dropped the guard
++        // here, so opening a childless interface threw - and the throw was caught upstream by a
++        // handler whose response is to log out.
++        if (class13 == null || class13.children == null) {
++            return;
++        }
+         for (let j: number = 0; j < class13.children.length; j++) {
+             {
+                 if (class13.children[j] === -1) {
+--- a/osrs/GameShell.ts
++++ b/osrs/GameShell.ts
+@@ -145,6 +145,11 @@
+         Game.parallelExecutor.startRaw(this.mainLoop, this);
+     }
+ 
++    /** Whether this frame got through doLogic() and repaintGame() without throwing. */
++    public frameClean: boolean = true;
++    /** Consecutive faulty frames, cleared by any clean one. */
++    public frameFaults: number = 0;
++
+     public async mainLoop(): Promise<boolean> {
+         const ld = this.loopData;
+         if (this.gameState > 0) {
+@@ -193,7 +198,17 @@
+                 this.clickY = this.eventClickY;
+                 this.clickTime = this.lastClick;
+                 this.eventMouseButtonPressed = 0;
+-                await this.doLogic();
++                // The Java original wraps update() and draw() in `catch (Throwable)` each, and only
++                // clears its fault counter on a frame that got through both - a throwing frame is
++                // survivable by design. This port dropped that, so the first exception escapes the
++                // async loop and the client stops dead: no more logic, no more packets, no more
++                // frames. See GameShell.java, `boolean clean = true`.
++                try {
++                    await this.doLogic();
++                } catch (e) {
++                    this.frameClean = false;
++                    console.error("update threw:", e);
++                }
+                 this.readIndex = this.writeIndex;
+             }
+         }
+@@ -201,7 +216,20 @@
+         if (this.deltime > 0) {
+             this.fps = ((1000 * ld.ratio) / (this.deltime * 256)) | 0;
+         }
+-        await this.repaintGame();
++        try {
++            await this.repaintGame();
++        } catch (e) {
++            this.frameClean = false;
++            console.error("draw threw:", e);
++        }
++        // A frame that got all the way through puts the count back: what is being counted is a
++        // fault that keeps happening, not one that happened once.
++        if (this.frameClean) {
++            this.frameFaults = 0;
++        } else if (++this.frameFaults % 50 === 0) {
++            console.error(`${this.frameFaults} consecutive faulty frames`);
++        }
++        this.frameClean = true;
+         if (this.dumpRequested) {
+             console.info("ntime:" + currentTime);
+             for (let i: number = 0; i < 10; i++) {
+--- a/osrs/util/PacketConstants.ts
++++ b/osrs/util/PacketConstants.ts
+@@ -1,20 +1,20 @@
+ export class PacketConstants {
+     public static PACKET_SIZES: number[] = [
+         0,
+-        0,
++        3,
+         4,
+         6,
++        6,
+         0,
+         0,
+-        0,
+-        0,
+-        0,
+-        0,
++        18,
++        -1,
++        -1,
+         3,
++        -1,
++        -2,
+         0,
+-        0,
+-        0,
+-        0,
++        -1,
+         0,
+         0,
+         0,
+@@ -114,7 +114,7 @@
+         0,
+         0,
+         0,
+-        0,
++        -2,
+         6,
+         0,
+         0,
+@@ -256,6 +256,6 @@
+         4,
+         0,
+         2,
+-        0
++        0,
+     ];
+ }
