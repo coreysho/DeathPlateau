@@ -80,14 +80,43 @@ work half done - is the one that gets more expensive every month.
 ts377's real advantage is that it authenticates today. That is worth less than it sounds: it has
 never drawn the game world, and its proven surface ends at the login screen.
 
-**Before committing, run one experiment.** The config decoders being thirteen opcodes apart says
-the formats are close, but the map, model and interface formats have not been compared at all.
-Point Client-TS at our cache - the same `/crc` then `/<name><crc>` fetch the spike already does in
-40 lines - and see whether it parses our eight archives. A day, and it decides this properly:
+## The experiment, run
 
-- **it parses** - Client-TS is the base, and the protocol table is the first task
-- **it does not** - the formats really did move between 274 and 377, ts377's revision advantage is
-  real after all, and the answer flips
+Client-TS's own parsers, in node, over our eight live archives.
 
-Either way, keep the spike. It is the only thing that has talked to our server, and it is the
-reference for what correct looks like.
+**The checksum table.** Its validation - `calc = 1234; for each of 9: calc = (calc << 1) + crc` -
+produces `1696506262` against our `/crc`, which is exactly the word our engine sends. The format
+is identical.
+
+**The archives.** All eight parse. `config` carries all eight definition files, `interface`
+unpacks from bzip2, `media` holds 621 files, `versionlist` all four indexes. The only one that
+looked short was `title`, and that was my probe asking for `p11_full` when the file is
+`p11_full.dat` - all four fonts are there.
+
+**The indexes.** `11,518` objects, `5,131` npcs, `19,768` locs, read straight out of our cache.
+
+**The decoders.** Real items, decoded by Client-TS from our `obj.dat`:
+
+        995  Coins              1215  Dragon dagger
+       1038  Red partyhat        385  Shark
+       1050  Santa hat         11000  Bandos d'hide shield
+       4151  Abyssal whip      11802  *** hangs ***
+
+So the formats did **not** move between 274 and 377. Our cache is readable as it stands, custom
+content included - `11000` is ours and decodes fine.
+
+**And the thirteen-opcode gap is real, and bounded.** `11802` is the Armadyl godsword, imported
+from OSRS. The decoder does not fail on it, it desyncs and loops: a field it has no case for is
+read as the next opcode, and the stream is lost from there. That is precisely what a missing
+opcode does, it is confined to the items that use one, and it is the same day of work the table
+above predicted.
+
+## Verdict
+
+Client-TS. The revision gap is a renumbering table and thirteen opcodes, both measured, with our
+own engine as the specification. The other direction - machine-translated code, no upstream, six
+loader bugs in an afternoon - gets worse every month of a project whose largest phase is porting a
+222-class sidebar.
+
+Keep the spike regardless. It is the only thing that has authenticated against our server, and it
+is the reference for what correct looks like when Client-TS gets there.
