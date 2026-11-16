@@ -56,7 +56,38 @@ cache and closes the socket on a mismatch. A client fed this cache should pass i
 a vanilla 377 cache cannot. That is why the cache layer had to come before the login test,
 and it is the next thing to try.
 
-## Running it
+## The load test, to run on a real phone
+
+`dist/` is this built and ready to serve. The engine already serves `public/` statically, and
+`public/` is gitignored, so it goes there the same way `client.jar` does:
+
+    mkdir -p /opt/deathplateau/dev/engine/public/ts
+    cd /opt/deathplateau/dev/engine/public/ts
+    curl -L -O https://raw.githubusercontent.com/coreysho/DeathPlateau/claude/clever-cori-bee392/spikes/ts-client/dist/index.html
+    curl -L -O https://raw.githubusercontent.com/coreysho/DeathPlateau/claude/clever-cori-bee392/spikes/ts-client/dist/game.js
+
+Then open `http://<world2>:8889/ts/` on the phone. The page prints its own timings, so there is
+nothing to measure by hand - photograph the green text.
+
+Here, on a desktop processor with a phone-sized viewport, it reads:
+
+    0.0s  page ready - starting client
+    0.4s  DP crc table
+    0.6s  DP archive title = 51547 bytes
+     ...  all eight, 1.6 MB in total
+    1.9s  DP parse: versionlist
+    2.0s  *** FIRST PIXELS DRAWN ***
+
+**Treat that number with suspicion until a phone has produced one.** The same method said CheerpJ
+took 24 seconds; a real phone took over thirty minutes. An emulated viewport on desktop silicon is
+not a phone, and the whole point of this build is to stop guessing about that.
+
+It draws the title screen and stops: `__NO_SOCKET` and `__NO_LOCAL_CACHE` in `entry.ts` turn off
+the game socket and the 18 MB disk cache, because neither is needed to time a load and the retry
+loop for a socket that cannot connect pins the main thread - which on a phone means the timings
+never become readable. Delete both flags to go further.
+
+## Running it from source
 
     git clone https://github.com/89wc/runescape-web-client-37789 ts377
     cd ts377 && git checkout 7582d035a67bf6be22ebb7565e5c9f8cc6abaf4d

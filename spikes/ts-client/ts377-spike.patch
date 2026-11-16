@@ -1,4 +1,4 @@
-diff -ru '--unified=3' a/osrs/Configuration.ts b/osrs/Configuration.ts
+diff -ru a/osrs/Configuration.ts b/osrs/Configuration.ts
 --- a/osrs/Configuration.ts	2026-11-16 00:16:53.661335972 +0000
 +++ b/osrs/Configuration.ts	2026-11-16 16:39:56.396419114 +0000
 @@ -24,7 +24,7 @@
@@ -18,9 +18,9 @@ diff -ru '--unified=3' a/osrs/Configuration.ts b/osrs/Configuration.ts
 +    public static RSA_MODULUS: string = "153884090520538728936878302027910202920542948295897114523288142356390821628154839790201213541418821317049841112218678628942025501794640330604458662944406617266109433307208963311978451516363571029097291301242557629716636019046289026568724861317137936845248862778762767562566708241027964593626362603622200050473"; 
  
  }
-diff -ru '--unified=3' a/osrs/Game.ts b/osrs/Game.ts
+diff -ru a/osrs/Game.ts b/osrs/Game.ts
 --- a/osrs/Game.ts	2026-11-16 00:16:53.661335972 +0000
-+++ b/osrs/Game.ts	2026-11-16 16:49:02.258427210 +0000
++++ b/osrs/Game.ts	2026-11-16 18:13:11.733184702 +0000
 @@ -3899,6 +3899,7 @@
                  await this.gameConnection.read$();
              }
@@ -44,15 +44,25 @@ diff -ru '--unified=3' a/osrs/Game.ts b/osrs/Game.ts
                  return;
              }
              if (responseCode === 2) {
-@@ -10961,6 +10960,7 @@
+@@ -10961,9 +10960,16 @@
  
      public async startUp() {
          if (Configuration.JAGGRAB_ENABLED) await this.requestArchiveCrcs();
 +        await this.loadDpCache();
  
          await this.drawLoadingText(20, "Starting up");
-         await this.initStores();
-@@ -13448,8 +13448,36 @@
+-        await this.initStores();
++        // The local disk cache is not used when the archives come from the server - and fetching
++        // an 18 MB file that is not there is a long wait for nothing.
++        if (!(globalThis as any).__NO_LOCAL_CACHE) {
++            await this.initStores();
++        } else {
++            console.log("local disk cache skipped - archives come from the server");
++        }
+         this.initArchives();
+         this.initTypeFaces();
+ 
+@@ -13448,8 +13454,36 @@
          this.fontFancy = new TypeFace(true, this.titleArchive, "q8_full");
      }
  
@@ -90,7 +100,7 @@ diff -ru '--unified=3' a/osrs/Game.ts b/osrs/Game.ts
          return new Archive(this.stores[0].get(id));
      }
  
-diff -ru '--unified=3' a/osrs/cache/media/ImageRGB.ts b/osrs/cache/media/ImageRGB.ts
+diff -ru a/osrs/cache/media/ImageRGB.ts b/osrs/cache/media/ImageRGB.ts
 --- a/osrs/cache/media/ImageRGB.ts	2026-11-16 00:16:53.664464099 +0000
 +++ b/osrs/cache/media/ImageRGB.ts	2026-11-16 16:28:35.154862168 +0000
 @@ -30,7 +30,7 @@
@@ -102,19 +112,26 @@ diff -ru '--unified=3' a/osrs/cache/media/ImageRGB.ts b/osrs/cache/media/ImageRG
          let image = new ImageRGB();
          image.pixels = Array.from(new Int32Array(jpgData.data.buffer));
          image.width = image.maxWidth = jpgData.width;
-diff -ru '--unified=3' a/osrs/net/Socket.ts b/osrs/net/Socket.ts
+diff -ru a/osrs/net/Socket.ts b/osrs/net/Socket.ts
 --- a/osrs/net/Socket.ts	2026-11-16 00:16:53.665793026 +0000
-+++ b/osrs/net/Socket.ts	2026-11-16 16:39:56.395990492 +0000
-@@ -14,7 +14,7 @@
++++ b/osrs/net/Socket.ts	2026-11-16 18:10:47.245024439 +0000
+@@ -14,7 +14,14 @@
      }
  
      public async connect() {
 -        await this.client.connect(`ws://${this.host}:${this.port}`);
++        // LOAD TEST ONLY. Nothing here is going to reach a game server, and the client's retry
++        // loop pins the main thread when it cannot - which on a phone means the timings below
++        // never become readable. Refusing outright leaves the page responsive and the numbers on
++        // screen. Delete this to connect for real.
++        if ((globalThis as any).__NO_SOCKET) {
++            throw new Error("sockets disabled for the load test");
++        }
 +        await this.client.connect((globalThis as any).__WS_URL || `ws://${this.host}:${this.port}`);
      }
  
      public write$int(buf: number) {
-diff -ru '--unified=3' a/osrs/util/SignLink.ts b/osrs/util/SignLink.ts
+diff -ru a/osrs/util/SignLink.ts b/osrs/util/SignLink.ts
 --- a/osrs/util/SignLink.ts	2026-11-16 00:16:53.667187063 +0000
 +++ b/osrs/util/SignLink.ts	2026-11-16 16:39:56.396654288 +0000
 @@ -6,7 +6,7 @@

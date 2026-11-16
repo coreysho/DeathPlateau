@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>TS client load test</title>
+<style>
+  html, body { margin: 0; background: #000; color: #9a9a9a; font: 12px -apple-system, sans-serif; }
+  /* Scaled to the screen with CSS. This test is about HOW LONG, not about clicking, so the
+     coordinate problem that rules CSS scaling out for the real thing does not apply here. */
+  #gameCanvas { display: block; width: 100vw; max-width: 100%; height: auto; image-rendering: pixelated; }
+  #log { padding: 8px; font: 12px ui-monospace, monospace; color: #7fe07f; line-height: 1.5; }
+  #log div { white-space: pre; }
+</style></head>
+<body><script src="/ts/game.js"></script></body></html>
