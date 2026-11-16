@@ -215,10 +215,59 @@ Falling back to `drawLoginScreen()` instead of drawing nothing does not work, an
 constraint rather than a preference: drawing it calls `prepareTitle()`, which restarts the title
 flames, and `method141()` inside the very setup being waited on is waiting for those to stop.
 
+## Chat was broken in both directions, silently
+
+The worst bug in this work, and the one a single client could never have shown. With two clients
+logged in at once, a line typed in one arrived in the other as **"Oii ne"**, then **"EPq"**, then
+**"A@I"**. The sender's own chatbox showed the line perfectly the whole time, because that is
+drawn from the local copy and never makes the round trip.
+
+DeathPlateau does not use the 377 WordPack chat encoding. That packer squeezes a line into nibbles
+over a table of 61 characters and is full: no '_', '<' or '>', no capitals at all - it lower-cases
+the line and capitalises each sentence, which is why ":D" used to arrive as ":d". Revision 381 was
+this change, and the engine's `src/wordenc/ChatText.ts` says so. A line is now simply its
+characters, one byte each.
+
+`osrs/wordenc/ChatText.ts` is the client half, ported from the Java client's, and both directions
+needed it:
+
+**Reading.** Public chat and private messages went through `ChatEncoder.get`, the WordPack
+decoder. Reading a ChatText line with it does not fail, it produces nonsense.
+
+**Writing.** This is the half that was easy to miss, and fixing only the read side made the
+garbage change without fixing it. Outgoing chat was packed with WordPack, whose bytes are mostly
+table indices below 32; the engine reads them as characters and drops everything outside ' '..'z'.
+"hello world 123" left as 15 characters, went out as 8 packed bytes, and reached the other player
+as three.
+
+Tracing it needed the bytes rather than the code: every read in the CHAT block matched the
+engine's writes, the mask order matched, the mask bit matched. The decisive line was
+`colour=0 rights=4 length=15 raw=[72,101,108,...]` - once the length agreed with what was typed,
+the arithmetic said the server had only ever received three bytes.
+
+## Clan chat
+
+`MESSAGE_CLAN` (11) is implemented, and so is sending one: a stock 377 client has no `/` prefix
+and was sending the whole line, slash included, as public chat. Two clients in channel Help now
+exchange lines reading `[Help] Rignpc1: Clan line from one`.
+
+The Java client gives clan lines their own message type and draws the channel from a separate
+field. This client's chatbox knows nothing of that type, so the channel goes in the name instead -
+same information, one line, no change to the draw loop.
+
+## What has been driven and works
+
+Movement, tabs, right-click menus (scenery and NPCs, with Open / Climb-up / Pickpocket / Talk-to /
+Attack and combat levels), NPC dialogue with the animated chat head, combat with health bars and
+hitsplats, run energy, the clan tab, public chat, clan chat, and two clients seeing each other in
+the world. No unhandled opcodes and no errors across a session that does all of it.
+
 ## Still open
 
-- No clan tab. The channel data arrives; nothing renders it. That is a custom interface the Java
-  client has and a stock 377 client does not, and it is the largest remaining gap.
-- Right-click menus, running, combat, trading and the rest of the interface are unexercised. They
-  are stock 377 code that nothing has broken, but "not known to be broken" is not "tested".
-- The six situational custom packets are consumed, not implemented.
+- `IF_SETINVWINDOW`, `IF_SETINVBREAKS`, `IF_SETINVOP` and `P_DIALOGPROMPT` are consumed with the
+  right size but not implemented. None of them fired in any session here; they need the situations
+  that trigger them - a shop, a bank, a prompt - and a character with items to put in them.
+- Clan rank icons (content codes 1301-1400) are left undrawn: the Java client has a clanrank
+  sprite sheet this client never loads.
+- Trading is untested. It needs two characters with items.
+- The phone measurement is still the thing that decides whether any of this ships.

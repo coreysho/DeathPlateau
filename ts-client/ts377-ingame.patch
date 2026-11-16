@@ -1,6 +1,14 @@
 --- a/osrs/Game.ts
 +++ b/osrs/Game.ts
-@@ -675,6 +675,15 @@
+@@ -39,6 +39,7 @@
+ import { Color } from "./graphics/Color";
+ import { Font } from "./graphics/Font";
+ import { TextUtils } from "./util/TextUtils";
++import { ChatText } from "./wordenc/ChatText";
+ import { SignLink } from "./util/SignLink";
+ import { BufferedConnection } from "./net/BufferedConnection";
+ import { Configuration } from "./Configuration";
+@@ -675,6 +676,15 @@
              return;
          }
          Game.anInt1309++;
@@ -16,7 +24,7 @@
          if (!this.loggedIn) {
              await this.drawLoginScreen(false);
          } else {
-@@ -2507,6 +2516,13 @@
+@@ -2507,6 +2517,13 @@
          const k1: number = Rasterizer.bottomX;
          const l1: number = Rasterizer.bottomY;
          Rasterizer.setCoordinates(i, j, i + class13.height, j + class13.width);
@@ -30,7 +38,7 @@
          const i2: number = class13.children.length;
          if (l !== 8) {
              this.opcode = -1;
-@@ -2986,6 +3002,10 @@
+@@ -2986,6 +3003,10 @@
              this.anInt1004 = -82;
          }
          let i: number = class13.contentType;
@@ -41,7 +49,7 @@
          if ((i >= 1 && i <= 100) || (i >= 701 && i <= 800)) {
              if (i === 1 && this.friendListStatus === 0) {
                  class13.disabledText = "Loading friend list";
-@@ -3324,6 +3344,12 @@
+@@ -3324,6 +3345,12 @@
      public method88(i: number, j: number, byte0: number): boolean {
          let flag: boolean = false;
          const class13: Widget = Widget.forId(j);
@@ -54,7 +62,7 @@
          for (let k: number = 0; k < class13.children.length; k++) {
              {
                  if (class13.children[k] === -1) {
-@@ -3956,6 +3982,7 @@
+@@ -3956,6 +3983,7 @@
                  this.mouseCapturer.coord = 0;
                  this.awtFocus = true;
                  this.aBoolean1275 = true;
@@ -62,7 +70,7 @@
                  this.loggedIn = true;
                  this.outBuffer.currentPosition = 0;
                  this.buffer.currentPosition = 0;
-@@ -4060,6 +4087,7 @@
+@@ -4060,6 +4088,7 @@
                  Game.anInt1049 = 0;
                  Game.anInt1162 = 0;
                  await this.method122();
@@ -70,7 +78,45 @@
                  return;
              }
              if (responseCode === 3) {
-@@ -6592,6 +6620,12 @@
+@@ -4672,7 +4701,7 @@
+                             this.outBuffer.putByte(0);
+                             const j: number = this.outBuffer.currentPosition;
+                             this.outBuffer.putLong(this.aLong1141);
+-                            ChatEncoder.put(this.chatMessage, this.outBuffer);
++                            ChatText.pack(this.chatMessage, this.outBuffer);
+                             this.outBuffer.putLength(this.outBuffer.currentPosition - j);
+                             this.chatMessage = ChatEncoder.formatChatMessage(this.chatMessage);
+                             this.addChatMessage(TextUtils.formatName(TextUtils.longToName(this.aLong1141)), this.chatMessage, 6);
+@@ -4838,6 +4867,19 @@
+                             this.outBuffer.putOpcode(56);
+                             this.outBuffer.putByte(this.chatboxInput.length - 1);
+                             this.outBuffer.putString(this.chatboxInput.substring(2));
++                        } else if (this.chatboxInput.charAt(0) === "/" && this.chatboxInput.length > 1) {
++                            // CLAN_MESSAGE (DeathPlateau): the server sends the line back to
++                            // everybody in the channel, this player included, so there is no local
++                            // echo. A stock 377 client has no clan prefix at all and sent the
++                            // whole thing - slash included - as public chat instead.
++                            const clanLine: string = ChatText.format(this.chatboxInput.substring(1));
++                            if (clanLine.length > 0) {
++                                this.outBuffer.putOpcode(9);
++                                this.outBuffer.putByte(0);
++                                const start: number = this.outBuffer.currentPosition;
++                                ChatText.pack(clanLine, this.outBuffer);
++                                this.outBuffer.putLength(this.outBuffer.currentPosition - start);
++                            }
+                         } else {
+                             let s: string = this.chatboxInput.toLowerCase();
+                             let colourCode: number = 0;
+@@ -4953,7 +4995,7 @@
+                             this.outBuffer.putByteNegated(colourCode);
+                             this.outBuffer.putByteAdded(effectCode);
+                             this.chatBuffer.currentPosition = 0;
+-                            ChatEncoder.put(this.chatboxInput, this.chatBuffer);
++                            ChatText.pack(this.chatboxInput, this.chatBuffer);
+                             this.outBuffer.putBytes(this.chatBuffer.buffer, 0, this.chatBuffer.currentPosition);
+                             this.outBuffer.putLength(this.outBuffer.currentPosition - bufPos);
+                             this.chatboxInput = ChatEncoder.formatChatMessage(this.chatboxInput);
+@@ -6592,6 +6634,12 @@
          if (i1 < l || k1 < i || i1 > l + class13.width || k1 > i + class13.height) {
              return;
          }
@@ -83,10 +129,39 @@
          const l1: number = class13.children.length;
          for (let i2: number = 0; i2 < l1; i2++) {
              {
-@@ -7674,6 +7708,73 @@
+@@ -7674,6 +7722,102 @@
                  this.opcode = -1;
                  return true;
              }
++            if (this.opcode === 11) {
++                // MESSAGE_CLAN (DeathPlateau): from, channel name, message id, the sender's icons,
++                // then the words. 21 bytes of header, the rest is the line.
++                const from: Long = this.buffer.getLong();
++                const channel: Long = this.buffer.getLong();
++                this.buffer.getInt(); // message id, for the moderator log - nothing to do here
++                const icons: number = this.buffer.getUnsignedByte();
++                let ignored: boolean = false;
++                if ((icons & 0xf) <= 1) {
++                    for (let i: number = 0; i < this.ignoresCount; i++) {
++                        if (this.ignores[i].eq(from)) {
++                            ignored = true;
++                            break;
++                        }
++                    }
++                }
++                if (!ignored && !this.inTutorialIsland) {
++                    const text: string = ChatText.unpack(this.buffer, this.packetSize - 21);
++                    // The Java client gives clan lines their own message type (11) and draws the
++                    // channel from a separate field. This client's chatbox knows nothing of that
++                    // type, so the channel goes in the name instead - same information, one line,
++                    // no change to the draw loop.
++                    const who: string = "[" + TextUtils.formatName(TextUtils.longToName(channel)) + "] "
++                        + TextUtils.formatName(TextUtils.longToName(from));
++                    this.addChatMessage(who, text, 2);
++                }
++                this.opcode = -1;
++                return true;
++            }
 +            if (this.opcode === 12) {
 +                // UPDATE_CLANCHANNEL (DeathPlateau): the whole channel, or owner 0 for none.
 +                // Storage only, as in the Java client - the handler holds the channel, and the
@@ -157,7 +232,16 @@
              if (this.opcode === 182) {
                  const l1: number = this.buffer.method550();
                  const byte0: number = this.buffer.getSignedByteSubtracted();
-@@ -8972,10 +9073,23 @@
+@@ -8286,7 +8430,7 @@
+                     try {
+                         this.anIntArray1258[this.anInt1152] = i19;
+                         this.anInt1152 = (this.anInt1152 + 1) % 100;
+-                        let s9: string = ChatEncoder.get(this.packetSize - 13, this.buffer);
++                        let s9: string = ChatText.unpack(this.buffer, this.packetSize - 13);
+                         if (j23 !== 3) {
+                             s9 = ChatCensor.censorString(s9);
+                         }
+@@ -8972,10 +9116,23 @@
                  this.opcode = -1;
                  return true;
              }
@@ -185,7 +269,16 @@
          } catch (__e) {
              // if (__e != null && __e instanceof IOException as any) {
              //     this.dropClient();
-@@ -9972,6 +10086,9 @@
+@@ -9224,7 +9381,7 @@
+                         this.chatBuffer.currentPosition = 0;
+                         buffer.getBytesAdded(this.chatBuffer.buffer, 0, length);
+                         this.chatBuffer.currentPosition = 0;
+-                        const message: string = ChatCensor.censorString(ChatEncoder.get(length, this.chatBuffer));
++                        const message: string = ChatCensor.censorString(ChatText.unpack(this.chatBuffer, length));
+                         player.forcedChat = message;
+                         player.textColour = effectsAndColour >> 8;
+                         player.textEffect = effectsAndColour & 255;
+@@ -9972,6 +10129,9 @@
          }
      }
  
@@ -195,7 +288,7 @@
      public logout() {
          try {
              if (this.gameConnection != null) {
-@@ -10753,6 +10870,14 @@
+@@ -10753,6 +10913,14 @@
              this.outBuffer.putByte(6);
          }
          const class13: Widget = Widget.forId(i);
@@ -210,7 +303,7 @@
          for (let j: number = 0; j < class13.children.length; j++) {
              {
                  if (class13.children[j] === -1) {
-@@ -10768,6 +10893,116 @@
+@@ -10768,6 +10936,116 @@
          }
      }
  
@@ -531,3 +624,92 @@
          6,
          0,
          0,
+diff --git a/osrs/wordenc/ChatText.ts b/osrs/wordenc/ChatText.ts
+new file mode 100644
+--- /dev/null
++++ b/osrs/wordenc/ChatText.ts
+@@ -0,0 +1,84 @@
++import { Buffer } from "../net/Buffer";
++
++/**
++ * Player chat on the wire: public chat, private messages and clan lines.
++ *
++ * This is the other half of the engine's `src/wordenc/ChatText.ts` - keep the two the same, it is
++ * the protocol, and a change to it means a new ENGINE_REVISION (381 was for this one).
++ *
++ * DeathPlateau does not use the 377 WordPack encoding. That packer squeezes a line into nibbles
++ * over a fixed table of 61 characters and is full, so it has no room for '_', '<' or '>', and no
++ * capitals at all: it lower-cases the line and capitalises each sentence, which is why ":D"
++ * arrived as ":d". A line is now simply its characters, one byte each.
++ *
++ * Reading a ChatText line with the WordPack decoder does not fail, it just produces nonsense -
++ * "ping from one" came through as "Oii ne" - so this is not an optional nicety.
++ */
++export class ChatText {
++    /** The most characters one line carries, as the chatbox input allows. */
++    public static readonly MAX_LENGTH: number = 80;
++
++    public static allowed(c: string): boolean {
++        return c >= " " && c <= "z";
++    }
++
++    /**
++     * A typed line as it will be sent and shown: characters outside the set dropped, runs of
++     * spaces made one, trimmed, cut to MAX_LENGTH, and a leading lower-case letter capitalised.
++     */
++    public static format(typed: string): string {
++        if (typed == null) {
++            return "";
++        }
++        let sb: string = "";
++        for (let i: number = 0; i < typed.length; i++) {
++            const c: string = typed.charAt(i);
++            if (!ChatText.allowed(c)) {
++                continue;
++            }
++            if (c === " " && (sb.length === 0 || sb.charAt(sb.length - 1) === " ")) {
++                continue;
++            }
++            sb += c;
++        }
++        let out: string = sb.trim();
++        if (out.length > ChatText.MAX_LENGTH) {
++            out = out.substring(0, ChatText.MAX_LENGTH).trim();
++        }
++        if (out.length > 0 && out.charAt(0) >= "a" && out.charAt(0) <= "z") {
++            out = out.charAt(0).toUpperCase() + out.substring(1);
++        }
++        return out;
++    }
++
++    /**
++     * Write a line as one byte per character, dropping anything outside the set.
++     *
++     * The send side matters as much as the read side and is easier to miss: this client packed
++     * outgoing chat with WordPack, whose output bytes are mostly table indices below 32. The
++     * engine reads them as characters and drops everything outside ' '..'z', so "hello world 123"
++     * left as 15 characters, went out as 8 nibble-packed bytes and reached the other player as
++     * three - "A@I". The sender's own chatbox showed the line correctly the whole time, because
++     * that is drawn from the local copy and never makes the round trip.
++     */
++    public static pack(text: string, buffer: Buffer): void {
++        for (let i: number = 0; i < text.length && i < ChatText.MAX_LENGTH; i++) {
++            const c: string = text.charAt(i);
++            if (ChatText.allowed(c)) {
++                buffer.putByte(c.charCodeAt(0));
++            }
++        }
++    }
++
++    /** Read `length` bytes of a line the server sent. Anything outside the set is dropped. */
++    public static unpack(buffer: Buffer, length: number): string {
++        let out: string = "";
++        for (let i: number = 0; i < length; i++) {
++            const c: string = String.fromCharCode(buffer.getUnsignedByte());
++            if (ChatText.allowed(c)) {
++                out += c;
++            }
++        }
++        return out;
++    }
++}
