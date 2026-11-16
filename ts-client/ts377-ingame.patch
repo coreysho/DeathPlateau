@@ -30,7 +30,18 @@
          const i2: number = class13.children.length;
          if (l !== 8) {
              this.opcode = -1;
-@@ -3324,6 +3340,12 @@
+@@ -2986,6 +3002,10 @@
+             this.anInt1004 = -82;
+         }
+         let i: number = class13.contentType;
++        if (i === 1001 || i === 1002 || i === 1003 || i === 1005 || (i >= 1101 && i <= 1400)) {
++            this.updateClanContent(class13, i);
++            return;
++        }
+         if ((i >= 1 && i <= 100) || (i >= 701 && i <= 800)) {
+             if (i === 1 && this.friendListStatus === 0) {
+                 class13.disabledText = "Loading friend list";
+@@ -3324,6 +3344,12 @@
      public method88(i: number, j: number, byte0: number): boolean {
          let flag: boolean = false;
          const class13: Widget = Widget.forId(j);
@@ -43,7 +54,7 @@
          for (let k: number = 0; k < class13.children.length; k++) {
              {
                  if (class13.children[k] === -1) {
-@@ -3956,6 +3978,7 @@
+@@ -3956,6 +3982,7 @@
                  this.mouseCapturer.coord = 0;
                  this.awtFocus = true;
                  this.aBoolean1275 = true;
@@ -51,7 +62,7 @@
                  this.loggedIn = true;
                  this.outBuffer.currentPosition = 0;
                  this.buffer.currentPosition = 0;
-@@ -4060,6 +4083,7 @@
+@@ -4060,6 +4087,7 @@
                  Game.anInt1049 = 0;
                  Game.anInt1162 = 0;
                  await this.method122();
@@ -59,7 +70,7 @@
                  return;
              }
              if (responseCode === 3) {
-@@ -6592,6 +6616,12 @@
+@@ -6592,6 +6620,12 @@
          if (i1 < l || k1 < i || i1 > l + class13.width || k1 > i + class13.height) {
              return;
          }
@@ -72,7 +83,7 @@
          const l1: number = class13.children.length;
          for (let i2: number = 0; i2 < l1; i2++) {
              {
-@@ -7674,6 +7704,73 @@
+@@ -7674,6 +7708,73 @@
                  this.opcode = -1;
                  return true;
              }
@@ -83,12 +94,12 @@
 +                // nothing shows these yet; parsing them is what stops the data being thrown away.
 +                this.clanOwner37 = this.buffer.getLong();
 +                this.clanCount = 0;
-+                if (this.clanOwner37 !== 0n) {
++                if (!this.clanOwner37.isZero()) {
 +                    this.clanName37 = this.buffer.getLong();
 +                    this.clanKickRank = this.signedByte(this.buffer.getUnsignedByte());
 +                    const count: number = this.buffer.getUnsignedByte();
 +                    for (let i: number = 0; i < count; i++) {
-+                        const name: bigint = this.buffer.getLong();
++                        const name: Long = this.buffer.getLong();
 +                        const world: number = this.buffer.getUnsignedLEShort();
 +                        const rank: number = this.signedByte(this.buffer.getUnsignedByte());
 +                        if (this.clanCount < this.clanMemberName37.length) {
@@ -99,7 +110,7 @@
 +                        }
 +                    }
 +                } else {
-+                    this.clanName37 = 0n;
++                    this.clanName37 = new Long(0, 0);
 +                }
 +                this.redrawTabArea = true;
 +                this.opcode = -1;
@@ -146,7 +157,7 @@
              if (this.opcode === 182) {
                  const l1: number = this.buffer.method550();
                  const byte0: number = this.buffer.getSignedByteSubtracted();
-@@ -8972,10 +9069,23 @@
+@@ -8972,10 +9073,23 @@
                  this.opcode = -1;
                  return true;
              }
@@ -174,7 +185,7 @@
          } catch (__e) {
              // if (__e != null && __e instanceof IOException as any) {
              //     this.dropClient();
-@@ -9972,6 +10082,9 @@
+@@ -9972,6 +10086,9 @@
          }
      }
  
@@ -184,7 +195,7 @@
      public logout() {
          try {
              if (this.gameConnection != null) {
-@@ -10753,6 +10866,14 @@
+@@ -10753,6 +10870,14 @@
              this.outBuffer.putByte(6);
          }
          const class13: Widget = Widget.forId(i);
@@ -199,22 +210,21 @@
          for (let j: number = 0; j < class13.children.length; j++) {
              {
                  if (class13.children[j] === -1) {
-@@ -10767,6 +10888,48 @@
-             }
+@@ -10768,6 +10893,116 @@
          }
      }
-+
+ 
 +    /** True between the server's login reply and the end of the setup it triggers. */
 +    public loginSetupPending: boolean = false;
 +
 +    /** The clan channel this player is in, as the server last sent it. */
-+    public clanOwner37: bigint = 0n;
-+    public clanName37: bigint = 0n;
++    public clanOwner37: Long = new Long(0, 0);
++    public clanName37: Long = new Long(0, 0);
 +    public clanKickRank: number = 0;
 +    public clanCount: number = 0;
-+    public clanMemberName37: bigint[] = new Array(100).fill(0n);
-+    public clanMemberWorld: number[] = new Array(100).fill(0);
-+    public clanMemberRank: number[] = new Array(100).fill(0);
++    public clanMemberName37: Long[] = Array(100).fill(new Long(0, 0));
++    public clanMemberWorld: number[] = Array(100).fill(0);
++    public clanMemberRank: number[] = Array(100).fill(0);
 +
 +    /** One byte read as signed, whatever the backing array's own signedness is. */
 +    public signedByte(raw: number): number {
@@ -245,9 +255,78 @@
 +            }
 +        }
 +    }
- 
++
++    /**
++     * The clan tab, drawn from UPDATE_CLANCHANNEL by client code the way the friends list is.
++     *
++     * The interface itself (content interface clanchat) comes from the cache and the server puts
++     * it in tab 7 like any other, so it already drew - but every line of it is static until
++     * something writes the channel into it, which is why it read "Not in chat" while the chatbox
++     * said otherwise. Codes, as the Java client documents them: 1001 "Talking in", 1002 "Owner",
++     * 1003 Join/Leave Chat, 1005 the list's scroll layer, 1101-1200 member names (Kick when this
++     * player outranks them), 1201-1300 worlds, 1301-1400 the rank icon.
++     */
++    public updateClanContent(class13: Widget, code: number): void {
++        const inChat: boolean = !this.clanOwner37.isZero();
++        if (code === 1001) {
++            class13.disabledText = inChat
++                ? "Talking in: @whi@" + TextUtils.formatName(TextUtils.longToName(this.clanName37))
++                : "Talking in: Not in chat";
++        } else if (code === 1002) {
++            class13.disabledText = inChat
++                ? "Owner: @whi@" + TextUtils.formatName(TextUtils.longToName(this.clanOwner37))
++                : "Owner: None";
++        } else if (code === 1003) {
++            // on the button and on its label alike
++            class13.optionText = inChat ? "Leave Chat" : "Join Chat";
++            if (class13.type === 4) {
++                class13.disabledText = class13.optionText;
++            }
++        } else if (code === 1005) {
++            class13.scrollLimit = this.clanCount * 15 + 20;
++            if (class13.scrollLimit <= class13.height) {
++                class13.scrollLimit = class13.height + 1;
++            }
++        } else if (code >= 1101 && code <= 1200) {
++            const index: number = code - 1101;
++            if (!inChat || index >= this.clanCount) {
++                class13.disabledText = "";
++                class13.actionType = 0;
++                return;
++            }
++            class13.disabledText = TextUtils.formatName(TextUtils.longToName(this.clanMemberName37[index]));
++            const mine: number = this.clanRankOfSelf();
++            class13.actionType = mine >= this.clanKickRank && mine > this.clanMemberRank[index] ? 1 : 0;
++        } else if (code >= 1201 && code <= 1300) {
++            const index: number = code - 1201;
++            if (!inChat || index >= this.clanCount) {
++                class13.disabledText = "";
++                return;
++            }
++            // in the row's own colour, as the interface's own script wrote it
++            class13.disabledText = "World " + (this.clanMemberWorld[index] - 9);
++        }
++        // 1301-1400 are the rank icons. The Java client draws them from a clanrank sprite sheet
++        // this client never loads, so they are left alone rather than drawn wrong.
++    }
++
++    /** Rank of this player within the channel, or -1 when they are not in it. */
++    public clanRankOfSelf(): number {
++        if (Game.localPlayer == null || Game.localPlayer.name == null) {
++            return -1;
++        }
++        const me: Long = TextUtils.nameToLong(Game.localPlayer.name);
++        for (let i: number = 0; i < this.clanCount; i++) {
++            if (this.clanMemberName37[i].equals(me)) {
++                return this.clanMemberRank[i];
++            }
++        }
++        return -1;
++    }
++
      public updateVarp(i: number, j: number) {
          this.packetSize += i;
+         const action: number = Varp.cache[j].anInt712;
 --- a/osrs/GameShell.ts
 +++ b/osrs/GameShell.ts
 @@ -109,9 +109,37 @@
