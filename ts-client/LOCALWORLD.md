@@ -103,14 +103,54 @@ payload, so the next payload byte is read as an opcode and the stream is lost fr
 Skipping without fixing the sizes turned it into a cascade of invented opcodes that hung the
 client outright. The sizes are what make skipping safe.
 
+## Reaching a real scene
+
+New accounts land on tutorial island, where a content script opens the character-design interface
+and nothing else happens. The tutorial only starts if the player is *on* tutorial island
+(`login.rs2`: `%tutorial < ^tutorial_complete & ~in_tutorial_island(coord)`), so moving the
+new-player spawn skips it entirely. That spawn is hardcoded in the engine, `Player.ts`:
+
+    3094, 3106   // tutorial island   ->   3222, 3218   // Lumbridge
+
+**This is a rig-only edit and the engine checkout here was restored afterwards.** It is the one
+change needed to get a client into a populated scene without playing through the tutorial.
+
+## The frame cost, which is the number that matters
+
+Lumbridge castle courtyard - terrain, hedges, stone stairs, an animated fountain, an NPC and two
+player avatars - measured over 50 seconds:
+
+    fps        50, dipping to 42-47
+    draw       10-13 ms per frame, average
+    draw peak  36.6 ms
+    logic      0.04 ms
+
+**fps alone could not have answered this.** The 377 client caps itself at 50 - `fps = 1000 * ratio
+/ (deltime * 256)`, with `ratio` capped at 256 and `deltime` 20 - so a machine with ten times the
+headroom reports the same 50 as one with none. Every "50 fps" earlier in this work meant only "not
+yet failing".
+
+The frame budget at 50 fps is 20 ms. Drawing uses **half to two thirds of it on a desktop-class
+container CPU**, and the worst frame seen went 80% over budget, which is where the dips to 42 come
+from. Game logic is free by comparison - 0.04 ms - so this is entirely the software rasterizer.
+
+That does not settle the phone, and nothing measured in this container can. But it replaces a
+guess with arithmetic: a phone running single-threaded JavaScript at a third of this speed would
+need 30-40 ms a frame and land near 25-30 fps; at a fifth, 50-65 ms and nearer 15-20. Those are
+scaled estimates, not measurements.
+
+**The rig can now produce the real number.** The same page, opened on a phone against this world,
+reports `drawMs` directly - `__game.drawMs`, `__game.drawPeakMs`. That is the Phase 0 gate, and it
+is one device away rather than one project away.
+
 ## Still open
 
-- `localPlayer` stays null and the screen shows the new-character design interface, because every
-  account the rig creates is new. Completing the design, or logging in an existing character, is
-  the next step toward a populated-world measurement.
-- `PING` (opcode 1) is received and skipped, so nothing answers it. The engine wants `PONG`
-  (client opcode 2, size 1) and times the session out after 60s without it.
+- `PING` (opcode 1) is received and skipped, so the engine never gets a `PONG` and cannot measure
+  round-trip time. It does **not** drop the session: `lastResponse` is updated by any inbound
+  bytes (`NetworkPlayer.ts`), and ts377's own keepalive is enough - a session held for 105 seconds,
+  well past the 60s timeout. An earlier note here said the opposite; it was wrong.
+- The interface layer draws magnified and clipped - the 3D viewport fills all 765x503 instead of
+  sitting in 512x334 with the UI around it. The world renders correctly; the chrome does not.
 - Two frames still fail at startup on a null buffer: `loggedIn` is set the moment the server
   replies 2, but `method122()` builds the game-screen buffers several awaits later. Harmless now
-  that a faulty frame is survivable, but it is a real race and the fix wants the login-to-game
-  handover read as a state machine.
+  that a faulty frame is survivable, but it is a real race.

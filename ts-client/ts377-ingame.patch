@@ -95,10 +95,16 @@
                  if (class13.children[j] === -1) {
 --- a/osrs/GameShell.ts
 +++ b/osrs/GameShell.ts
-@@ -145,6 +145,11 @@
+@@ -145,6 +145,17 @@
          Game.parallelExecutor.startRaw(this.mainLoop, this);
      }
  
++    /** Rolling average ms spent drawing one frame, and the worst single frame seen. */
++    public drawMs: number = 0;
++    public drawPeakMs: number = 0;
++    /** Rolling average ms spent in game logic per iteration. */
++    public logicMs: number = 0;
++
 +    /** Whether this frame got through doLogic() and repaintGame() without throwing. */
 +    public frameClean: boolean = true;
 +    /** Consecutive faulty frames, cleared by any clean one. */
@@ -107,7 +113,7 @@
      public async mainLoop(): Promise<boolean> {
          const ld = this.loopData;
          if (this.gameState > 0) {
-@@ -193,7 +198,17 @@
+@@ -193,7 +204,19 @@
                  this.clickY = this.eventClickY;
                  this.clickTime = this.lastClick;
                  this.eventMouseButtonPressed = 0;
@@ -118,7 +124,9 @@
 +                // async loop and the client stops dead: no more logic, no more packets, no more
 +                // frames. See GameShell.java, `boolean clean = true`.
 +                try {
++                    const t = performance.now();
 +                    await this.doLogic();
++                    this.logicMs = this.logicMs * 0.9 + (performance.now() - t) * 0.1;
 +                } catch (e) {
 +                    this.frameClean = false;
 +                    console.error("update threw:", e);
@@ -126,13 +134,19 @@
                  this.readIndex = this.writeIndex;
              }
          }
-@@ -201,7 +216,20 @@
+@@ -201,7 +224,26 @@
          if (this.deltime > 0) {
              this.fps = ((1000 * ld.ratio) / (this.deltime * 256)) | 0;
          }
 -        await this.repaintGame();
 +        try {
++            const t = performance.now();
 +            await this.repaintGame();
++            // Rolling cost of one frame's drawing. fps alone cannot answer the question that
++            // matters - it is capped at 50 by deltime, so a machine with ten times the headroom
++            // reports the same 50 as one with none. This is the number that scales to a phone.
++            this.drawMs = this.drawMs * 0.9 + (performance.now() - t) * 0.1;
++            this.drawPeakMs = Math.max(this.drawPeakMs, performance.now() - t);
 +        } catch (e) {
 +            this.frameClean = false;
 +            console.error("draw threw:", e);
