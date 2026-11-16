@@ -45918,6 +45918,8 @@
   var Game = _Game;
 
   // entry.ts
+  Game.lowMemory = true;
+  globalThis.__SKIP_PRELOAD = !new URLSearchParams(location.search).has("preload");
   var t0 = performance.now();
   var at = () => ((performance.now() - t0) / 1e3).toFixed(1) + "s";
   var log = document.createElement("div");
@@ -45940,14 +45942,12 @@
   globalThis.__NO_LOCAL_CACHE = true;
   var params = new URLSearchParams(location.search);
   globalThis.__NO_SOCKET = params.has("nosocket");
-  line("build " + (true ? "2026-11-16 19:44:01" : "?") + "   preload: " + (globalThis.__SKIP_PRELOAD ? "SKIPPED" : "ON") + "   lowMemory: " + String(Game.lowMemory));
+  line("build " + (true ? "2026-11-16 19:49:22" : "?") + "   preload: " + (globalThis.__SKIP_PRELOAD ? "SKIPPED" : "ON") + "   lowMemory: " + String(Game.lowMemory));
   line("socket " + (params.has("nosocket") ? "DISABLED (?nosocket=1)" : "enabled -> " + globalThis.__WS_URL));
   var beat = 0;
   setInterval(() => {
     line("heartbeat " + ++beat);
   }, 2e3);
-  Game.lowMemory = true;
-  globalThis.__SKIP_PRELOAD = !new URLSearchParams(location.search).has("preload");
   var canvas = document.createElement("canvas");
   canvas.id = "gameCanvas";
   document.body.appendChild(canvas);

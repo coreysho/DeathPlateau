@@ -1,6 +1,12 @@
 declare const __BUILD_ID__: string;
 import { Game } from "./osrs/Game";
 
+// EVERY FLAG FIRST, BEFORE ANYTHING READS ONE. These were set half way down the file, below the
+// line that prints them - so the readout said "preload: ON lowMemory: false" on a build where both
+// were about to be set, which is exactly the kind of thing that costs a round to disbelieve.
+(Game as any).lowMemory = true;
+(globalThis as any).__SKIP_PRELOAD = !new URLSearchParams(location.search).has("preload");
+
 const t0 = performance.now();
 const at = () => ((performance.now() - t0) / 1000).toFixed(1) + "s";
 
@@ -39,13 +45,12 @@ line("socket " + (params.has("nosocket") ? "DISABLED (?nosocket=1)" : "enabled -
 let beat = 0;
 setInterval(() => { line("heartbeat " + (++beat)); }, 2000);
 
+// (flags are set at the top of this file)
 // LOW MEMORY, WHICH IS ALSO WHAT UNBLOCKS startUp. Its other job here is that the block it skips
 // asks the update server for a music file and then spins until it arrives - and if the on-demand
 // stream does not deliver, startUp never reaches the sprites, so minimapBackgroundImage stays null
 // and the first thing the game draws after login throws on it. A phone wants low detail regardless.
-(Game as any).lowMemory = true;
-// Skip the startup preload of every animation, model and map. ?preload=1 puts it back.
-(globalThis as any).__SKIP_PRELOAD = !new URLSearchParams(location.search).has("preload");
+
 
 const canvas = document.createElement("canvas");
 canvas.id = "gameCanvas";
