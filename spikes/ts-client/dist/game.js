@@ -45853,7 +45853,14 @@
     const u2 = document.getElementById("u").value;
     const p = document.getElementById("p").value;
     line("logging in as " + u2 + " ...");
-    game.login(u2, p, false);
+    const g = game;
+    g.statusLineOne = "";
+    g.statusLineTwo = "";
+    Promise.resolve(g.login(u2, p, false)).then(() => {
+      const msg = ((g.statusLineOne || "") + " " + (g.statusLineTwo || "")).trim();
+      line(msg ? "server says: " + msg : "logged in (no refusal message)");
+      line("loggedIn flag = " + g.loggedIn);
+    }).catch((e) => line("login threw: " + String(e).slice(0, 80)));
   });
   game.initializeApplication(765, 503).catch((e) => line("client stopped: " + String(e).slice(0, 80)));
 })();

@@ -66,7 +66,17 @@ document.getElementById("go")!.addEventListener("click", () => {
     const u = (document.getElementById("u") as HTMLInputElement).value;
     const p = (document.getElementById("p") as HTMLInputElement).value;
     line("logging in as " + u + " ...");
-    (game as any).login(u, p, false);
+    const g = game as any;
+    g.statusLineOne = "";
+    g.statusLineTwo = "";
+    Promise.resolve(g.login(u, p, false)).then(() => {
+        // The client writes its outcome into the two status lines it would normally paint on its
+        // own login screen. This harness drives login() straight from the form and never draws
+        // that screen, so the message has to be read out of the client instead.
+        const msg = ((g.statusLineOne || "") + " " + (g.statusLineTwo || "")).trim();
+        line(msg ? "server says: " + msg : "logged in (no refusal message)");
+        line("loggedIn flag = " + g.loggedIn);
+    }).catch((e: any) => line("login threw: " + String(e).slice(0, 80)));
 });
 
 game.initializeApplication(765, 503).catch((e: any) => line("client stopped: " + String(e).slice(0, 80)));
