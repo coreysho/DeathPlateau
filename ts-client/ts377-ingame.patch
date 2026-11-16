@@ -1,6 +1,22 @@
 --- a/osrs/Game.ts
 +++ b/osrs/Game.ts
-@@ -2507,6 +2507,13 @@
+@@ -675,6 +675,15 @@
+             return;
+         }
+         Game.anInt1309++;
++        // Draw nothing while login setup is in flight. loggedIn is set the instant the server
++        // replies 2, but the buffers the game screen draws into are built by method122() several
++        // awaits later; in the Java original the login handler ran to completion inside the client
++        // thread and no frame could land in between. Falling back to drawLoginScreen() here does
++        // NOT work - drawing it calls prepareTitle(), which restarts the title flames, and
++        // method141() inside the very setup being waited on is waiting for those to stop.
++        if (this.loginSetupPending) {
++            return;
++        }
+         if (!this.loggedIn) {
+             await this.drawLoginScreen(false);
+         } else {
+@@ -2507,6 +2516,13 @@
          const k1: number = Rasterizer.bottomX;
          const l1: number = Rasterizer.bottomY;
          Rasterizer.setCoordinates(i, j, i + class13.height, j + class13.width);
@@ -14,7 +30,7 @@
          const i2: number = class13.children.length;
          if (l !== 8) {
              this.opcode = -1;
-@@ -3324,6 +3331,12 @@
+@@ -3324,6 +3340,12 @@
      public method88(i: number, j: number, byte0: number): boolean {
          let flag: boolean = false;
          const class13: Widget = Widget.forId(j);
@@ -27,7 +43,23 @@
          for (let k: number = 0; k < class13.children.length; k++) {
              {
                  if (class13.children[k] === -1) {
-@@ -6592,6 +6605,12 @@
+@@ -3956,6 +3978,7 @@
+                 this.mouseCapturer.coord = 0;
+                 this.awtFocus = true;
+                 this.aBoolean1275 = true;
++                this.loginSetupPending = true;
+                 this.loggedIn = true;
+                 this.outBuffer.currentPosition = 0;
+                 this.buffer.currentPosition = 0;
+@@ -4060,6 +4083,7 @@
+                 Game.anInt1049 = 0;
+                 Game.anInt1162 = 0;
+                 await this.method122();
++                this.loginSetupPending = false;
+                 return;
+             }
+             if (responseCode === 3) {
+@@ -6592,6 +6616,12 @@
          if (i1 < l || k1 < i || i1 > l + class13.width || k1 > i + class13.height) {
              return;
          }
@@ -40,7 +72,81 @@
          const l1: number = class13.children.length;
          for (let i2: number = 0; i2 < l1; i2++) {
              {
-@@ -8972,10 +8991,23 @@
+@@ -7674,6 +7704,73 @@
+                 this.opcode = -1;
+                 return true;
+             }
++            if (this.opcode === 12) {
++                // UPDATE_CLANCHANNEL (DeathPlateau): the whole channel, or owner 0 for none.
++                // Storage only, as in the Java client - the handler holds the channel, and the
++                // clan tab is what draws it. ts377 is a stock 377 client and has no clan tab, so
++                // nothing shows these yet; parsing them is what stops the data being thrown away.
++                this.clanOwner37 = this.buffer.getLong();
++                this.clanCount = 0;
++                if (this.clanOwner37 !== 0n) {
++                    this.clanName37 = this.buffer.getLong();
++                    this.clanKickRank = this.signedByte(this.buffer.getUnsignedByte());
++                    const count: number = this.buffer.getUnsignedByte();
++                    for (let i: number = 0; i < count; i++) {
++                        const name: bigint = this.buffer.getLong();
++                        const world: number = this.buffer.getUnsignedLEShort();
++                        const rank: number = this.signedByte(this.buffer.getUnsignedByte());
++                        if (this.clanCount < this.clanMemberName37.length) {
++                            this.clanMemberName37[this.clanCount] = name;
++                            this.clanMemberWorld[this.clanCount] = world;
++                            this.clanMemberRank[this.clanCount] = rank;
++                            this.clanCount++;
++                        }
++                    }
++                } else {
++                    this.clanName37 = 0n;
++                }
++                this.redrawTabArea = true;
++                this.opcode = -1;
++                return true;
++            }
++            if (this.opcode === 1) {
++                // PING - answered straight away, because every millisecond spent here is counted
++                // by the server as the connection's. Without the answer the engine still keeps the
++                // session (lastResponse moves on any inbound bytes) but can never measure a round
++                // trip, so every player reads as unknown latency.
++                const pingSeq: number = this.buffer.getUnsignedByte();
++                const measured: number = this.buffer.getUnsignedLEShort();
++                this.serverPing = measured === 65535 ? -1 : measured;
++                this.outBuffer.putOpcode(2); // PONG
++                this.outBuffer.putByte(pingSeq);
++                this.opcode = -1;
++                return true;
++            }
++            if (this.opcode === 114) {
++                // VARP_BATCH - every varp in one packet instead of one packet each.
++                //
++                // A login sent 371 varp packets of 536, and this loop reads at most five packets a
++                // pass, so that was seconds of catching up before the client was level with the
++                // world. Skipping it is not harmless: varps carry run energy, the option settings,
++                // quest progress and every interface's state, so a client that ignores this one
++                // packet has the wrong value for all of them.
++                //
++                // Written and read the plain way - no shuffled byte orders - because this packet
++                // is DeathPlateau's at both ends. See the engine's VarpBatchEncoder.
++                const smallCount: number = this.buffer.getUnsignedLEShort();
++                for (let i: number = 0; i < smallCount; i++) {
++                    const varp: number = this.buffer.getUnsignedLEShort();
++                    const raw: number = this.buffer.getUnsignedByte();
++                    this.applyVarp(varp, this.signedByte(raw));
++                }
++                const largeCount: number = this.buffer.getUnsignedLEShort();
++                for (let i: number = 0; i < largeCount; i++) {
++                    const varp: number = this.buffer.getUnsignedLEShort();
++                    this.applyVarp(varp, this.buffer.getInt());
++                }
++                this.opcode = -1;
++                return true;
++            }
+             if (this.opcode === 182) {
+                 const l1: number = this.buffer.method550();
+                 const byte0: number = this.buffer.getSignedByteSubtracted();
+@@ -8972,10 +9069,23 @@
                  this.opcode = -1;
                  return true;
              }
@@ -68,7 +174,7 @@
          } catch (__e) {
              // if (__e != null && __e instanceof IOException as any) {
              //     this.dropClient();
-@@ -9972,6 +10004,9 @@
+@@ -9972,6 +10082,9 @@
          }
      }
  
@@ -78,7 +184,7 @@
      public logout() {
          try {
              if (this.gameConnection != null) {
-@@ -10753,6 +10788,14 @@
+@@ -10753,6 +10866,14 @@
              this.outBuffer.putByte(6);
          }
          const class13: Widget = Widget.forId(i);
@@ -93,6 +199,55 @@
          for (let j: number = 0; j < class13.children.length; j++) {
              {
                  if (class13.children[j] === -1) {
+@@ -10767,6 +10888,48 @@
+             }
+         }
+     }
++
++    /** True between the server's login reply and the end of the setup it triggers. */
++    public loginSetupPending: boolean = false;
++
++    /** The clan channel this player is in, as the server last sent it. */
++    public clanOwner37: bigint = 0n;
++    public clanName37: bigint = 0n;
++    public clanKickRank: number = 0;
++    public clanCount: number = 0;
++    public clanMemberName37: bigint[] = new Array(100).fill(0n);
++    public clanMemberWorld: number[] = new Array(100).fill(0);
++    public clanMemberRank: number[] = new Array(100).fill(0);
++
++    /** One byte read as signed, whatever the backing array's own signedness is. */
++    public signedByte(raw: number): number {
++        return raw > 127 ? raw - 256 : raw;
++    }
++
++    /** Server-reported round-trip time in ms, or -1 when it has not measured one yet. */
++    public serverPing: number = -1;
++
++    /**
++     * Take one varp the server has sent: cache it, and if it changed, redraw what shows it.
++     *
++     * The body is opcode 182's (VARP_SMALL), lifted so VARP_BATCH cannot drift from it. Out of
++     * range is dropped rather than fatal: a varp past the end of the array would throw inside the
++     * packet loop, and that is a disconnect on every login for as long as the server sends it.
++     */
++    public applyVarp(varp: number, value: number): void {
++        if (varp < 0 || varp >= this.widgetSettings.length) {
++            return;
++        }
++        this.anIntArray1005[varp] = value;
++        if (this.widgetSettings[varp] !== value) {
++            this.widgetSettings[varp] = value;
++            this.updateVarp(0, varp);
++            this.redrawTabArea = true;
++            if (this.dialogueId !== -1) {
++                this.redrawChatbox = true;
++            }
++        }
++    }
+ 
+     public updateVarp(i: number, j: number) {
+         this.packetSize += i;
 --- a/osrs/GameShell.ts
 +++ b/osrs/GameShell.ts
 @@ -109,9 +109,37 @@
@@ -273,11 +428,3 @@
          6,
          0,
          0,
-@@ -256,6 +256,6 @@
-         4,
-         0,
-         2,
--        0
-+        0,
-     ];
- }

@@ -172,14 +172,53 @@ not measurements.
 **The rig can now produce the real number.** The same page, opened on a phone against this world,
 reports it directly - `__game.drawMs`, `__game.drawPeakMs`, `__game.fps`.
 
+## Every packet the server sends is now handled
+
+A session with walking, tab switching, right-clicking and typing reports **no unhandled opcodes
+and no errors**. Three of DeathPlateau's nine custom packets actually fire in normal play, and
+each is now implemented against the Java client's version of it rather than guessed:
+
+**`PING` (1)** - read the sequence byte and the server's last measured round trip, answer `PONG`
+(client opcode 2) with that sequence. The engine's `PongHandler` only records a round trip when
+the sequence matches the outstanding ping, so `serverPing` reading 16-38 ms is proof the answer
+is being accepted, not just sent.
+
+**`VARP_BATCH` (114)** - 1081 bytes carrying every varp at once, because a login otherwise sent
+371 varp packets out of 536 and this client reads five packets a pass. Skipping it was not
+harmless: varps carry run energy, the option settings, quest progress and every interface's
+state, so the client had the wrong value for all of them. The per-varp body is `applyVarp`,
+lifted out of opcode 182 exactly as the Java client lifts it, so the two cannot drift - including
+the out-of-range guard, which matters because a varp past the end of the array would throw inside
+the packet loop and that is a disconnect on every login.
+
+**`UPDATE_CLANCHANNEL` (12)** - the channel owner, name, kick rank and member list. Storage only,
+as in the Java client: the handler holds the channel and the clan tab is what draws it. ts377 is a
+stock 377 client and has no clan tab, so nothing shows these yet - but the data now arrives
+instead of being dropped. `clanCount` 1 and a real owner hash confirm it parses.
+
+The other six (`IF_SETINVWINDOW`, `IF_SETINVBREAKS`, `IF_SETINVOP`, `P_DIALOGPROMPT`,
+`MESSAGE_CLAN`, `SET_LOGIN_TOKEN`) never fired in testing - they are situational - and are still
+skipped with the right size, which keeps the stream in sync.
+
+## The startup race is fixed
+
+`loggedIn` is set the instant the server replies 2, but `method122()` builds the game-screen
+buffers several awaits later; in the Java original the login handler ran to completion inside the
+client thread and no frame could land in between. `loginSetupPending` makes `repaintGame` draw
+nothing during that window. **Failed frames per session: 0.**
+
+This same guard was tried earlier and appeared to fail, which is worth recording: at that point an
+unknown opcode still called `logout()`, so `VARP_BATCH` was ending the session a moment later and
+the guard was blamed for it. The fix was right and the diagnosis was wrong.
+
+Falling back to `drawLoginScreen()` instead of drawing nothing does not work, and that is a real
+constraint rather than a preference: drawing it calls `prepareTitle()`, which restarts the title
+flames, and `method141()` inside the very setup being waited on is waiting for those to stop.
+
 ## Still open
 
-- `PING` (opcode 1) is received and skipped, so the engine never gets a `PONG` and cannot measure
-  round-trip time. It does **not** drop the session: `lastResponse` is updated by any inbound
-  bytes (`NetworkPlayer.ts`), and ts377's own keepalive is enough - a session held 105 seconds,
-  well past the 60s timeout. An earlier note here said the opposite; it was wrong.
-- Four frames fail at startup on a null buffer: `loggedIn` is set the moment the server replies 2,
-  but `method122()` builds the game-screen buffers several awaits later. Harmless now that a
-  faulty frame is survivable, but it is a real race and the handover wants reading as a state
-  machine.
-- Right-click menus, running, combat and the rest of the interface are untested.
+- No clan tab. The channel data arrives; nothing renders it. That is a custom interface the Java
+  client has and a stock 377 client does not, and it is the largest remaining gap.
+- Right-click menus, running, combat, trading and the rest of the interface are unexercised. They
+  are stock 377 code that nothing has broken, but "not known to be broken" is not "tested".
+- The six situational custom packets are consumed, not implemented.

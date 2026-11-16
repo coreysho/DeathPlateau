@@ -33,7 +33,7 @@ const eng = new Map([
 const target = path.join(clientDir, 'osrs/util/PacketConstants.ts');
 const src = fs.readFileSync(target, 'utf8');
 const body = src.match(/PACKET_SIZES: number\[\] = \[([\s\S]*?)\];/);
-const sizes = JSON.parse('[' + body[1].replace(/\s+/g, '') + ']');
+const sizes = JSON.parse('[' + body[1].replace(/\s+/g, '').replace(/,$/, '') + ']');
 
 const diff = [...eng].filter(([, v]) => sizes[v.op] !== v.size).map(([n, v]) => ({ n, op: v.op, was: sizes[v.op], now: v.size }));
 console.log(`engine packets ${eng.size}, ts377 table ${sizes.length} entries`);
@@ -44,6 +44,7 @@ for (const d of diff.sort((a, b) => a.op - b.op)) {
 }
 
 if (!WRITE) { console.log('\n(dry run - pass --write to apply)'); process.exit(0); }
-const rendered = sizes.map((v, i) => `        ${v},${i === sizes.length - 1 ? '' : ''}`).join('\n');
+// no trailing comma on the last entry, or re-reading our own output fails to parse
+const rendered = sizes.map((v, i) => `        ${v}${i === sizes.length - 1 ? '' : ','}`).join('\n');
 fs.writeFileSync(target, src.replace(body[0], `PACKET_SIZES: number[] = [\n${rendered}\n    ];`));
 console.log(`\nwritten -> ${target}`);
