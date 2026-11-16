@@ -31,6 +31,10 @@ console.log = (...args: any[]) => {
 const wsScheme = location.protocol === "https:" ? "wss://" : "ws://";
 (globalThis as any).__WS_URL = wsScheme + location.host + "/";
 (globalThis as any).__NO_LOCAL_CACHE = true;
+// A local engine has its own login keypair, so the modulus cannot be baked into the bundle. Set
+// ?rsa=<modulus> to talk to a world other than the one Configuration.ts defaults to.
+const rsaOverride = new URLSearchParams(location.search).get("rsa");
+if (rsaOverride) (globalThis as any).__RSA_MODULUS = rsaOverride;
 // ?nosocket=1 loads without connecting at all. If the page is healthy that way and locks up
 // without it, the fault is the socket and the on-demand stream behind it, not the client's load.
 const params = new URLSearchParams(location.search);
