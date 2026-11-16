@@ -29,7 +29,9 @@ const wsScheme = location.protocol === "https:" ? "wss://" : "ws://";
 // without it, the fault is the socket and the on-demand stream behind it, not the client's load.
 const params = new URLSearchParams(location.search);
 (globalThis as any).__NO_SOCKET = params.has("nosocket");
-line("build " + (typeof __BUILD_ID__ !== "undefined" ? __BUILD_ID__ : "?"));
+line("build " + (typeof __BUILD_ID__ !== "undefined" ? __BUILD_ID__ : "?")
+    + "   preload: " + ((globalThis as any).__SKIP_PRELOAD ? "SKIPPED" : "ON")
+    + "   lowMemory: " + String((Game as any).lowMemory));
 line("socket " + (params.has("nosocket") ? "DISABLED (?nosocket=1)" : "enabled -> " + (globalThis as any).__WS_URL));
 
 // A heartbeat, so a lock-up shows WHERE it stopped instead of just stopping. This is a timer, so

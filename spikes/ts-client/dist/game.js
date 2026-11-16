@@ -45940,7 +45940,7 @@
   globalThis.__NO_LOCAL_CACHE = true;
   var params = new URLSearchParams(location.search);
   globalThis.__NO_SOCKET = params.has("nosocket");
-  line("build " + (true ? "2026-11-16 19:40:35" : "?"));
+  line("build " + (true ? "2026-11-16 19:44:01" : "?") + "   preload: " + (globalThis.__SKIP_PRELOAD ? "SKIPPED" : "ON") + "   lowMemory: " + String(Game.lowMemory));
   line("socket " + (params.has("nosocket") ? "DISABLED (?nosocket=1)" : "enabled -> " + globalThis.__WS_URL));
   var beat = 0;
   setInterval(() => {
