@@ -43412,8 +43412,10 @@
       }
       await this.drawLoadingText(65, "Requesting animations");
       let fileRequestCount = this.onDemandRequester.fileCount(1);
-      for (let i = 0; i < fileRequestCount; i++) {
-        this.onDemandRequester.request(1, i);
+      if (!globalThis.__SKIP_PRELOAD) {
+        for (let i = 0; i < fileRequestCount; i++) {
+          this.onDemandRequester.request(1, i);
+        }
       }
       while (this.onDemandRequester.immediateRequestsCount() > 0) {
         const total = fileRequestCount - this.onDemandRequester.immediateRequestsCount();
@@ -43455,8 +43457,8 @@
       }
       this.drawLoadingText(70, "Requesting models");
       fileRequestCount = this.onDemandRequester.fileCount(0);
-      for (let i = 0; i < fileRequestCount; i++) {
-        {
+      if (!globalThis.__SKIP_PRELOAD) {
+        for (let i = 0; i < fileRequestCount; i++) {
           const id = this.onDemandRequester.modelId(i);
           if ((id & 1) !== 0) {
             this.onDemandRequester.request(0, i);
@@ -45938,13 +45940,14 @@
   globalThis.__NO_LOCAL_CACHE = true;
   var params = new URLSearchParams(location.search);
   globalThis.__NO_SOCKET = params.has("nosocket");
-  line("build " + (true ? "2026-11-16 19:28:29" : "?"));
+  line("build " + (true ? "2026-11-16 19:40:35" : "?"));
   line("socket " + (params.has("nosocket") ? "DISABLED (?nosocket=1)" : "enabled -> " + globalThis.__WS_URL));
   var beat = 0;
   setInterval(() => {
     line("heartbeat " + ++beat);
   }, 2e3);
   Game.lowMemory = true;
+  globalThis.__SKIP_PRELOAD = !new URLSearchParams(location.search).has("preload");
   var canvas = document.createElement("canvas");
   canvas.id = "gameCanvas";
   document.body.appendChild(canvas);

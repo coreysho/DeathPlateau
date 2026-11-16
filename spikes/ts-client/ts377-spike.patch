@@ -20,7 +20,7 @@ diff -ru a/osrs/Configuration.ts b/osrs/Configuration.ts
  }
 diff -ru a/osrs/Game.ts b/osrs/Game.ts
 --- a/osrs/Game.ts	2026-11-16 00:16:53.661335972 +0000
-+++ b/osrs/Game.ts	2026-11-16 19:28:29.158175119 +0000
++++ b/osrs/Game.ts	2026-11-16 19:40:26.564225612 +0000
 @@ -3899,6 +3899,7 @@
                  await this.gameConnection.read$();
              }
@@ -113,7 +113,29 @@ diff -ru a/osrs/Game.ts b/osrs/Game.ts
                      if (this.onDemandRequester.requestFails > 3) {
                          this.method19("ondemand");
                          return;
-@@ -11029,6 +11071,30 @@
+@@ -11019,8 +11061,19 @@
+         await this.drawLoadingText(65, "Requesting animations");
+ 
+         let fileRequestCount: number = this.onDemandRequester.fileCount(1);
+-        for (let i: number = 0; i < fileRequestCount; i++) {
+-            this.onDemandRequester.request(1, i);
++        // NOT PRELOADED. This asks the update server for every animation in the game before the
++        // player may log in - 1,446 of them - and then waits for all of them. It is a 2004
++        // optimisation for a dial-up connection that would rather pay once than stutter later, and
++        // it is also where this client got stuck: one or two requests out of fourteen hundred were
++        // never answered, and the whole startup waits on the stragglers.
++        //
++        // The on-demand machinery exists precisely to fetch these when they are first needed, which
++        // is what request() below does during play. Skipping the preload costs a hitch the first
++        // time an animation is seen and saves waiting for all of them to log in at all.
++        if (!(globalThis as any).__SKIP_PRELOAD) {
++            for (let i: number = 0; i < fileRequestCount; i++) {
++                this.onDemandRequester.request(1, i);
++            }
+         }
+         while (this.onDemandRequester.immediateRequestsCount() > 0) {
+             const total: number = fileRequestCount - this.onDemandRequester.immediateRequestsCount();
+@@ -11029,6 +11082,30 @@
              }
              this.method77(false);
              await sleep(100);
@@ -144,7 +166,18 @@ diff -ru a/osrs/Game.ts b/osrs/Game.ts
              if (this.onDemandRequester.requestFails > 3) {
                  this.method19("ondemand");
                  return;
-@@ -11054,6 +11120,30 @@
+@@ -11037,8 +11114,8 @@
+         this.drawLoadingText(70, "Requesting models");
+ 
+         fileRequestCount = this.onDemandRequester.fileCount(0);
+-        for (let i: number = 0; i < fileRequestCount; i++) {
+-            {
++        if (!(globalThis as any).__SKIP_PRELOAD) {
++            for (let i: number = 0; i < fileRequestCount; i++) {
+                 const id: number = this.onDemandRequester.modelId(i);
+                 if ((id & 1) !== 0) {
+                     this.onDemandRequester.request(0, i);
+@@ -11054,6 +11131,30 @@
                  }
                  this.method77(false);
                  await sleep(100);
@@ -175,7 +208,7 @@ diff -ru a/osrs/Game.ts b/osrs/Game.ts
              }
          }
  
-@@ -11082,6 +11172,30 @@
+@@ -11082,6 +11183,30 @@
                      try {
                          await sleep(100);
                      } catch (ignored) {}
@@ -206,7 +239,7 @@ diff -ru a/osrs/Game.ts b/osrs/Game.ts
                  }
              }
          }
-@@ -11610,6 +11724,11 @@
+@@ -11610,6 +11735,11 @@
      }
  
      public async drawLoadingText(i: number, s: string) {
@@ -218,7 +251,7 @@ diff -ru a/osrs/Game.ts b/osrs/Game.ts
          this.anInt1322 = i;
          this.aString1027 = s;
          await this.resetTitleScreen();
-@@ -13448,8 +13567,36 @@
+@@ -13448,8 +13578,36 @@
          this.fontFancy = new TypeFace(true, this.titleArchive, "q8_full");
      }
  

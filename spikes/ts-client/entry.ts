@@ -42,6 +42,8 @@ setInterval(() => { line("heartbeat " + (++beat)); }, 2000);
 // stream does not deliver, startUp never reaches the sprites, so minimapBackgroundImage stays null
 // and the first thing the game draws after login throws on it. A phone wants low detail regardless.
 (Game as any).lowMemory = true;
+// Skip the startup preload of every animation, model and map. ?preload=1 puts it back.
+(globalThis as any).__SKIP_PRELOAD = !new URLSearchParams(location.search).has("preload");
 
 const canvas = document.createElement("canvas");
 canvas.id = "gameCanvas";
