@@ -55,10 +55,28 @@ The repository was abandoned in August 2023. Adopting it means being the first t
 
 ## Phases
 
-**Phase 0 - make it run.** Clear the open freeze (6 above), get to the game world, read the fps.
-Needs a debugger on the device: Safari's remote inspector from a Mac shows the blocked stack in
-seconds. This is the gate - if the renderer cannot hold a playable rate on a phone, stop here and
-the answer is that browser mobile does not work for this game.
+**Phase 0 - make it run.** This is the gate - if the renderer cannot hold a playable rate on a
+phone, stop here and the answer is that browser mobile does not work for this game.
+
+> **The freeze is fixed, 2026-11-16.** It was never a freeze. `Archive.getFile` bzip2-decompresses
+> the whole file on every call, and the loaders ask for the same file once per sprite inside it.
+> Boot spent 26 seconds making **11,443 decompressions that produced 234 MB, out of archives
+> totalling 1.8 MB** - all synchronous, on the main thread, between "Unpacking interfaces" and
+> "Preparing game engine", which is indistinguishable from a hang. One `Map` in `getFile` fixes it:
+>
+>     first pixels   28.3s -> 2.8s
+>     bzip2 calls   11,443 -> 684
+>     decompressed  234 MB -> 1.5 MB
+>
+> `ts377-archive-cache.patch`, three hunks. The title screen renders identically. Two other
+> hypotheses were tested first and both were wrong - typed arrays for the bzip2 context (3%) and
+> for the archive buffers (nothing). The cost was never the byte representation, it was doing the
+> work eleven thousand times.
+
+Still open: **the game-world fps on a real phone.** The title screen holds 230-300 fps in headless
+Chromium here, but that is a desktop-class container CPU drawing a static scene, and it is not
+evidence about a phone or about a populated world. That number is still the gate, and getting it
+needs a login and a device.
 
 **Phase 1 - playable.** On-demand models and maps during play rather than preloaded, input, the
 game loop, enough interface to move and fight. Target: log in, walk to Lumbridge, kill a goblin.
@@ -113,9 +131,10 @@ through CheerpJ; none of them exist here.
     serve.js            static files plus a proxy to the live cache routes
     dist/               built, and what the phone has been loading
 
-    tools/gen-protocol.mjs    generates Client-TS's ServerProt.ts and ClientProt.ts from the
-                              engine's three prot files. Idempotent; re-run it when they change
-    clientts-protocol.patch   the result, against Client-TS at 7d6ca61
+    tools/gen-protocol.mjs      generates Client-TS's ServerProt.ts and ClientProt.ts from the
+                                engine's three prot files. Idempotent; re-run when they change
+    clientts-protocol.patch     the result, against Client-TS at 7d6ca61
+    ts377-archive-cache.patch   the getFile memo: 28.3s boot -> 2.8s
 
 esbuild warns that `rsshim.js` uses BigInt literals against the `es2017` target it is built for.
 That target was a hedge against an old Safari and bought nothing: the RSA those literals implement

@@ -1,0 +1,44 @@
+diff --git a/osrs/cache/Archive.ts b/osrs/cache/Archive.ts
+index 2ca4643..d2e2537 100644
+--- a/osrs/cache/Archive.ts
++++ b/osrs/cache/Archive.ts
+@@ -23,6 +23,20 @@ export class Archive {
+ 
+   public compressed: boolean;
+ 
++  /**
++   * Decompressed files, by name hash.
++   *
++   * Without this, getFile bzip2-decompresses the whole file on every call, and the loaders ask for
++   * the same file once per sprite inside it. Boot measured 11,443 decompressions producing 234 MB
++   * out of archives totalling 1.8 MB - 26 seconds of it, all on the main thread, which is what
++   * made the client look like it had hung between "Unpacking interfaces" and "Preparing game
++   * engine". With the cache: 684 calls, 1.5 MB, 0.2s.
++   *
++   * The buffers are handed out shared rather than copied. Every consumer reads them into its own
++   * structures; the title screen renders identically with and without this.
++   */
++  private fileCache: Map<number, number[]> = new Map();
++
+   public constructor(dataBuffer: number[]) {
+     if (this.archiveBuffer === undefined) {
+       this.archiveBuffer = null;
+@@ -91,6 +105,10 @@ export class Archive {
+     let dataBuffer: number[] = null;
+     file = file.toUpperCase();
+     const hash = rs_hash_string(file);
++    const cached = this.fileCache.get(hash);
++    if (cached !== undefined) {
++      return cached;
++    }
+     for (let index: number = 0; index < this.dataSize; index++) {
+       {
+         if (this.nameHashes[index] === hash) {
+@@ -116,6 +134,7 @@ export class Archive {
+               ];
+             }
+           }
++          this.fileCache.set(hash, dataBuffer);
+           return dataBuffer;
+         }
+       }
