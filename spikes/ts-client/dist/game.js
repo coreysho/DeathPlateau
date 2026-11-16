@@ -37037,6 +37037,7 @@
           return;
         }
       } catch (ex) {
+        console.log("SPIKE login threw: " + (ex && ex.stack ? String(ex.stack).split("\n").slice(0, 3).join(" | ") : String(ex)));
         this.statusLineOne = "";
       }
       this.statusLineTwo = "Error connecting to server.";

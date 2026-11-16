@@ -20,7 +20,7 @@ diff -ru a/osrs/Configuration.ts b/osrs/Configuration.ts
  }
 diff -ru a/osrs/Game.ts b/osrs/Game.ts
 --- a/osrs/Game.ts	2026-11-16 00:16:53.661335972 +0000
-+++ b/osrs/Game.ts	2026-11-16 18:13:11.733184702 +0000
++++ b/osrs/Game.ts	2026-11-16 18:56:41.511020239 +0000
 @@ -3899,6 +3899,7 @@
                  await this.gameConnection.read$();
              }
@@ -44,7 +44,17 @@ diff -ru a/osrs/Game.ts b/osrs/Game.ts
                  return;
              }
              if (responseCode === 2) {
-@@ -10961,9 +10960,16 @@
+@@ -4220,6 +4219,9 @@
+                 return;
+             }
+         } catch (ex) {
++            // The original swallows this and says "Error connecting to server" whatever happened -
++            // which is no use at all when the server answered 2 and the fault is on this side.
++            console.log("SPIKE login threw: " + ((ex as any) && (ex as any).stack ? String((ex as any).stack).split("\n").slice(0, 3).join(" | ") : String(ex)));
+             this.statusLineOne = "";
+         }
+         this.statusLineTwo = "Error connecting to server.";
+@@ -10961,9 +10963,16 @@
  
      public async startUp() {
          if (Configuration.JAGGRAB_ENABLED) await this.requestArchiveCrcs();
@@ -62,7 +72,7 @@ diff -ru a/osrs/Game.ts b/osrs/Game.ts
          this.initArchives();
          this.initTypeFaces();
  
-@@ -13448,8 +13454,36 @@
+@@ -13448,8 +13457,36 @@
          this.fontFancy = new TypeFace(true, this.titleArchive, "q8_full");
      }
  
