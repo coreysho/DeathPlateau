@@ -79,10 +79,12 @@ through CheerpJ; none of them exist here.
 - **Where the code lives.** The spike patches a third-party tree at a pinned commit. Real work
   needs it vendored into a repository of ours. That is a fork of an archived project, so the
   licensing wants checking first: its `package.json` says ISC and there is no LICENSE file.
-- **This port, or Lost City's.** `LostCityRS/Client-TS` already speaks our engine's cache routes
-  (`downloadUrl('/crc')`, an `OnDemandWorker`) and has a `MobileKeyboard.ts` - but it is revision
-  274 and has no 377 branch. The choice is forward-porting theirs or back-filling this one's cache
-  and net layer from theirs. Worth an hour comparing before committing to either.
+- **This port, or Lost City's.** Compared in COMPARISON.md, and the answer is not the one this
+  spike assumed. Client-TS's revision gap is a renumbering table - 54 of 56 shared packets have
+  identical payloads, and our own `ServerGameProt.ts` has the numbers - while ts377's cost is
+  living in 3,769 machine-translated identifiers with no upstream. **The recommendation is
+  Client-TS**, subject to one experiment: point it at our cache and see whether it parses our eight
+  archives. A day, and it settles the question.
 - **What happens to the CheerpJ client.** It works on desktop browsers and the recent fixes landed
   there. Keeping it as a fallback costs nothing.
 
