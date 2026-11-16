@@ -87,7 +87,21 @@
                              this.outBuffer.putLength(this.outBuffer.currentPosition - j);
                              this.chatMessage = ChatEncoder.formatChatMessage(this.chatMessage);
                              this.addChatMessage(TextUtils.formatName(TextUtils.longToName(this.aLong1141)), this.chatMessage, 6);
-@@ -4838,6 +4867,19 @@
+@@ -4742,7 +4771,12 @@
+                         this.redrawChatbox = true;
+                     }
+                 } else if (this.backDialogueId === -1 && this.anInt1053 === -1) {
+-                    if (key >= 32 && key <= 122 && this.chatboxInput.length < 80) {
++                    // 122 is 'z', which is as far as chat text goes - but a debugproc is typed
++                    // ::~name, and '~' is 126. Dropping it silently turns ::~varrock into
++                    // ::varrock, which looks for [debugproc,varroc], finds nothing and returns
++                    // without a word, so every dev command simply did nothing. The Java client
++                    // widens the range the same way, and only once the line is already a command.
++                    if (key >= 32 && (key <= 122 || (this.chatboxInput.startsWith("::") && key <= 126)) && this.chatboxInput.length < 80) {
+                         this.chatboxInput += String.fromCharCode(key);
+                         this.redrawChatbox = true;
+                     }
+@@ -4838,6 +4872,19 @@
                              this.outBuffer.putOpcode(56);
                              this.outBuffer.putByte(this.chatboxInput.length - 1);
                              this.outBuffer.putString(this.chatboxInput.substring(2));
@@ -107,7 +121,7 @@
                          } else {
                              let s: string = this.chatboxInput.toLowerCase();
                              let colourCode: number = 0;
-@@ -4953,7 +4995,7 @@
+@@ -4953,7 +5000,7 @@
                              this.outBuffer.putByteNegated(colourCode);
                              this.outBuffer.putByteAdded(effectCode);
                              this.chatBuffer.currentPosition = 0;
@@ -116,7 +130,7 @@
                              this.outBuffer.putBytes(this.chatBuffer.buffer, 0, this.chatBuffer.currentPosition);
                              this.outBuffer.putLength(this.outBuffer.currentPosition - bufPos);
                              this.chatboxInput = ChatEncoder.formatChatMessage(this.chatboxInput);
-@@ -6592,6 +6634,12 @@
+@@ -6592,6 +6639,12 @@
          if (i1 < l || k1 < i || i1 > l + class13.width || k1 > i + class13.height) {
              return;
          }
@@ -129,7 +143,7 @@
          const l1: number = class13.children.length;
          for (let i2: number = 0; i2 < l1; i2++) {
              {
-@@ -7674,6 +7722,102 @@
+@@ -7674,6 +7727,102 @@
                  this.opcode = -1;
                  return true;
              }
@@ -232,7 +246,7 @@
              if (this.opcode === 182) {
                  const l1: number = this.buffer.method550();
                  const byte0: number = this.buffer.getSignedByteSubtracted();
-@@ -8286,7 +8430,7 @@
+@@ -8286,7 +8435,7 @@
                      try {
                          this.anIntArray1258[this.anInt1152] = i19;
                          this.anInt1152 = (this.anInt1152 + 1) % 100;
@@ -241,7 +255,7 @@
                          if (j23 !== 3) {
                              s9 = ChatCensor.censorString(s9);
                          }
-@@ -8972,10 +9116,23 @@
+@@ -8972,10 +9121,23 @@
                  this.opcode = -1;
                  return true;
              }
@@ -269,7 +283,7 @@
          } catch (__e) {
              // if (__e != null && __e instanceof IOException as any) {
              //     this.dropClient();
-@@ -9224,7 +9381,7 @@
+@@ -9224,7 +9386,7 @@
                          this.chatBuffer.currentPosition = 0;
                          buffer.getBytesAdded(this.chatBuffer.buffer, 0, length);
                          this.chatBuffer.currentPosition = 0;
@@ -278,7 +292,7 @@
                          player.forcedChat = message;
                          player.textColour = effectsAndColour >> 8;
                          player.textEffect = effectsAndColour & 255;
-@@ -9972,6 +10129,9 @@
+@@ -9972,6 +10134,9 @@
          }
      }
  
@@ -288,7 +302,7 @@
      public logout() {
          try {
              if (this.gameConnection != null) {
-@@ -10753,6 +10913,14 @@
+@@ -10753,6 +10918,14 @@
              this.outBuffer.putByte(6);
          }
          const class13: Widget = Widget.forId(i);
@@ -303,7 +317,7 @@
          for (let j: number = 0; j < class13.children.length; j++) {
              {
                  if (class13.children[j] === -1) {
-@@ -10768,6 +10936,116 @@
+@@ -10768,6 +10941,116 @@
          }
      }
  

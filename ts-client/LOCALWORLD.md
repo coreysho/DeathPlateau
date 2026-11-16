@@ -262,12 +262,44 @@ Attack and combat levels), NPC dialogue with the animated chat head, combat with
 hitsplats, run energy, the clan tab, public chat, clan chat, and two clients seeing each other in
 the world. No unhandled opcodes and no errors across a session that does all of it.
 
+## Developer commands were untypeable
+
+Every `::` command did nothing, silently, and the reason was one comparison. The chatbox filter
+read `key >= 32 && key <= 122` - 122 is 'z' - but a debugproc is typed `::~name` and '~' is 126.
+The tilde was dropped before it reached the input, so `::~varrock` became `::varrock`, which looks
+for `[debugproc,varroc]`, finds nothing, and returns without a word. The cheat scripts warn about
+exactly this failure; the client was manufacturing it.
+
+The Java client widens the range once the line is already a command:
+
+    key >= 32 && (key <= 122 || (chatTyped.startsWith("::") && key <= 126))
+
+With that ported, `::~varrock` moves the player to 3213,3423 and `::~east 12` lands exactly twelve
+tiles east. Commands come through as `CLIENT_CHEAT` (56), which is a plain string, not ChatText -
+which is why the range can be wider there than chat allows.
+
+## Items, and what they confirmed
+
+A character with items needed no database editing: Pickpocket is in the Man's right-click menu.
+Six pickpockets produce "You pick the man's pocket." and a stack of 3 coins appears in the
+inventory tab, drawn with the right sprite and count - so inventory rendering, item sprites and
+the inventory update packets all work.
+
+Granting staff level 4 (for `::` commands) is a `UPDATE account SET staffmodlevel = 4` on this
+container's `db.sqlite`. That is a local test database; nothing was changed on any live server.
+
 ## Still open
 
-- `IF_SETINVWINDOW`, `IF_SETINVBREAKS`, `IF_SETINVOP` and `P_DIALOGPROMPT` are consumed with the
-  right size but not implemented. None of them fired in any session here; they need the situations
-  that trigger them - a shop, a bank, a prompt - and a character with items to put in them.
-- Clan rank icons (content codes 1301-1400) are left undrawn: the Java client has a clanrank
-  sprite sheet this client never loads.
-- Trading is untested. It needs two characters with items.
-- The phone measurement is still the thing that decides whether any of this ships.
+- **The bank interface is still unexercised**, and with it `IF_SETINVWINDOW`, `IF_SETINVBREAKS`
+  and `IF_SETINVOP`, which `bank_tabs.rs2` and `bank_bar.rs2` are the only callers of.
+  Teleporting into Draynor bank works and the room draws correctly - bankers, counters, the right
+  minimap - but the hover sweep finds nothing to click there, while the same coordinate reached by
+  logging in finds 34 options. That difference is real and repeatable and I have not explained it.
+  REBUILD_NORMAL is not the cause: its two fields decode correctly against the engine's
+  `p2(zoneZ)` / `p2_alt3(zoneX)`, and the scene it builds is visibly right. It may equally be the
+  sweep's own timing - that methodology has been wrong twice already in this work - so it is
+  recorded as an open question rather than a bug.
+- `P_DIALOGPROMPT` is consumed but not implemented; its callers are the trading post and hunter.
+- Clan rank icons (codes 1301-1400) need a sprite sheet this client does not load.
+- Trading is untested. It needs two characters with items in the same place.
+- The phone measurement still decides whether any of this ships.
