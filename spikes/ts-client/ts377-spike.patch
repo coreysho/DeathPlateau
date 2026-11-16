@@ -20,7 +20,7 @@ diff -ru a/osrs/Configuration.ts b/osrs/Configuration.ts
  }
 diff -ru a/osrs/Game.ts b/osrs/Game.ts
 --- a/osrs/Game.ts	2026-11-16 00:16:53.661335972 +0000
-+++ b/osrs/Game.ts	2026-11-16 19:07:41.328465536 +0000
++++ b/osrs/Game.ts	2026-11-16 19:22:32.967112462 +0000
 @@ -3899,6 +3899,7 @@
                  await this.gameConnection.read$();
              }
@@ -82,7 +82,111 @@ diff -ru a/osrs/Game.ts b/osrs/Game.ts
          this.initArchives();
          this.initTypeFaces();
  
-@@ -11610,6 +11628,11 @@
+@@ -11008,6 +11026,24 @@
+                     try {
+                         await sleep(100);
+                     } catch (ignored) {}
++                {
++                    const left = this.onDemandRequester.immediateRequestsCount();
++                    const now = Date.now();
++                    const g = globalThis as any;
++                    if (g.__stallCount !== left) { g.__stallCount = left; g.__stallSince = now; }
++                    else if (now - (g.__stallSince || now) > 10000) {
++                        const pending: string[] = [];
++                        let node: any = (this.onDemandRequester.immediateRequests as any).head.next;
++                        let guard = 0;
++                        while (node && node !== (this.onDemandRequester.immediateRequests as any).head && guard++ < 20) {
++                            pending.push(node.type + "/" + node.id);
++                            node = node.next;
++                        }
++                        console.log("SPIKE stalled with " + left + " outstanding: " + pending.join(", ") + " - giving up on them");
++                        g.__stallSince = now;
++                        break;
++                    }
++                }
+                     if (this.onDemandRequester.requestFails > 3) {
+                         this.method19("ondemand");
+                         return;
+@@ -11029,6 +11065,28 @@
+             }
+             this.method77(false);
+             await sleep(100);
++            // STOP WAITING FOR A FILE THAT IS NOT COMING. requestFails only counts a request the
++            // stream refused; one that is simply never answered leaves this loop spinning for ever
++            // on the last file or two, which is what "stuck at 99%" is. After ten seconds without
++            // the count moving, say which requests are outstanding and carry on without them.
++            {
++                const left = this.onDemandRequester.immediateRequestsCount();
++                const now = Date.now();
++                const g = globalThis as any;
++                if (g.__stallCount !== left) { g.__stallCount = left; g.__stallSince = now; }
++                else if (now - (g.__stallSince || now) > 10000) {
++                    const pending: string[] = [];
++                    let node: any = (this.onDemandRequester.immediateRequests as any).head.next;
++                    let guard = 0;
++                    while (node && node !== (this.onDemandRequester.immediateRequests as any).head && guard++ < 20) {
++                        pending.push(node.type + "/" + node.id);
++                        node = node.next;
++                    }
++                    console.log("SPIKE stalled with " + left + " outstanding: " + pending.join(", ") + " - giving up on them");
++                    g.__stallSince = now;
++                    break;
++                }
++            }
+             if (this.onDemandRequester.requestFails > 3) {
+                 this.method19("ondemand");
+                 return;
+@@ -11054,6 +11112,24 @@
+                 }
+                 this.method77(false);
+                 await sleep(100);
++                {
++                    const left = this.onDemandRequester.immediateRequestsCount();
++                    const now = Date.now();
++                    const g = globalThis as any;
++                    if (g.__stallCount !== left) { g.__stallCount = left; g.__stallSince = now; }
++                    else if (now - (g.__stallSince || now) > 10000) {
++                        const pending: string[] = [];
++                        let node: any = (this.onDemandRequester.immediateRequests as any).head.next;
++                        let guard = 0;
++                        while (node && node !== (this.onDemandRequester.immediateRequests as any).head && guard++ < 20) {
++                            pending.push(node.type + "/" + node.id);
++                            node = node.next;
++                        }
++                        console.log("SPIKE stalled with " + left + " outstanding: " + pending.join(", ") + " - giving up on them");
++                        g.__stallSince = now;
++                        break;
++                    }
++                }
+             }
+         }
+ 
+@@ -11082,6 +11158,24 @@
+                     try {
+                         await sleep(100);
+                     } catch (ignored) {}
++                {
++                    const left = this.onDemandRequester.immediateRequestsCount();
++                    const now = Date.now();
++                    const g = globalThis as any;
++                    if (g.__stallCount !== left) { g.__stallCount = left; g.__stallSince = now; }
++                    else if (now - (g.__stallSince || now) > 10000) {
++                        const pending: string[] = [];
++                        let node: any = (this.onDemandRequester.immediateRequests as any).head.next;
++                        let guard = 0;
++                        while (node && node !== (this.onDemandRequester.immediateRequests as any).head && guard++ < 20) {
++                            pending.push(node.type + "/" + node.id);
++                            node = node.next;
++                        }
++                        console.log("SPIKE stalled with " + left + " outstanding: " + pending.join(", ") + " - giving up on them");
++                        g.__stallSince = now;
++                        break;
++                    }
++                }
+                 }
+             }
+         }
+@@ -11610,6 +11704,11 @@
      }
  
      public async drawLoadingText(i: number, s: string) {
@@ -94,7 +198,7 @@ diff -ru a/osrs/Game.ts b/osrs/Game.ts
          this.anInt1322 = i;
          this.aString1027 = s;
          await this.resetTitleScreen();
-@@ -13448,8 +13471,36 @@
+@@ -13448,8 +13547,36 @@
          this.fontFancy = new TypeFace(true, this.titleArchive, "q8_full");
      }
  

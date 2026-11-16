@@ -43377,6 +43377,26 @@
               await sleep(100);
             } catch (ignored) {
             }
+            {
+              const left = this.onDemandRequester.immediateRequestsCount();
+              const now = Date.now();
+              const g = globalThis;
+              if (g.__stallCount !== left) {
+                g.__stallCount = left;
+                g.__stallSince = now;
+              } else if (now - (g.__stallSince || now) > 1e4) {
+                const pending = [];
+                let node = this.onDemandRequester.immediateRequests.head.next;
+                let guard = 0;
+                while (node && node !== this.onDemandRequester.immediateRequests.head && guard++ < 20) {
+                  pending.push(node.type + "/" + node.id);
+                  node = node.next;
+                }
+                console.log("SPIKE stalled with " + left + " outstanding: " + pending.join(", ") + " - giving up on them");
+                g.__stallSince = now;
+                break;
+              }
+            }
             if (this.onDemandRequester.requestFails > 3) {
               this.method19("ondemand");
               return;
@@ -43396,6 +43416,26 @@
         }
         this.method77(false);
         await sleep(100);
+        {
+          const left = this.onDemandRequester.immediateRequestsCount();
+          const now = Date.now();
+          const g = globalThis;
+          if (g.__stallCount !== left) {
+            g.__stallCount = left;
+            g.__stallSince = now;
+          } else if (now - (g.__stallSince || now) > 1e4) {
+            const pending = [];
+            let node = this.onDemandRequester.immediateRequests.head.next;
+            let guard = 0;
+            while (node && node !== this.onDemandRequester.immediateRequests.head && guard++ < 20) {
+              pending.push(node.type + "/" + node.id);
+              node = node.next;
+            }
+            console.log("SPIKE stalled with " + left + " outstanding: " + pending.join(", ") + " - giving up on them");
+            g.__stallSince = now;
+            break;
+          }
+        }
         if (this.onDemandRequester.requestFails > 3) {
           this.method19("ondemand");
           return;
@@ -43420,6 +43460,26 @@
           }
           this.method77(false);
           await sleep(100);
+          {
+            const left = this.onDemandRequester.immediateRequestsCount();
+            const now = Date.now();
+            const g = globalThis;
+            if (g.__stallCount !== left) {
+              g.__stallCount = left;
+              g.__stallSince = now;
+            } else if (now - (g.__stallSince || now) > 1e4) {
+              const pending = [];
+              let node = this.onDemandRequester.immediateRequests.head.next;
+              let guard = 0;
+              while (node && node !== this.onDemandRequester.immediateRequests.head && guard++ < 20) {
+                pending.push(node.type + "/" + node.id);
+                node = node.next;
+              }
+              console.log("SPIKE stalled with " + left + " outstanding: " + pending.join(", ") + " - giving up on them");
+              g.__stallSince = now;
+              break;
+            }
+          }
         }
       }
       if (this.stores[0] != null) {
@@ -43447,6 +43507,26 @@
             try {
               await sleep(100);
             } catch (ignored) {
+            }
+            {
+              const left = this.onDemandRequester.immediateRequestsCount();
+              const now = Date.now();
+              const g = globalThis;
+              if (g.__stallCount !== left) {
+                g.__stallCount = left;
+                g.__stallSince = now;
+              } else if (now - (g.__stallSince || now) > 1e4) {
+                const pending = [];
+                let node = this.onDemandRequester.immediateRequests.head.next;
+                let guard = 0;
+                while (node && node !== this.onDemandRequester.immediateRequests.head && guard++ < 20) {
+                  pending.push(node.type + "/" + node.id);
+                  node = node.next;
+                }
+                console.log("SPIKE stalled with " + left + " outstanding: " + pending.join(", ") + " - giving up on them");
+                g.__stallSince = now;
+                break;
+              }
             }
           }
         }
@@ -45834,7 +45914,7 @@
   globalThis.__NO_LOCAL_CACHE = true;
   var params = new URLSearchParams(location.search);
   globalThis.__NO_SOCKET = params.has("nosocket");
-  line("build " + (true ? "2026-11-16 19:09:29" : "?"));
+  line("build " + (true ? "2026-11-16 19:22:33" : "?"));
   line("socket " + (params.has("nosocket") ? "DISABLED (?nosocket=1)" : "enabled -> " + globalThis.__WS_URL));
   var beat = 0;
   setInterval(() => {
