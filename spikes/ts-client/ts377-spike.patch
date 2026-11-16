@@ -20,7 +20,7 @@ diff -ru a/osrs/Configuration.ts b/osrs/Configuration.ts
  }
 diff -ru a/osrs/Game.ts b/osrs/Game.ts
 --- a/osrs/Game.ts	2026-11-16 00:16:53.661335972 +0000
-+++ b/osrs/Game.ts	2026-11-16 19:22:32.967112462 +0000
++++ b/osrs/Game.ts	2026-11-16 19:28:29.158175119 +0000
 @@ -3899,6 +3899,7 @@
                  await this.gameConnection.read$();
              }
@@ -82,7 +82,7 @@ diff -ru a/osrs/Game.ts b/osrs/Game.ts
          this.initArchives();
          this.initTypeFaces();
  
-@@ -11008,6 +11026,24 @@
+@@ -11008,6 +11026,30 @@
                      try {
                          await sleep(100);
                      } catch (ignored) {}
@@ -90,8 +90,13 @@ diff -ru a/osrs/Game.ts b/osrs/Game.ts
 +                    const left = this.onDemandRequester.immediateRequestsCount();
 +                    const now = Date.now();
 +                    const g = globalThis as any;
-+                    if (g.__stallCount !== left) { g.__stallCount = left; g.__stallSince = now; }
-+                    else if (now - (g.__stallSince || now) > 10000) {
++                    // BEST PROGRESS, NOT LAST VALUE. Comparing against the previous count resets the
++                    // clock on any change at all, so a count that trickles or oscillates near the end
++                    // never looks stalled and the loop runs for ever - which is what "still 99%" was.
++                    // A new low is progress; anything else is not, however much it moves.
++                    if (g.__stallBest === undefined || left < g.__stallBest) { g.__stallBest = left; g.__stallSince = now; }
++                    if (now - (g.__stallTold || 0) > 5000) { g.__stallTold = now; console.log("SPIKE on-demand outstanding: " + left); }
++                    if (now - (g.__stallSince || now) > 15000) {
 +                        const pending: string[] = [];
 +                        let node: any = (this.onDemandRequester.immediateRequests as any).head.next;
 +                        let guard = 0;
@@ -101,13 +106,14 @@ diff -ru a/osrs/Game.ts b/osrs/Game.ts
 +                        }
 +                        console.log("SPIKE stalled with " + left + " outstanding: " + pending.join(", ") + " - giving up on them");
 +                        g.__stallSince = now;
++                        g.__stallBest = undefined;
 +                        break;
 +                    }
 +                }
                      if (this.onDemandRequester.requestFails > 3) {
                          this.method19("ondemand");
                          return;
-@@ -11029,6 +11065,28 @@
+@@ -11029,6 +11071,30 @@
              }
              this.method77(false);
              await sleep(100);
@@ -119,8 +125,9 @@ diff -ru a/osrs/Game.ts b/osrs/Game.ts
 +                const left = this.onDemandRequester.immediateRequestsCount();
 +                const now = Date.now();
 +                const g = globalThis as any;
-+                if (g.__stallCount !== left) { g.__stallCount = left; g.__stallSince = now; }
-+                else if (now - (g.__stallSince || now) > 10000) {
++                if (g.__stallBest === undefined || left < g.__stallBest) { g.__stallBest = left; g.__stallSince = now; }
++                if (now - (g.__stallTold || 0) > 5000) { g.__stallTold = now; console.log("SPIKE on-demand outstanding: " + left); }
++                if (now - (g.__stallSince || now) > 15000) {
 +                    const pending: string[] = [];
 +                    let node: any = (this.onDemandRequester.immediateRequests as any).head.next;
 +                    let guard = 0;
@@ -130,13 +137,14 @@ diff -ru a/osrs/Game.ts b/osrs/Game.ts
 +                    }
 +                    console.log("SPIKE stalled with " + left + " outstanding: " + pending.join(", ") + " - giving up on them");
 +                    g.__stallSince = now;
++                    g.__stallBest = undefined;
 +                    break;
 +                }
 +            }
              if (this.onDemandRequester.requestFails > 3) {
                  this.method19("ondemand");
                  return;
-@@ -11054,6 +11112,24 @@
+@@ -11054,6 +11120,30 @@
                  }
                  this.method77(false);
                  await sleep(100);
@@ -144,8 +152,13 @@ diff -ru a/osrs/Game.ts b/osrs/Game.ts
 +                    const left = this.onDemandRequester.immediateRequestsCount();
 +                    const now = Date.now();
 +                    const g = globalThis as any;
-+                    if (g.__stallCount !== left) { g.__stallCount = left; g.__stallSince = now; }
-+                    else if (now - (g.__stallSince || now) > 10000) {
++                    // BEST PROGRESS, NOT LAST VALUE. Comparing against the previous count resets the
++                    // clock on any change at all, so a count that trickles or oscillates near the end
++                    // never looks stalled and the loop runs for ever - which is what "still 99%" was.
++                    // A new low is progress; anything else is not, however much it moves.
++                    if (g.__stallBest === undefined || left < g.__stallBest) { g.__stallBest = left; g.__stallSince = now; }
++                    if (now - (g.__stallTold || 0) > 5000) { g.__stallTold = now; console.log("SPIKE on-demand outstanding: " + left); }
++                    if (now - (g.__stallSince || now) > 15000) {
 +                        const pending: string[] = [];
 +                        let node: any = (this.onDemandRequester.immediateRequests as any).head.next;
 +                        let guard = 0;
@@ -155,13 +168,14 @@ diff -ru a/osrs/Game.ts b/osrs/Game.ts
 +                        }
 +                        console.log("SPIKE stalled with " + left + " outstanding: " + pending.join(", ") + " - giving up on them");
 +                        g.__stallSince = now;
++                        g.__stallBest = undefined;
 +                        break;
 +                    }
 +                }
              }
          }
  
-@@ -11082,6 +11158,24 @@
+@@ -11082,6 +11172,30 @@
                      try {
                          await sleep(100);
                      } catch (ignored) {}
@@ -169,8 +183,13 @@ diff -ru a/osrs/Game.ts b/osrs/Game.ts
 +                    const left = this.onDemandRequester.immediateRequestsCount();
 +                    const now = Date.now();
 +                    const g = globalThis as any;
-+                    if (g.__stallCount !== left) { g.__stallCount = left; g.__stallSince = now; }
-+                    else if (now - (g.__stallSince || now) > 10000) {
++                    // BEST PROGRESS, NOT LAST VALUE. Comparing against the previous count resets the
++                    // clock on any change at all, so a count that trickles or oscillates near the end
++                    // never looks stalled and the loop runs for ever - which is what "still 99%" was.
++                    // A new low is progress; anything else is not, however much it moves.
++                    if (g.__stallBest === undefined || left < g.__stallBest) { g.__stallBest = left; g.__stallSince = now; }
++                    if (now - (g.__stallTold || 0) > 5000) { g.__stallTold = now; console.log("SPIKE on-demand outstanding: " + left); }
++                    if (now - (g.__stallSince || now) > 15000) {
 +                        const pending: string[] = [];
 +                        let node: any = (this.onDemandRequester.immediateRequests as any).head.next;
 +                        let guard = 0;
@@ -180,13 +199,14 @@ diff -ru a/osrs/Game.ts b/osrs/Game.ts
 +                        }
 +                        console.log("SPIKE stalled with " + left + " outstanding: " + pending.join(", ") + " - giving up on them");
 +                        g.__stallSince = now;
++                        g.__stallBest = undefined;
 +                        break;
 +                    }
 +                }
                  }
              }
          }
-@@ -11610,6 +11704,11 @@
+@@ -11610,6 +11724,11 @@
      }
  
      public async drawLoadingText(i: number, s: string) {
@@ -198,7 +218,7 @@ diff -ru a/osrs/Game.ts b/osrs/Game.ts
          this.anInt1322 = i;
          this.aString1027 = s;
          await this.resetTitleScreen();
-@@ -13448,8 +13547,36 @@
+@@ -13448,8 +13567,36 @@
          this.fontFancy = new TypeFace(true, this.titleArchive, "q8_full");
      }
  

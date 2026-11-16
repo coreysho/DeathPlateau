@@ -43381,10 +43381,15 @@
               const left = this.onDemandRequester.immediateRequestsCount();
               const now = Date.now();
               const g = globalThis;
-              if (g.__stallCount !== left) {
-                g.__stallCount = left;
+              if (g.__stallBest === void 0 || left < g.__stallBest) {
+                g.__stallBest = left;
                 g.__stallSince = now;
-              } else if (now - (g.__stallSince || now) > 1e4) {
+              }
+              if (now - (g.__stallTold || 0) > 5e3) {
+                g.__stallTold = now;
+                console.log("SPIKE on-demand outstanding: " + left);
+              }
+              if (now - (g.__stallSince || now) > 15e3) {
                 const pending = [];
                 let node = this.onDemandRequester.immediateRequests.head.next;
                 let guard = 0;
@@ -43394,6 +43399,7 @@
                 }
                 console.log("SPIKE stalled with " + left + " outstanding: " + pending.join(", ") + " - giving up on them");
                 g.__stallSince = now;
+                g.__stallBest = void 0;
                 break;
               }
             }
@@ -43420,10 +43426,15 @@
           const left = this.onDemandRequester.immediateRequestsCount();
           const now = Date.now();
           const g = globalThis;
-          if (g.__stallCount !== left) {
-            g.__stallCount = left;
+          if (g.__stallBest === void 0 || left < g.__stallBest) {
+            g.__stallBest = left;
             g.__stallSince = now;
-          } else if (now - (g.__stallSince || now) > 1e4) {
+          }
+          if (now - (g.__stallTold || 0) > 5e3) {
+            g.__stallTold = now;
+            console.log("SPIKE on-demand outstanding: " + left);
+          }
+          if (now - (g.__stallSince || now) > 15e3) {
             const pending = [];
             let node = this.onDemandRequester.immediateRequests.head.next;
             let guard = 0;
@@ -43433,6 +43444,7 @@
             }
             console.log("SPIKE stalled with " + left + " outstanding: " + pending.join(", ") + " - giving up on them");
             g.__stallSince = now;
+            g.__stallBest = void 0;
             break;
           }
         }
@@ -43464,10 +43476,15 @@
             const left = this.onDemandRequester.immediateRequestsCount();
             const now = Date.now();
             const g = globalThis;
-            if (g.__stallCount !== left) {
-              g.__stallCount = left;
+            if (g.__stallBest === void 0 || left < g.__stallBest) {
+              g.__stallBest = left;
               g.__stallSince = now;
-            } else if (now - (g.__stallSince || now) > 1e4) {
+            }
+            if (now - (g.__stallTold || 0) > 5e3) {
+              g.__stallTold = now;
+              console.log("SPIKE on-demand outstanding: " + left);
+            }
+            if (now - (g.__stallSince || now) > 15e3) {
               const pending = [];
               let node = this.onDemandRequester.immediateRequests.head.next;
               let guard = 0;
@@ -43477,6 +43494,7 @@
               }
               console.log("SPIKE stalled with " + left + " outstanding: " + pending.join(", ") + " - giving up on them");
               g.__stallSince = now;
+              g.__stallBest = void 0;
               break;
             }
           }
@@ -43512,10 +43530,15 @@
               const left = this.onDemandRequester.immediateRequestsCount();
               const now = Date.now();
               const g = globalThis;
-              if (g.__stallCount !== left) {
-                g.__stallCount = left;
+              if (g.__stallBest === void 0 || left < g.__stallBest) {
+                g.__stallBest = left;
                 g.__stallSince = now;
-              } else if (now - (g.__stallSince || now) > 1e4) {
+              }
+              if (now - (g.__stallTold || 0) > 5e3) {
+                g.__stallTold = now;
+                console.log("SPIKE on-demand outstanding: " + left);
+              }
+              if (now - (g.__stallSince || now) > 15e3) {
                 const pending = [];
                 let node = this.onDemandRequester.immediateRequests.head.next;
                 let guard = 0;
@@ -43525,6 +43548,7 @@
                 }
                 console.log("SPIKE stalled with " + left + " outstanding: " + pending.join(", ") + " - giving up on them");
                 g.__stallSince = now;
+                g.__stallBest = void 0;
                 break;
               }
             }
@@ -45914,7 +45938,7 @@
   globalThis.__NO_LOCAL_CACHE = true;
   var params = new URLSearchParams(location.search);
   globalThis.__NO_SOCKET = params.has("nosocket");
-  line("build " + (true ? "2026-11-16 19:22:33" : "?"));
+  line("build " + (true ? "2026-11-16 19:28:29" : "?"));
   line("socket " + (params.has("nosocket") ? "DISABLED (?nosocket=1)" : "enabled -> " + globalThis.__WS_URL));
   var beat = 0;
   setInterval(() => {
