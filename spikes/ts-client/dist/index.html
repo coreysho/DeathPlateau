@@ -5,13 +5,38 @@
 <style>
   html, body { margin: 0; background: #000; color: #9a9a9a; font: 12px -apple-system, sans-serif; }
   #gameCanvas { display: block; width: 100vw; max-width: 100%; height: auto; image-rendering: pixelated; }
-  /* 16px or Safari zooms the page when a field takes focus - the same trap the other client hit. */
   #form { padding: 8px; display: flex; gap: 6px; flex-wrap: wrap; }
   #form input { font-size: 16px; padding: 8px; flex: 1 1 120px; min-width: 0; background: #141414;
                 color: #ddd; border: 1px solid #444; border-radius: 4px; }
   #form button { font-size: 16px; padding: 8px 16px; background: #1b1b1b; color: #c8a04a;
                  border: 1px solid #c8a04a; border-radius: 4px; }
   #log { padding: 8px; font: 12px ui-monospace, monospace; color: #7fe07f; line-height: 1.45; }
-  #log div { white-space: pre; }
+  #log div { white-space: pre-wrap; word-break: break-word; }
+  #boot { padding: 8px; font: 12px ui-monospace, monospace; color: #ff8080; white-space: pre-wrap; }
 </style></head>
-<body><script src="/ts/game.js"></script></body></html>
+<body>
+<div id="boot">loading game.js ...</div>
+<script>
+// BEFORE the bundle, so a bundle that will not even parse still says so. A blank page on a phone
+// is the least useful failure there is: it looks identical to a server that served nothing, a
+// script that 404'd, and a syntax error the browser refused.
+(function () {
+  var boot = document.getElementById('boot');
+  function show(text) { boot.textContent = text; }
+  window.addEventListener('error', function (e) {
+    show('ERROR: ' + (e.message || e.type) + '\n' + (e.filename || '') + ':' + (e.lineno || '?'));
+  });
+  window.addEventListener('unhandledrejection', function (e) {
+    show('UNHANDLED REJECTION: ' + String(e.reason && e.reason.message || e.reason).slice(0, 300));
+  });
+  window.addEventListener('load', function () {
+    setTimeout(function () {
+      if (!document.getElementById('log')) {
+        show('game.js loaded but produced nothing - no #log element after load.');
+      } else { boot.style.display = 'none'; }
+    }, 3000);
+  });
+})();
+</script>
+<script src="/ts/game.js" onerror="document.getElementById('boot').textContent='game.js FAILED TO LOAD - check the URL and file permissions'"></script>
+</body></html>

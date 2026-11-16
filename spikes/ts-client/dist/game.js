@@ -3,9 +3,22 @@
   var __defProp = Object.defineProperty;
   var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
   var __getOwnPropNames = Object.getOwnPropertyNames;
+  var __getOwnPropSymbols = Object.getOwnPropertySymbols;
   var __getProtoOf = Object.getPrototypeOf;
   var __hasOwnProp = Object.prototype.hasOwnProperty;
+  var __propIsEnum = Object.prototype.propertyIsEnumerable;
   var __defNormalProp = (obj, key, value) => key in obj ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+  var __spreadValues = (a, b) => {
+    for (var prop in b || (b = {}))
+      if (__hasOwnProp.call(b, prop))
+        __defNormalProp(a, prop, b[prop]);
+    if (__getOwnPropSymbols)
+      for (var prop of __getOwnPropSymbols(b)) {
+        if (__propIsEnum.call(b, prop))
+          __defNormalProp(a, prop, b[prop]);
+      }
+    return a;
+  };
   var __commonJS = (cb, mod) => function __require() {
     try {
       return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
@@ -2134,7 +2147,7 @@
           maxMemoryUsageInMB: 512
           // Don't decode if memory footprint is more than 512MB
         };
-        var opts = { ...defaultOpts, ...userOpts };
+        var opts = __spreadValues(__spreadValues({}, defaultOpts), userOpts);
         var arr = new Uint8Array(jpegData);
         var decoder = new JpegImage();
         decoder.opts = opts;
@@ -2809,13 +2822,13 @@
     return hash;
   }
   function fromSignedBE(bytes) {
-    let v = 0n;
-    for (const b of bytes) v = v << 8n | BigInt(b & 255);
-    if (bytes.length && bytes[0] & 128) v -= 1n << BigInt(8 * bytes.length);
+    let v = /* @__PURE__ */ BigInt("0");
+    for (const b of bytes) v = v << /* @__PURE__ */ BigInt("8") | BigInt(b & 255);
+    if (bytes.length && bytes[0] & 128) v -= /* @__PURE__ */ BigInt("1") << BigInt(8 * bytes.length);
     return v;
   }
   function toSignedBE(v) {
-    if (v === 0n) return new Uint8Array([0]);
+    if (v === /* @__PURE__ */ BigInt("0")) return new Uint8Array([0]);
     let hex = v.toString(16);
     if (hex.length % 2) hex = "0" + hex;
     let out = hex.match(/../g).map((h) => parseInt(h, 16));
@@ -2823,12 +2836,12 @@
     return new Uint8Array(out);
   }
   function modpow(base, exp, mod) {
-    let r2 = 1n;
+    let r2 = /* @__PURE__ */ BigInt("1");
     base %= mod;
-    while (exp > 0n) {
-      if (exp & 1n) r2 = r2 * base % mod;
+    while (exp > /* @__PURE__ */ BigInt("0")) {
+      if (exp & /* @__PURE__ */ BigInt("1")) r2 = r2 * base % mod;
       base = base * base % mod;
-      exp >>= 1n;
+      exp >>= /* @__PURE__ */ BigInt("1");
     }
     return r2;
   }
@@ -3166,7 +3179,7 @@
       ),
       {}
     ).exports;
-  } catch {
+  } catch (e) {
   }
   function Long(low, high, unsigned) {
     this.low = low | 0;
