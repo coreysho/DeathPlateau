@@ -5,6 +5,7 @@ const at = () => ((performance.now() - t0) / 1000).toFixed(1) + "s";
 
 const log = document.createElement("div");
 log.id = "log";
+document.body.appendChild(log);
 const line = (text: string) => {
     const row = document.createElement("div");
     row.textContent = at() + "  " + text;
@@ -23,6 +24,16 @@ console.log = (...args: any[]) => {
 const wsScheme = location.protocol === "https:" ? "wss://" : "ws://";
 (globalThis as any).__WS_URL = wsScheme + location.host + "/";
 (globalThis as any).__NO_LOCAL_CACHE = true;
+// ?nosocket=1 loads without connecting at all. If the page is healthy that way and locks up
+// without it, the fault is the socket and the on-demand stream behind it, not the client's load.
+const params = new URLSearchParams(location.search);
+(globalThis as any).__NO_SOCKET = params.has("nosocket");
+line("socket " + (params.has("nosocket") ? "DISABLED (?nosocket=1)" : "enabled -> " + (globalThis as any).__WS_URL));
+
+// A heartbeat, so a lock-up shows WHERE it stopped instead of just stopping. This is a timer, so
+// it keeps ticking while the client works and goes silent the moment the main thread is blocked.
+let beat = 0;
+setInterval(() => { line("heartbeat " + (++beat)); }, 2000);
 
 const canvas = document.createElement("canvas");
 canvas.id = "gameCanvas";
@@ -37,7 +48,7 @@ form.innerHTML =
     '<input id="p" placeholder="password" type="password" />' +
     '<button id="go" type="button">Log in</button>';
 document.body.appendChild(form);
-document.body.appendChild(log);
+document.body.appendChild(log);   // move it below the form
 
 line("page ready - starting client");
 const game = new Game(canvas);

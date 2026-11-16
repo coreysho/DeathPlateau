@@ -45794,6 +45794,7 @@
   var at = () => ((performance.now() - t0) / 1e3).toFixed(1) + "s";
   var log = document.createElement("div");
   log.id = "log";
+  document.body.appendChild(log);
   var line = (text) => {
     const row = document.createElement("div");
     row.textContent = at() + "  " + text;
@@ -45809,6 +45810,13 @@
   var wsScheme = location.protocol === "https:" ? "wss://" : "ws://";
   globalThis.__WS_URL = wsScheme + location.host + "/";
   globalThis.__NO_LOCAL_CACHE = true;
+  var params = new URLSearchParams(location.search);
+  globalThis.__NO_SOCKET = params.has("nosocket");
+  line("socket " + (params.has("nosocket") ? "DISABLED (?nosocket=1)" : "enabled -> " + globalThis.__WS_URL));
+  var beat = 0;
+  setInterval(() => {
+    line("heartbeat " + ++beat);
+  }, 2e3);
   var canvas = document.createElement("canvas");
   canvas.id = "gameCanvas";
   document.body.appendChild(canvas);
