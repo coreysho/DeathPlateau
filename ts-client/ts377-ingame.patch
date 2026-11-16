@@ -388,6 +388,30 @@
          
          this.idleTime = 0;
          this.mouseX = mouseX;
+--- a/osrs/net/Buffer.ts
++++ b/osrs/net/Buffer.ts
+@@ -293,13 +293,19 @@
+     public getString(): string {
+         const start: number = this.currentPosition;
+         while (this.buffer[this.currentPosition++] !== 10) {}
+-        return String.fromCharCode.apply(null, this.buffer.slice(start, this.currentPosition));
++        // Up to the terminator, NOT including it. currentPosition is already one past the newline
++        // when the loop ends, so slicing to it keeps the \n - and since every string the server
++        // sends arrives through here, that trailing newline reached names, chat lines, examine
++        // text and every piece of interface text. The Java original is explicit about the off by
++        // one: `new String(data, start, pos - start - 1)` in Packet.gjstr.
++        return String.fromCharCode.apply(null, this.buffer.slice(start, this.currentPosition - 1));
+     }
+ 
+     public getStringBytes(): number[] {
+         const start: number = this.currentPosition;
+         while (this.buffer[this.currentPosition++] !== 10) {}
+-        return Array.from(this.buffer.slice(start, this.currentPosition));
++        // Same off by one as getString; Packet.gjstrraw copies up to `this.pos - 1`.
++        return Array.from(this.buffer.slice(start, this.currentPosition - 1));
+     }
+ 
+     public getBytes(bytes: number[], start: number, len: number) {
 --- a/osrs/util/PacketConstants.ts
 +++ b/osrs/util/PacketConstants.ts
 @@ -1,20 +1,20 @@
