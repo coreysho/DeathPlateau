@@ -114,8 +114,8 @@ diff -ru a/osrs/cache/media/ImageRGB.ts b/osrs/cache/media/ImageRGB.ts
          image.width = image.maxWidth = jpgData.width;
 diff -ru a/osrs/net/Socket.ts b/osrs/net/Socket.ts
 --- a/osrs/net/Socket.ts	2026-11-16 00:16:53.665793026 +0000
-+++ b/osrs/net/Socket.ts	2026-11-16 18:10:47.245024439 +0000
-@@ -14,7 +14,14 @@
++++ b/osrs/net/Socket.ts	2026-11-16 18:42:56.755312930 +0000
+@@ -14,7 +14,16 @@
      }
  
      public async connect() {
@@ -127,6 +127,8 @@ diff -ru a/osrs/net/Socket.ts b/osrs/net/Socket.ts
 +        if ((globalThis as any).__NO_SOCKET) {
 +            throw new Error("sockets disabled for the load test");
 +        }
++        // Same origin as the page. The engine multiplexes login and update on '/' and tells them
++        // apart by the first byte, so both of this client's "ports" are the one endpoint.
 +        await this.client.connect((globalThis as any).__WS_URL || `ws://${this.host}:${this.port}`);
      }
  

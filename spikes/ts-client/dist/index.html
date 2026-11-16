@@ -1,13 +1,17 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>TS client load test</title>
+<title>TS client - World 2</title>
 <style>
   html, body { margin: 0; background: #000; color: #9a9a9a; font: 12px -apple-system, sans-serif; }
-  /* Scaled to the screen with CSS. This test is about HOW LONG, not about clicking, so the
-     coordinate problem that rules CSS scaling out for the real thing does not apply here. */
   #gameCanvas { display: block; width: 100vw; max-width: 100%; height: auto; image-rendering: pixelated; }
-  #log { padding: 8px; font: 12px ui-monospace, monospace; color: #7fe07f; line-height: 1.5; }
+  /* 16px or Safari zooms the page when a field takes focus - the same trap the other client hit. */
+  #form { padding: 8px; display: flex; gap: 6px; flex-wrap: wrap; }
+  #form input { font-size: 16px; padding: 8px; flex: 1 1 120px; min-width: 0; background: #141414;
+                color: #ddd; border: 1px solid #444; border-radius: 4px; }
+  #form button { font-size: 16px; padding: 8px 16px; background: #1b1b1b; color: #c8a04a;
+                 border: 1px solid #c8a04a; border-radius: 4px; }
+  #log { padding: 8px; font: 12px ui-monospace, monospace; color: #7fe07f; line-height: 1.45; }
   #log div { white-space: pre; }
 </style></head>
 <body><script src="/ts/game.js"></script></body></html>

@@ -1682,7 +1682,7 @@
             var adobe = null;
             var pixels = null;
             var frame, resetInterval;
-            var quantizationTables = [], frames = [];
+            var quantizationTables = [], frames2 = [];
             var huffmanTablesAC = [], huffmanTablesDC = [];
             var fileMarker = readUint16();
             var malformedDataOffset = -1;
@@ -1823,7 +1823,7 @@
                     offset += 3;
                   }
                   prepareComponents(frame);
-                  frames.push(frame);
+                  frames2.push(frame);
                   break;
                 case 65476:
                   var huffmanLength = readUint16();
@@ -1902,10 +1902,10 @@
               }
               fileMarker = readUint16();
             }
-            if (frames.length != 1)
+            if (frames2.length != 1)
               throw new Error("only single frame JPEGs supported");
-            for (var i = 0; i < frames.length; i++) {
-              var cp = frames[i].components;
+            for (var i = 0; i < frames2.length; i++) {
+              var cp = frames2[i].components;
               for (var j in cp) {
                 cp[j].quantizationTable = quantizationTables[cp[j].quantizationIdx];
                 delete cp[j].quantizationIdx;
@@ -31838,7 +31838,7 @@
      */
     static setVolume(value) {
     }
-    static getUID(location) {
+    static getUID(location2) {
       return 1;
     }
     // public static openURL(url: string): DataInputStream {
@@ -31900,7 +31900,7 @@
      * @param {string} location
      * @private
      */
-    playMidi(location) {
+    playMidi(location2) {
     }
   };
   __publicField(_SignLink, "CLIENT_REVISION", 381);
@@ -45790,27 +45790,33 @@
   var Game = _Game;
 
   // entry.ts
-  globalThis.__NO_SOCKET = true;
-  globalThis.__NO_LOCAL_CACHE = true;
   var t0 = performance.now();
   var at = () => ((performance.now() - t0) / 1e3).toFixed(1) + "s";
   var log = document.createElement("div");
   log.id = "log";
-  document.body.appendChild(log);
   var line = (text) => {
     const row = document.createElement("div");
     row.textContent = at() + "  " + text;
     log.appendChild(row);
+    while (log.childElementCount > 40) log.removeChild(log.firstChild);
   };
   var realLog = console.log.bind(console);
   console.log = (...args) => {
     const text = args.map((a) => String(a)).join(" ");
-    if (/DP |archive|parse|init|Starting|crc/i.test(text)) line(text);
+    if (/DP |archive|parse|init|Starting|crc|SPIKE|response/i.test(text)) line(text);
     realLog(...args);
   };
+  var wsScheme = location.protocol === "https:" ? "wss://" : "ws://";
+  globalThis.__WS_URL = wsScheme + location.host + "/";
+  globalThis.__NO_LOCAL_CACHE = true;
   var canvas = document.createElement("canvas");
   canvas.id = "gameCanvas";
-  document.body.insertBefore(canvas, log);
+  document.body.appendChild(canvas);
+  var form = document.createElement("div");
+  form.id = "form";
+  form.innerHTML = '<input id="u" placeholder="username" autocapitalize="none" autocorrect="off" spellcheck="false" /><input id="p" placeholder="password" type="password" /><button id="go" type="button">Log in</button>';
+  document.body.appendChild(form);
+  document.body.appendChild(log);
   line("page ready - starting client");
   var game = new Game(canvas);
   window.__game = game;
@@ -45831,6 +45837,24 @@
     } catch (e) {
     }
   }, 250);
+  var frames = 0;
+  var rafCount = () => {
+    frames++;
+    requestAnimationFrame(rafCount);
+  };
+  requestAnimationFrame(rafCount);
+  setInterval(() => {
+    if (drawn) {
+      line("fps ~" + frames);
+      frames = 0;
+    }
+  }, 5e3);
+  document.getElementById("go").addEventListener("click", () => {
+    const u2 = document.getElementById("u").value;
+    const p = document.getElementById("p").value;
+    line("logging in as " + u2 + " ...");
+    game.login(u2, p, false);
+  });
   game.initializeApplication(765, 503).catch((e) => line("client stopped: " + String(e).slice(0, 80)));
 })();
 /*! Bundled license information:

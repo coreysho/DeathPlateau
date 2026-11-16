@@ -69,7 +69,11 @@ and it is the next thing to try.
 Then open `http://<world2>:8889/ts/` on the phone. The page prints its own timings, so there is
 nothing to measure by hand - photograph the green text.
 
-Here, on a desktop processor with a phone-sized viewport, it reads:
+**On a real phone, 16 November: 1.5 seconds to first pixels.** All eight archives down by 0.9s.
+The same device took over thirty minutes to reach a login screen through CheerpJ. For once the
+desktop estimate was the pessimistic one - it said 2.0s.
+
+On a desktop processor with a phone-sized viewport it reads:
 
     0.0s  page ready - starting client
     0.4s  DP crc table
@@ -82,10 +86,26 @@ Here, on a desktop processor with a phone-sized viewport, it reads:
 took 24 seconds; a real phone took over thirty minutes. An emulated viewport on desktop silicon is
 not a phone, and the whole point of this build is to stop guessing about that.
 
-It draws the title screen and stops: `__NO_SOCKET` and `__NO_LOCAL_CACHE` in `entry.ts` turn off
-the game socket and the 18 MB disk cache, because neither is needed to time a load and the retry
-loop for a socket that cannot connect pins the main thread - which on a phone means the timings
-never become readable. Delete both flags to go further.
+`__NO_LOCAL_CACHE` turns off the 18 MB disk cache, which is not used when the archives come from
+the server.
+
+## Then: login, and the question the title screen cannot answer
+
+The current `dist/` connects. The page is served by the engine, so the game socket is the page's
+own origin - the engine carries login and update on `/` and splits them by the first byte, which is
+why this client's two "ports" are one endpoint.
+
+It has an **HTML login form**, and that is worth noticing on its own: in a JavaScript client the
+phone's keyboard needs no bridge, no native method, no acknowledgement protocol and no handshake.
+It is an `<input>`. Three separate bugs went into making that work through CheerpJ.
+
+The readout prints a rough **fps** every five seconds once anything is drawn. That is the real
+question here. A title screen is 2D sprite blitting; the game world is a software 3D rasterizer,
+and nothing measured so far says a phone can run one at a playable rate.
+
+The CRC gate should now pass, because the nine hashes the login block carries are read from the
+same archives this client just loaded from the server - which is why the cache layer had to come
+first.
 
 ## Running it from source
 
