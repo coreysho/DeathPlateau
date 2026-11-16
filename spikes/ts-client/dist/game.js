@@ -45834,6 +45834,7 @@
   globalThis.__NO_LOCAL_CACHE = true;
   var params = new URLSearchParams(location.search);
   globalThis.__NO_SOCKET = params.has("nosocket");
+  line("build " + (true ? "2026-11-16 19:09:29" : "?"));
   line("socket " + (params.has("nosocket") ? "DISABLED (?nosocket=1)" : "enabled -> " + globalThis.__WS_URL));
   var beat = 0;
   setInterval(() => {

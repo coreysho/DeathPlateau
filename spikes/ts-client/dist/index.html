@@ -17,26 +17,27 @@
 <body>
 <div id="boot">loading game.js ...</div>
 <script>
-// BEFORE the bundle, so a bundle that will not even parse still says so. A blank page on a phone
-// is the least useful failure there is: it looks identical to a server that served nothing, a
-// script that 404'd, and a syntax error the browser refused.
 (function () {
   var boot = document.getElementById('boot');
-  function show(text) { boot.textContent = text; }
+  function show(t) { boot.textContent = t; }
   window.addEventListener('error', function (e) {
     show('ERROR: ' + (e.message || e.type) + '\n' + (e.filename || '') + ':' + (e.lineno || '?'));
   });
   window.addEventListener('unhandledrejection', function (e) {
     show('UNHANDLED REJECTION: ' + String(e.reason && e.reason.message || e.reason).slice(0, 300));
   });
+  // NEVER THE CACHED ONE. A stale bundle looks exactly like a fix that did not work - it cost a
+  // round already, reporting an error from a line number the new build does not even have.
+  var s = document.createElement('script');
+  s.src = '/ts/game.js?t=' + Date.now();
+  s.onerror = function () { show('game.js FAILED TO LOAD - check the URL and file permissions'); };
+  document.head.appendChild(s);
   window.addEventListener('load', function () {
     setTimeout(function () {
-      if (!document.getElementById('log')) {
-        show('game.js loaded but produced nothing - no #log element after load.');
-      } else { boot.style.display = 'none'; }
+      if (!document.getElementById('log')) { show('game.js loaded but produced nothing.'); }
+      else { boot.style.display = 'none'; }
     }, 3000);
   });
 })();
 </script>
-<script src="/ts/game.js" onerror="document.getElementById('boot').textContent='game.js FAILED TO LOAD - check the URL and file permissions'"></script>
 </body></html>

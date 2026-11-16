@@ -16,7 +16,8 @@ const globShim = {
 };
 const r = await esbuild.build({
   entryPoints: ['entry.ts'], bundle: true, outfile: 'public/game.js',
-  format: 'iife', target: 'es2020', logLevel: 'warning', plugins: [globShim],
-  loader: { '.png': 'dataurl' }, logLimit: 15
+  format: 'iife', target: 'es2017', logLevel: 'warning', plugins: [globShim],
+  loader: { '.png': 'dataurl' }, logLimit: 15,
+  define: { __BUILD_ID__: JSON.stringify(new Date().toISOString().replace('T',' ').slice(0,19)) }
 });
 console.log('build ok');
