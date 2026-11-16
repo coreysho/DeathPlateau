@@ -16,7 +16,7 @@ const line = (text: string) => {
 const realLog = console.log.bind(console);
 console.log = (...args: any[]) => {
     const text = args.map(a => String(a)).join(" ");
-    if (/DP |archive|parse|init|Starting|crc|SPIKE|response/i.test(text)) line(text);
+    if (/DP |archive|parse|init|stage|crc|SPIKE|response|throw/i.test(text)) line(text);
     realLog(...args);
 };
 
@@ -34,6 +34,12 @@ line("socket " + (params.has("nosocket") ? "DISABLED (?nosocket=1)" : "enabled -
 // it keeps ticking while the client works and goes silent the moment the main thread is blocked.
 let beat = 0;
 setInterval(() => { line("heartbeat " + (++beat)); }, 2000);
+
+// LOW MEMORY, WHICH IS ALSO WHAT UNBLOCKS startUp. Its other job here is that the block it skips
+// asks the update server for a music file and then spins until it arrives - and if the on-demand
+// stream does not deliver, startUp never reaches the sprites, so minimapBackgroundImage stays null
+// and the first thing the game draws after login throws on it. A phone wants low detail regardless.
+(Game as any).lowMemory = true;
 
 const canvas = document.createElement("canvas");
 canvas.id = "gameCanvas";

@@ -43936,6 +43936,10 @@
       }
     }
     async drawLoadingText(i, s) {
+      if (globalThis.__lastStage !== i + "|" + s) {
+        globalThis.__lastStage = i + "|" + s;
+        console.log("startUp stage: " + i + "% " + s);
+      }
       this.anInt1322 = i;
       this.aString1027 = s;
       await this.resetTitleScreen();
@@ -45822,7 +45826,7 @@
   var realLog = console.log.bind(console);
   console.log = (...args) => {
     const text = args.map((a) => String(a)).join(" ");
-    if (/DP |archive|parse|init|Starting|crc|SPIKE|response/i.test(text)) line(text);
+    if (/DP |archive|parse|init|stage|crc|SPIKE|response|throw/i.test(text)) line(text);
     realLog(...args);
   };
   var wsScheme = location.protocol === "https:" ? "wss://" : "ws://";
@@ -45835,6 +45839,7 @@
   setInterval(() => {
     line("heartbeat " + ++beat);
   }, 2e3);
+  Game.lowMemory = true;
   var canvas = document.createElement("canvas");
   canvas.id = "gameCanvas";
   document.body.appendChild(canvas);

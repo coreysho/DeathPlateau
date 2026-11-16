@@ -20,7 +20,7 @@ diff -ru a/osrs/Configuration.ts b/osrs/Configuration.ts
  }
 diff -ru a/osrs/Game.ts b/osrs/Game.ts
 --- a/osrs/Game.ts	2026-11-16 00:16:53.661335972 +0000
-+++ b/osrs/Game.ts	2026-11-16 19:04:12.830313206 +0000
++++ b/osrs/Game.ts	2026-11-16 19:07:41.328465536 +0000
 @@ -3899,6 +3899,7 @@
                  await this.gameConnection.read$();
              }
@@ -82,7 +82,19 @@ diff -ru a/osrs/Game.ts b/osrs/Game.ts
          this.initArchives();
          this.initTypeFaces();
  
-@@ -13448,8 +13466,36 @@
+@@ -11610,6 +11628,11 @@
+     }
+ 
+     public async drawLoadingText(i: number, s: string) {
++        // only when it changes: this is called every hundred milliseconds while a stage waits
++        if ((globalThis as any).__lastStage !== i + "|" + s) {
++            (globalThis as any).__lastStage = i + "|" + s;
++            console.log("startUp stage: " + i + "% " + s);
++        }
+         this.anInt1322 = i;
+         this.aString1027 = s;
+         await this.resetTitleScreen();
+@@ -13448,8 +13471,36 @@
          this.fontFancy = new TypeFace(true, this.titleArchive, "q8_full");
      }
  
