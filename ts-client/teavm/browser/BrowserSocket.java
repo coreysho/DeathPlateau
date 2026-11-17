@@ -17,9 +17,15 @@ public final class BrowserSocket {
     @JSBody(params = "url", script =
         "if (!window.__ws) { window.__ws = { next: 1, socks: {} }; }\n" +
         "var id = window.__ws.next++;\n" +
-        "var s = { ws: new WebSocket(url), buf: [], open: false, closed: false };\n" +
+        "var s = { ws: new WebSocket(url), buf: [], out: [], open: false, closed: false };\n" +
         "s.ws.binaryType = 'arraybuffer';\n" +
-        "s.ws.onopen = function () { s.open = true; };\n" +
+        // A WebSocket is not open for a round trip after new WebSocket(), but the client writes its
+        // first byte (the stream-type byte, 14 or 15) the instant openSocket returns. Dropping it
+        // leaves the server waiting for a type and the client waiting for the reply: a hang at
+        // "Connecting to update server". So writes before onopen are queued and flushed here.
+        "s.ws.onopen = function () { s.open = true;\n" +
+        "  for (var i = 0; i < s.out.length; i++) { try { s.ws.send(s.out[i]); } catch (e) { } }\n" +
+        "  s.out = []; };\n" +
         "s.ws.onclose = function () { s.closed = true; };\n" +
         "s.ws.onerror = function () { s.closed = true; };\n" +
         "s.ws.onmessage = function (e) {\n" +
@@ -47,10 +53,11 @@ public final class BrowserSocket {
 
     @JSBody(params = { "handle", "base64" }, script =
         "var s = window.__ws && window.__ws.socks[handle];\n" +
-        "if (!s || !s.open) { return; }\n" +
+        "if (!s || s.closed) { return; }\n" +
         "var bin = atob(base64);\n" +
         "var a = new Uint8Array(bin.length);\n" +
         "for (var i = 0; i < bin.length; i++) { a[i] = bin.charCodeAt(i); }\n" +
+        "if (!s.open) { s.out.push(a); return; }\n" +
         "s.ws.send(a);")
     public static native void write(int handle, String base64);
 

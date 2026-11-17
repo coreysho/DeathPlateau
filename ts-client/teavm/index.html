@@ -5,7 +5,9 @@
 <style>
   html, body { margin: 0; background: #000; color: #9a9a9a; font: 12px ui-monospace, monospace; }
   #gameCanvas { display: block; image-rendering: pixelated; }
-  #log { padding: 6px; color: #7fe07f; white-space: pre-wrap; max-height: 40vh; overflow: auto; }
+  /* FIXED HEIGHT, not max-height: this box grows as the client logs, and a growing box above the
+     canvas moves the canvas down the page - which moves every click the player makes with it. */
+  #log { padding: 6px; color: #7fe07f; white-space: pre-wrap; height: 3em; overflow: auto; }
 </style></head>
 <body>
 <div id="log">loading client.js ...</div>

@@ -149,8 +149,8 @@ sets.
 
 The client starts in a page and renders its own loading screen - the backdrop, the progress bar,
 "Connecting to update server" - from the same Java that runs on the desktop. `teavm-loading.png`
-is the screenshot. It reaches **60%**, which means the CRC table and all eight cache archives were
-fetched over HTTP and decoded.
+is the screenshot of that moment. It no longer stops there: the client loads, logs in, and plays.
+`teavm-ingame.png` is the game world - the tutorial room, the guide, the minimap, the sidebar.
 
 `browser/` is the shell that makes that possible, and it is small:
 
@@ -168,24 +168,66 @@ from the shim jar.** So the browser shell, compiled by javac, sees the REAL AWT 
 anything the shim adds - while the shim, compiled by JDK 8 against itself, can. A package outside
 `java.*` is visible to both, so every call between them goes through `awtbridge.Events`.
 
-## Where it stops
+## It plays
 
-At 60%, "Connecting to update server", and it does not move.
+A browser logs in to a world, walks, opens the sidebar tabs and raises a right-click menu, and the
+server sees every one of those as it would from the desktop client:
 
-One real bug was found and fixed on the way there: `WsSocket.getInputStream().read()` is
-`while (buffered() == 0) { fill(50); }`, and on CheerpJ that wait happened inside the native while
-the browser kept running. Here the call returns at once, so the loop spun without ever yielding -
-and the WebSocket's `onmessage`, the only thing that could end the wait, never got a turn. A
-deadlock that looks exactly like a hang. `fill` now sleeps when nothing is waiting, and
-`BrowserSocket.read` returns an empty string for "nothing yet" rather than null, which WsSocket
-reads as a lost connection.
+```
+[SESSION] logged in as "teavm5"
+[ACTION] Accept    | player=(3094,3106,0) | action=352
+[ACTION] Walk here | player=(3094,3106,0) | action=14  paramB=258 paramC=165
+[ACTION] Walk here | player=(3095,3103,0) | action=14  paramB=400 paramC=260
+```
 
-That was not the cause of this stall, though: the rig logs **no WebSocket upgrade at all**, so the
-client never gets as far as opening one. Whatever blocks is earlier, in the update-server setup,
-and it wants proper investigation rather than another guess.
+Rendering is not the bottleneck anyone feared: the canvas takes **~97 `putImageData` calls a
+second** with a full scene, a player, an NPC and the minimap on screen - the client's own 50Hz
+loop, drawing more than once a frame, never waiting on the browser.
+
+## Four bugs stood between the loading screen and the game
+
+Each one looked like something else, which is why they are written down.
+
+**`java.net.Socket` had no `protected Socket(SocketImpl)`.** `WsSocket` calls `super((SocketImpl)
+null)` - the documented way to build a Socket with no implementation underneath. javac resolves
+that constructor from the platform and is happy; TeaVM resolves it from the shim jar, where it did
+not exist, and quietly compiled a method that throws. The on-demand thread died on its first call
+with no message anywhere. The fix is three lines: `SocketImpl` as an empty name, and the
+constructor beside the others.
+
+**A WebSocket is not open when `new WebSocket()` returns.** The client writes its stream-type byte
+(15 for the update stream, 14 for login) the instant `openSocket` returns, and `BrowserSocket.write`
+dropped anything sent before `onopen`. The server then waited for a type byte that never came and
+the client waited for a reply it would never get. Writes are now queued and flushed on open.
+
+**TeaVM has no working `ConcurrentLinkedQueue`.** The name links; `poll()` is not there. It shows
+up as `TypeError: var$5.$wanted.$poll is not a function` on the first frame that draws the world
+map, repeating until the shell gives up. A page runs the client's threads cooperatively, so
+`LinkedList` is safe and is what the browser build uses.
+
+**The page moved the canvas under its own clicks.** `index.html` logs the client's console output
+into a div above the canvas, and that div grew as lines arrived - so the canvas slid down the page
+and every click landed a little higher in the client than where it was aimed. Fixed height.
+
+## Running it against a world you host
+
+Two things have to agree or the server answers login code **6**, which the client shows as
+"RuneScape has been updated! Please reload this page" - a message that sends you looking at caches
+and cannot be fixed by reloading:
+
+- **The revision.** This client logs in as 384, so the engine needs `ENGINE_REVISION=384`.
+- **The login key.** The login block is RSA-encrypted with a modulus compiled into the client, and
+  an engine you run yourself has its own pair from `npm run rsa`. `./local-rsa.sh <modulus>` points
+  a local build at it; the committed source keeps the production key.
+
+Both failures send the same 6. The engine tells them apart - revision, cache CRC, and an RSA block
+that does not decrypt are three separate refusals in `World.onClientData`.
 
 ## What is still unknown
 
-- Why the update-server step does not open its socket.
-- Rendering performance. The loading screen draws; nothing has rendered a game scene.
+- Touch input and phone-sized layout: this is the reason the browser client exists, and none of it
+  is written yet. The desktop mouse path works; a phone has no mouse.
 - Sound is stubbed, not implemented.
+- The update socket is dropped after about twenty seconds idle in game. Nothing visibly breaks -
+  `OnDemand.send` reopens it when the next file is wanted - but it has not been watched over a long
+  session or a long walk.

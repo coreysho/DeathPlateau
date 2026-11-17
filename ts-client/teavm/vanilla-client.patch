@@ -1,86 +1,6 @@
---- a/lostcity/Theme.java	2026-11-17 01:43:21.079974528 +0000
-+++ b/lostcity/Theme.java	2026-11-17 00:57:20.823993078 +0000
-@@ -100,7 +100,7 @@
- 	public static final int PANEL_HOVER_ALPHA = 30;
- 
- 	private static int rgb(Color colour) {
--		return colour.getRGB() & 0xFFFFFF;
-+		return ((colour.getRed() << 16) | (colour.getGreen() << 8) | colour.getBlue());
- 	}
- 
- 	private Theme() {
---- a/jagex2/client/LoginProfiles.java	2026-11-17 01:43:21.060963569 +0000
-+++ b/jagex2/client/LoginProfiles.java	2026-11-17 01:19:30.703933756 +0000
-@@ -537,10 +537,10 @@
- 			if (!f.exists()) {
- 				f.createNewFile();
- 			}
--			f.setReadable(false, false);
--			f.setWritable(false, false);
--			f.setReadable(true, true);
--			f.setWritable(true, true);
-+			/* setReadable: no file permissions in a page */
-+			/* no file permissions in a page */
-+			/* setReadable: no file permissions in a page */
-+			/* no file permissions in a page */
- 			out = new FileOutputStream(f);
- 			p.store(out, "Death Plateau saved logins. Delete this file to forget every account on this machine."
- 				+ " What is stored is a token the server issued, not your password. It is obfuscated, not safe:"
---- a/jagex2/client/GameShell.java	2026-11-17 01:43:21.056102982 +0000
-+++ b/jagex2/client/GameShell.java	2026-11-17 00:56:34.853753974 +0000
-@@ -415,7 +415,7 @@
- 		}
- 
- 		try {
--			System.exit(0);
-+			/* System.exit: nothing to exit in a page */
- 		} catch (Throwable ignore) {
- 		}
- 	}
-@@ -948,15 +948,15 @@
- 			}
- 			int w = Math.max(765, this.canvasWidth);
- 			int h = Math.max(503, this.canvasHeight);
--			g.setColor(Color.black);
-+			g.setColor(new Color(0, 0, 0));
- 			g.fillRect(0, 0, w, h);
- 
- 			g.setFont(new Font("Helvetica", Font.BOLD, 16));
--			g.setColor(Color.yellow);
-+			g.setColor(new Color(255, 255, 0));
- 			g.drawString(Branding.SERVER_NAME + " has stopped.", 30, 40);
- 
- 			g.setFont(new Font("Helvetica", Font.PLAIN, 13));
--			g.setColor(Color.white);
-+			g.setColor(new Color(255, 255, 255));
- 			g.drawString("It is not loading and it is not lagging - waiting will not help.", 30, 80);
- 			g.drawString("Close this window and start the launcher again; nothing has been lost.", 30, 105);
- 			g.drawString("What went wrong was written down in client.log, in your .deathplateau folder.", 30, 145);
-@@ -995,7 +995,7 @@
- 		FontMetrics plainMetrics = this.getBaseComponent().getFontMetrics(plain);
- 
- 		if (this.redrawScreen) {
--			this.graphics.setColor(Color.black);
-+			this.graphics.setColor(new Color(0, 0, 0));
- 			this.graphics.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
- 			this.redrawScreen = false;
- 		}
-@@ -1007,11 +1007,11 @@
- 		this.graphics.drawRect(this.canvasWidth / 2 - 152, y, 304, 34);
- 		this.graphics.fillRect(this.canvasWidth / 2 - 150, y + 2, percent * 3, 30);
- 
--		this.graphics.setColor(Color.black);
-+		this.graphics.setColor(new Color(0, 0, 0));
- 		this.graphics.fillRect(percent * 3 + (this.canvasWidth / 2 - 150), y + 2, 300 - percent * 3, 30);
- 
- 		this.graphics.setFont(bold);
--		this.graphics.setColor(Color.white);
-+		this.graphics.setColor(new Color(255, 255, 255));
- 		this.graphics.drawString(message, (this.canvasWidth - boldMetrics.stringWidth(message)) / 2, y + 22);
- 	}
- }
---- a/jagex2/client/BrowserInput.java	2026-11-17 01:43:21.065751947 +0000
-+++ b/jagex2/client/BrowserInput.java	2026-11-17 01:25:18.597852293 +0000
+diff -ruN a/jagex2/client/BrowserInput.java b/jagex2/client/BrowserInput.java
+--- a/jagex2/client/BrowserInput.java	2026-11-17 02:12:51.026266078 +0000
++++ b/jagex2/client/BrowserInput.java	2026-11-17 02:12:51.313037480 +0000
 @@ -130,7 +130,7 @@
  		}
  	}
@@ -103,8 +23,9 @@
  
  	public static int takeKey() {
  		if (noNative) {
---- a/jagex2/client/Client.java	2026-11-17 01:43:21.048047969 +0000
-+++ b/jagex2/client/Client.java	2026-11-17 01:19:30.732824343 +0000
+diff -ruN a/jagex2/client/Client.java b/jagex2/client/Client.java
+--- a/jagex2/client/Client.java	2026-11-17 02:12:51.026611172 +0000
++++ b/jagex2/client/Client.java	2026-11-17 02:12:51.331807493 +0000
 @@ -3964,7 +3964,7 @@
  	@ObfuscatedName("client.G(I)V")
  	public void drawError() {
@@ -203,8 +124,125 @@
  			g.fillRect(0, 0, w, h);
  			return;
  		}
---- a/jagex2/io/WsSocket.java	2026-11-17 01:43:21.075296605 +0000
-+++ b/jagex2/io/WsSocket.java	2026-11-17 01:41:12.455645984 +0000
+diff -ruN a/jagex2/client/GameShell.java b/jagex2/client/GameShell.java
+--- a/jagex2/client/GameShell.java	2026-11-17 02:12:51.027747670 +0000
++++ b/jagex2/client/GameShell.java	2026-11-17 02:12:51.313091922 +0000
+@@ -415,7 +415,7 @@
+ 		}
+ 
+ 		try {
+-			System.exit(0);
++			/* System.exit: nothing to exit in a page */
+ 		} catch (Throwable ignore) {
+ 		}
+ 	}
+@@ -948,15 +948,15 @@
+ 			}
+ 			int w = Math.max(765, this.canvasWidth);
+ 			int h = Math.max(503, this.canvasHeight);
+-			g.setColor(Color.black);
++			g.setColor(new Color(0, 0, 0));
+ 			g.fillRect(0, 0, w, h);
+ 
+ 			g.setFont(new Font("Helvetica", Font.BOLD, 16));
+-			g.setColor(Color.yellow);
++			g.setColor(new Color(255, 255, 0));
+ 			g.drawString(Branding.SERVER_NAME + " has stopped.", 30, 40);
+ 
+ 			g.setFont(new Font("Helvetica", Font.PLAIN, 13));
+-			g.setColor(Color.white);
++			g.setColor(new Color(255, 255, 255));
+ 			g.drawString("It is not loading and it is not lagging - waiting will not help.", 30, 80);
+ 			g.drawString("Close this window and start the launcher again; nothing has been lost.", 30, 105);
+ 			g.drawString("What went wrong was written down in client.log, in your .deathplateau folder.", 30, 145);
+@@ -995,7 +995,7 @@
+ 		FontMetrics plainMetrics = this.getBaseComponent().getFontMetrics(plain);
+ 
+ 		if (this.redrawScreen) {
+-			this.graphics.setColor(Color.black);
++			this.graphics.setColor(new Color(0, 0, 0));
+ 			this.graphics.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
+ 			this.redrawScreen = false;
+ 		}
+@@ -1007,11 +1007,11 @@
+ 		this.graphics.drawRect(this.canvasWidth / 2 - 152, y, 304, 34);
+ 		this.graphics.fillRect(this.canvasWidth / 2 - 150, y + 2, percent * 3, 30);
+ 
+-		this.graphics.setColor(Color.black);
++		this.graphics.setColor(new Color(0, 0, 0));
+ 		this.graphics.fillRect(percent * 3 + (this.canvasWidth / 2 - 150), y + 2, 300 - percent * 3, 30);
+ 
+ 		this.graphics.setFont(bold);
+-		this.graphics.setColor(Color.white);
++		this.graphics.setColor(new Color(255, 255, 255));
+ 		this.graphics.drawString(message, (this.canvasWidth - boldMetrics.stringWidth(message)) / 2, y + 22);
+ 	}
+ }
+diff -ruN a/jagex2/client/LoginProfiles.java b/jagex2/client/LoginProfiles.java
+--- a/jagex2/client/LoginProfiles.java	2026-11-17 02:12:51.028431754 +0000
++++ b/jagex2/client/LoginProfiles.java	2026-11-17 02:12:51.313531840 +0000
+@@ -537,10 +537,10 @@
+ 			if (!f.exists()) {
+ 				f.createNewFile();
+ 			}
+-			f.setReadable(false, false);
+-			f.setWritable(false, false);
+-			f.setReadable(true, true);
+-			f.setWritable(true, true);
++			/* setReadable: no file permissions in a page */
++			/* no file permissions in a page */
++			/* setReadable: no file permissions in a page */
++			/* no file permissions in a page */
+ 			out = new FileOutputStream(f);
+ 			p.store(out, "Death Plateau saved logins. Delete this file to forget every account on this machine."
+ 				+ " What is stored is a token the server issued, not your password. It is obfuscated, not safe:"
+diff -ruN a/jagex2/client/worldmap/WorldMap.java b/jagex2/client/worldmap/WorldMap.java
+--- a/jagex2/client/worldmap/WorldMap.java	2026-11-17 02:12:51.035113856 +0000
++++ b/jagex2/client/worldmap/WorldMap.java	2026-11-17 02:12:51.313648045 +0000
+@@ -96,7 +96,7 @@
+ 	 * per failed square per open, not one a frame - and a square that is genuinely undrawable
+ 	 * costs one draw each time the player opens the map and goes back to being blank.
+ 	 */
+-	private final Set failed = ConcurrentHashMap.newKeySet();
++	private final Set failed = java.util.Collections.newSetFromMap(new java.util.HashMap());
+ 
+ 	/** Set when the map is opened, acted on by the next tick - the thread that owns `age`. */
+ 	private volatile boolean retry;
+@@ -123,9 +123,13 @@
+ 	 * were asked for. A square leaves the set when it leaves the queue, so a square that is
+ 	 * still missing after its turn can be asked for again.
+ 	 */
+-	private final Queue wanted = new ConcurrentLinkedQueue();
++	// TeaVM's class library has no working ConcurrentLinkedQueue - the name links and poll() is not
++	// there, which shows up as "$poll is not a function" on the first frame that draws the map. A
++	// page runs the client's threads cooperatively (they only switch at sleeps and monitors), so a
++	// plain LinkedList is safe here and is what the browser build uses.
++	private final Queue wanted = new java.util.LinkedList();
+ 
+-	private final java.util.Set queued = java.util.concurrent.ConcurrentHashMap.newKeySet();
++	private final java.util.Set queued = java.util.Collections.newSetFromMap(new java.util.HashMap());
+ 
+ 	/** Wanted squares whose data has not all arrived, held back until some of it does. */
+ 	private final List waiting = new ArrayList();
+diff -ruN a/jagex2/io/Packet.java b/jagex2/io/Packet.java
+--- a/jagex2/io/Packet.java	2026-11-17 02:12:51.150994577 +0000
++++ b/jagex2/io/Packet.java	2026-11-17 02:12:51.311706922 +0000
+@@ -146,7 +146,11 @@
+ 
+ 	@ObfuscatedName("MFMVIYHT.a(Ljava/lang/String;)V")
+ 	public void pjstr(String arg0) {
+-		arg0.getBytes(0, arg0.length(), this.data, this.pos);
++		// TeaVM has no String.getBytes(int,int,byte[],int) - the deprecated low-byte copy.
++		// Written out, same semantics.
++		for (int i = 0; i < arg0.length(); i++) {
++			this.data[this.pos + i] = (byte) arg0.charAt(i);
++		}
+ 		this.pos += arg0.length();
+ 		this.data[this.pos++] = 10;
+ 	}
+diff -ruN a/jagex2/io/WsSocket.java b/jagex2/io/WsSocket.java
+--- a/jagex2/io/WsSocket.java	2026-11-17 02:12:51.151086754 +0000
++++ b/jagex2/io/WsSocket.java	2026-11-17 02:12:51.311732674 +0000
 @@ -36,7 +36,7 @@
  public class WsSocket extends Socket {
  
@@ -247,18 +285,15 @@
  			return;
  		}
  		byte[] more = Base64.getDecoder().decode(b64);
---- a/jagex2/io/Packet.java	2026-11-17 01:43:21.070687044 +0000
-+++ b/jagex2/io/Packet.java	2026-11-17 01:19:30.699966613 +0000
-@@ -146,7 +146,11 @@
+diff -ruN a/lostcity/Theme.java b/lostcity/Theme.java
+--- a/lostcity/Theme.java	2026-11-17 02:12:51.304795527 +0000
++++ b/lostcity/Theme.java	2026-11-17 02:12:51.314087785 +0000
+@@ -100,7 +100,7 @@
+ 	public static final int PANEL_HOVER_ALPHA = 30;
  
- 	@ObfuscatedName("MFMVIYHT.a(Ljava/lang/String;)V")
- 	public void pjstr(String arg0) {
--		arg0.getBytes(0, arg0.length(), this.data, this.pos);
-+		// TeaVM has no String.getBytes(int,int,byte[],int) - the deprecated low-byte copy.
-+		// Written out, same semantics.
-+		for (int i = 0; i < arg0.length(); i++) {
-+			this.data[this.pos + i] = (byte) arg0.charAt(i);
-+		}
- 		this.pos += arg0.length();
- 		this.data[this.pos++] = 10;
+ 	private static int rgb(Color colour) {
+-		return colour.getRGB() & 0xFFFFFF;
++		return ((colour.getRed() << 16) | (colour.getGreen() << 8) | colour.getBlue());
  	}
+ 
+ 	private Theme() {

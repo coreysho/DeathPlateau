@@ -8,6 +8,7 @@ import java.io.OutputStream;
  */
 public class Socket {
     public Socket() { }
+    protected Socket(SocketImpl impl) { }
     public Socket(InetAddress address, int port) throws IOException { }
     public Socket(String host, int port) throws IOException { }
     public InputStream getInputStream() throws IOException { throw new IOException("no TCP in a browser"); }

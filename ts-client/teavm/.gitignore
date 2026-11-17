@@ -1,0 +1,10 @@
+# Everything the setup script copies in or builds: the client sources come from the client
+# repository and the shim jar and bundle are build output.
+target/
+awtshim/out/
+awtshim/awtshim.jar
+src/main/java/jagex2/
+src/main/java/deob/
+src/main/java/sign/
+src/main/java/lostcity/
+src/main/java/browser/
