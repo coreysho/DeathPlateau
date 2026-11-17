@@ -209,25 +209,82 @@ map, repeating until the shell gives up. A page runs the client's threads cooper
 into a div above the canvas, and that div grew as lines arrived - so the canvas slid down the page
 and every click landed a little higher in the client than where it was aimed. Fixed height.
 
-## Running it against a world you host
+## A phone can play it
 
-Two things have to agree or the server answers login code **6**, which the client shows as
-"RuneScape has been updated! Please reload this page" - a message that sends you looking at caches
-and cannot be fixed by reloading:
+The reason this client exists is that CheerpJ takes half an hour to start on a
+phone. So the browser shell has the three things a phone needs and a desktop does not:
+
+**Touch** (`BrowserTouch`). A tap is a left click, a press held still is a RIGHT click so the
+menu opens under the finger, a press and drag is a drag, and two fingers turn the camera. The
+decision comes from movement before timing: a finger that has wandered more than a few pixels is a
+drag and can never become a menu, so a slowly dragged scroll bar does not open one halfway down.
+
+**A keyboard** (`BrowserKeyboard`). A real `<input>` kept out of sight, because that is the only
+thing that raises a phone's keyboard. Characters are read from the `input` event rather than from
+`keydown`, since most Android keyboards report every key as 229 and put the character only in the
+event that follows; Backspace and Enter do arrive properly and are taken from `keydown`.
+
+**A screen that is not 765x503.** The canvas keeps those pixels and CSS stretches it to whatever
+screen this is, letterboxed. Every coordinate coming in is divided by that stretch.
+
+`jagex2/client/BrowserInput.java` is the same problem solved for CheerpJ, and it is worth reading
+for why it is harder there: that runtime ignores synthetic events, so the page has to write static
+fields and the client polls them. The AWT here is this build's own shim, so an event made up in
+JavaScript is as real as any other. The camera is the exception - it still goes through
+BrowserInput's running totals, because GameShell already folds those into its middle-drag.
+
+## Sound
+
+The client mixes all of its own audio and then asks `javax.sound.sampled` for somewhere to put it,
+so nothing of the sound engine needed porting - only the speaker at the end of it. `BrowserAudio`
+schedules each chunk as an AudioBuffer at an exact time on the context's clock, each starting
+where the last ended.
+
+The part that matters is not handing bytes over too fast. On a desktop the mixer thread is paced
+by the line blocking when the card's buffer is full; nothing in a page blocks, and the mixer is a
+`while (true)` with no clock of its own. Left alone it mixes hours of audio a second and starves
+every other thread. So the line asks how much is still unplayed and sleeps until under a quarter
+of a second remains. In game the schedule sits 0.25s ahead of the clock and tracks it.
+
+Music is still silent: MIDI needs a synthesiser and a soundbank, which is its own piece of work.
+
+## Running it
+
+```
+JDK8=/path/to/jdk8 ./setup.sh          # build (JDK 8 for the shim, 17+ for TeaVM)
+./install.sh [path-to-engine]          # copy the two files into the world's public/teavm/
+```
+
+The engine serves `public/` statically, so the client needs no route of its own: it lands beside
+the cache routes it fetches and the WebSocket it plays over, all on one origin. Open `/teavm/`.
+
+Against a world you host, two things have to agree or the server answers login code **6**, which
+the client shows as "RuneScape has been updated! Please reload this page" - a message that sends
+you looking at caches and cannot be fixed by reloading:
 
 - **The revision.** This client logs in as 384, so the engine needs `ENGINE_REVISION=384`.
 - **The login key.** The login block is RSA-encrypted with a modulus compiled into the client, and
   an engine you run yourself has its own pair from `npm run rsa`. `./local-rsa.sh <modulus>` points
   a local build at it; the committed source keeps the production key.
 
-Both failures send the same 6. The engine tells them apart - revision, cache CRC, and an RSA block
-that does not decrypt are three separate refusals in `World.onClientData`.
+The engine tells those apart even though the client cannot: revision, cache CRC, and an RSA block
+that will not decrypt are three separate refusals in `World.onClientData`.
+
+## The numbers
+
+| | this | CheerpJ |
+| --- | --- | --- |
+| download | 1.3 MB, **0.35 MB gzipped** | 18.9 MB runtime + the jar |
+| title screen | **7.4s** (desktop, local) | ~30 minutes on a phone |
+| drawing | ~98 blits a second with a full scene | - |
+
+Four and a half minutes of walking the world from a phone profile: 41 actions, **0 errors**, heap
+flat at 228 MB, still drawing at 98 blits a second at the end, with new map squares streaming in
+over an update socket that is dropped and reopened as the client goes.
 
 ## What is still unknown
 
-- Touch input and phone-sized layout: this is the reason the browser client exists, and none of it
-  is written yet. The desktop mouse path works; a phone has no mouse.
-- Sound is stubbed, not implemented.
-- The update socket is dropped after about twenty seconds idle in game. Nothing visibly breaks -
-  `OnDemand.send` reopens it when the next file is wanted - but it has not been watched over a long
-  session or a long walk.
+- Music. Sound effects and ambience play; MIDI does not.
+- Nobody has played this on a real phone yet - every touch, keystroke and gesture here was
+  measured in Chromium's phone emulation, which is not the same as a thumb on glass.
+- Load time on a phone's processor. 7.4s is a desktop unpacking the cache.
