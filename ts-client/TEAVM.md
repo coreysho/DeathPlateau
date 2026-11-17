@@ -6,6 +6,13 @@ which I had been hand-copying DeathPlateau's features one at a time, reading eac
 `deathplateau-client` first. Eight or nine times. That is the wrong direction, and the right
 question is whether our own client can be compiled to the browser directly.
 
+That earlier work - the ts377 translation, its patches, its screenshots and the notes that chose
+it - was deleted once this client could play, since keeping a second, worse client around invites
+someone to pick it up by mistake. It is in the history if the reasoning is ever wanted:
+`git log -- ts-client/ts377-spike.patch`. What it established still stands and is why this exists:
+CheerpJ spends about twelve seconds booting a WebAssembly JVM before `client.jar` runs a line, and
+on a phone the whole thing takes over half an hour.
+
 ## JSweet is not available
 
 ts377 was produced with JSweet (its output style is unmistakable - the `/* equals */` wrappers, the
