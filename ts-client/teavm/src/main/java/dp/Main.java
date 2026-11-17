@@ -33,11 +33,14 @@ public class Main {
 
     /** Separate so Client is not resolved until the properties above are set. */
     private static void start() {
-        jagex2.client.Client app = new jagex2.client.Client();
+        final jagex2.client.Client app = new jagex2.client.Client();
         app.initApplication(HEIGHT, WIDTH);
         BrowserShell.bind(app.getBaseComponent());
         // A phone has no mouse and no keys: both are made out of what it does have.
-        browser.BrowserTouch.install(BrowserShell.canvas(), app.getBaseComponent());
+        browser.BrowserTouch.install(BrowserShell.canvas(), app.getBaseComponent(),
+                new browser.BrowserTouch.Scene() {
+                    @Override public boolean turnsCamera(int x, int y) { return app.dragTurnsCamera(x, y); }
+                });
         browser.BrowserKeyboard.install(app.getBaseComponent());
         browser.BrowserAudio.install();
         System.out.println("client started");

@@ -1,6 +1,6 @@
 diff -ruN a/jagex2/client/BrowserInput.java b/jagex2/client/BrowserInput.java
---- a/jagex2/client/BrowserInput.java	2026-11-17 02:12:51.026266078 +0000
-+++ b/jagex2/client/BrowserInput.java	2026-11-17 02:12:51.313037480 +0000
+--- a/jagex2/client/BrowserInput.java	2026-11-17 04:15:30.544349818 +0000
++++ b/jagex2/client/BrowserInput.java	2026-11-17 04:15:30.557710005 +0000
 @@ -130,7 +130,7 @@
  		}
  	}
@@ -24,8 +24,8 @@ diff -ruN a/jagex2/client/BrowserInput.java b/jagex2/client/BrowserInput.java
  	public static int takeKey() {
  		if (noNative) {
 diff -ruN a/jagex2/client/Client.java b/jagex2/client/Client.java
---- a/jagex2/client/Client.java	2026-11-17 02:12:51.026611172 +0000
-+++ b/jagex2/client/Client.java	2026-11-17 02:12:51.331807493 +0000
+--- a/jagex2/client/Client.java	2026-11-17 04:15:30.544391706 +0000
++++ b/jagex2/client/Client.java	2026-11-17 04:15:30.579156403 +0000
 @@ -3964,7 +3964,7 @@
  	@ObfuscatedName("client.G(I)V")
  	public void drawError() {
@@ -106,7 +106,32 @@ diff -ruN a/jagex2/client/Client.java b/jagex2/client/Client.java
  			}, "update-relaunch");
  			t.setDaemon(false);
  			t.start();
-@@ -17410,7 +17410,7 @@
+@@ -17336,6 +17336,24 @@
+ 		return this.layout.resizable;
+ 	}
+ 
++	/**
++	 * DOES A DRAG THAT STARTS HERE TURN THE CAMERA? (2026-11-17, the browser build)
++	 *
++	 * A phone has one finger where a desktop has a mouse with a wheel and a middle button, so the
++	 * page has to work out what a drag means from where it begins: on the scene it turns the
++	 * camera, and anywhere else - the sidebar, the chat, a scroll bar, an item on its way to
++	 * another slot - it stays the press-and-drag this client has always had.
++	 *
++	 * Only this class can answer that. The viewport is the Layout's, which is private and moves in
++	 * a resizable window, and an interface drawn over the scene takes the drag back.
++	 *
++	 * A desktop client never calls it: there is a middle button there, and browser/BrowserTouch is
++	 * the only caller.
++	 */
++	public boolean dragTurnsCamera(int x, int y) {
++		return this.ingame && this.viewportInterfaceId == -1 && this.layout.inViewport(x, y);
++	}
++
+ 	public int displayMode() {
+ 		return this.layout.mode;
+ 	}
+@@ -17410,7 +17428,7 @@
  			if (was.resizable && !next.resizable) {
  				// until the window has shrunk back to 765x503, nothing of the resizable screen is left
  				// showing around the fixed one
@@ -115,7 +140,7 @@ diff -ruN a/jagex2/client/Client.java b/jagex2/client/Client.java
  				g.fillRect(0, 0, was.width, was.height);
  			}
  		}
-@@ -17601,7 +17601,7 @@
+@@ -17601,7 +17619,7 @@
  	private void fillTitleSurround(java.awt.Graphics g, int w, int h) {
  		PixMap blur = this.titleBlur;
  		if (blur == null || this.ingame) {
@@ -125,8 +150,8 @@ diff -ruN a/jagex2/client/Client.java b/jagex2/client/Client.java
  			return;
  		}
 diff -ruN a/jagex2/client/GameShell.java b/jagex2/client/GameShell.java
---- a/jagex2/client/GameShell.java	2026-11-17 02:12:51.027747670 +0000
-+++ b/jagex2/client/GameShell.java	2026-11-17 02:12:51.313091922 +0000
+--- a/jagex2/client/GameShell.java	2026-11-17 04:15:30.544747189 +0000
++++ b/jagex2/client/GameShell.java	2026-11-17 04:15:30.557263121 +0000
 @@ -415,7 +415,7 @@
  		}
  
@@ -179,8 +204,8 @@ diff -ruN a/jagex2/client/GameShell.java b/jagex2/client/GameShell.java
  	}
  }
 diff -ruN a/jagex2/client/LoginProfiles.java b/jagex2/client/LoginProfiles.java
---- a/jagex2/client/LoginProfiles.java	2026-11-17 02:12:51.028431754 +0000
-+++ b/jagex2/client/LoginProfiles.java	2026-11-17 02:12:51.313531840 +0000
+--- a/jagex2/client/LoginProfiles.java	2026-11-17 04:15:30.544834710 +0000
++++ b/jagex2/client/LoginProfiles.java	2026-11-17 04:15:30.557346893 +0000
 @@ -537,10 +537,10 @@
  			if (!f.exists()) {
  				f.createNewFile();
@@ -197,8 +222,8 @@ diff -ruN a/jagex2/client/LoginProfiles.java b/jagex2/client/LoginProfiles.java
  			p.store(out, "Death Plateau saved logins. Delete this file to forget every account on this machine."
  				+ " What is stored is a token the server issued, not your password. It is obfuscated, not safe:"
 diff -ruN a/jagex2/client/worldmap/WorldMap.java b/jagex2/client/worldmap/WorldMap.java
---- a/jagex2/client/worldmap/WorldMap.java	2026-11-17 02:12:51.035113856 +0000
-+++ b/jagex2/client/worldmap/WorldMap.java	2026-11-17 02:12:51.313648045 +0000
+--- a/jagex2/client/worldmap/WorldMap.java	2026-11-17 04:15:30.546640394 +0000
++++ b/jagex2/client/worldmap/WorldMap.java	2026-11-17 04:15:30.557741549 +0000
 @@ -96,7 +96,7 @@
  	 * per failed square per open, not one a frame - and a square that is genuinely undrawable
  	 * costs one draw each time the player opens the map and goes back to being blank.
@@ -225,8 +250,8 @@ diff -ruN a/jagex2/client/worldmap/WorldMap.java b/jagex2/client/worldmap/WorldM
  	/** Wanted squares whose data has not all arrived, held back until some of it does. */
  	private final List waiting = new ArrayList();
 diff -ruN a/jagex2/io/Packet.java b/jagex2/io/Packet.java
---- a/jagex2/io/Packet.java	2026-11-17 02:12:51.150994577 +0000
-+++ b/jagex2/io/Packet.java	2026-11-17 02:12:51.311706922 +0000
+--- a/jagex2/io/Packet.java	2026-11-17 04:15:30.547862588 +0000
++++ b/jagex2/io/Packet.java	2026-11-17 04:15:30.558578639 +0000
 @@ -146,7 +146,11 @@
  
  	@ObfuscatedName("MFMVIYHT.a(Ljava/lang/String;)V")
@@ -241,8 +266,8 @@ diff -ruN a/jagex2/io/Packet.java b/jagex2/io/Packet.java
  		this.data[this.pos++] = 10;
  	}
 diff -ruN a/jagex2/io/WsSocket.java b/jagex2/io/WsSocket.java
---- a/jagex2/io/WsSocket.java	2026-11-17 02:12:51.151086754 +0000
-+++ b/jagex2/io/WsSocket.java	2026-11-17 02:12:51.311732674 +0000
+--- a/jagex2/io/WsSocket.java	2026-11-17 04:15:30.547893031 +0000
++++ b/jagex2/io/WsSocket.java	2026-11-17 04:15:30.558594320 +0000
 @@ -36,7 +36,7 @@
  public class WsSocket extends Socket {
  
@@ -286,8 +311,8 @@ diff -ruN a/jagex2/io/WsSocket.java b/jagex2/io/WsSocket.java
  		}
  		byte[] more = Base64.getDecoder().decode(b64);
 diff -ruN a/lostcity/Theme.java b/lostcity/Theme.java
---- a/lostcity/Theme.java	2026-11-17 02:12:51.304795527 +0000
-+++ b/lostcity/Theme.java	2026-11-17 02:12:51.314087785 +0000
+--- a/lostcity/Theme.java	2026-11-17 04:15:30.550514005 +0000
++++ b/lostcity/Theme.java	2026-11-17 04:15:30.559085311 +0000
 @@ -100,7 +100,7 @@
  	public static final int PANEL_HOVER_ALPHA = 30;
  

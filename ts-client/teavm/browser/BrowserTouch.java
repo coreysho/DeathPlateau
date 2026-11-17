@@ -52,7 +52,19 @@ public final class BrowserTouch {
         void on(int kind, int x, int y);
     }
 
-    public static void install(HTMLCanvasElement canvas, final java.awt.Component component) {
+    /** Asked once, where the finger lands, before it is known whether this is a drag at all. */
+    @JSFunctor
+    public interface Ask extends JSObject {
+        boolean at(int x, int y);
+    }
+
+    /** What the page is allowed to know about the client: only whether a point is the scene. */
+    public interface Scene {
+        boolean turnsCamera(int x, int y);
+    }
+
+    public static void install(HTMLCanvasElement canvas, final java.awt.Component component,
+            final Scene scene) {
         final int scale = BrowserShell.scale();
         wire(canvas, new Sink() {
             @Override public void on(int kind, int x, int y) {
@@ -80,6 +92,8 @@ public final class BrowserTouch {
                     default: break;
                 }
             }
+        }, new Ask() {
+            @Override public boolean at(int x, int y) { return scene.turnsCamera(x, y); }
         }, LONG_PRESS_MS, SLOP_PX, scale, ZOOM_STEP);
     }
 
@@ -89,10 +103,11 @@ public final class BrowserTouch {
      * makes, and the same bug if it is left out: every touch lands short of where it was aimed,
      * worse the further from the top left.
      */
-    @JSBody(params = { "c", "sink", "longMs", "slop", "scale", "step" }, script =
-        "var active = false, sx = 0, sy = 0, lx = 0, ly = 0;\n" +
+    @JSBody(params = { "c", "sink", "onScene", "longMs", "slop", "scale", "step" }, script =
+        "var active = false, sx = 0, sy = 0, lx = 0, ly = 0, px = 0, py = 0;\n" +
         "var moved = false, dragging = false, longFired = false, timer = null;\n" +
         "var two = false, mx = 0, my = 0, pd = 0, zoomAcc = 0, mode = '';\n" +
+        "var turning = false;\n" +
         "function mid(ts) {\n" +
         "  var a = at(ts[0]), b = at(ts[1]);\n" +
         "  return [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];\n" +
@@ -122,8 +137,11 @@ public final class BrowserTouch {
         "  }\n" +
         "  if (e.touches.length !== 1 || two) { return; }\n" +
         "  var p = at(e.touches[0]);\n" +
-        "  sx = lx = p[0]; sy = ly = p[1];\n" +
+        "  sx = lx = px = p[0]; sy = ly = py = p[1];\n" +
         "  active = true; moved = false; dragging = false; longFired = false;\n" +
+        // Decided where the finger lands, not where it ends up: a drag that began on the scene
+        // keeps turning the camera even once it has wandered over the chat box.
+        "  turning = !!onScene(sx, sy);\n" +
         "  sink(1, sx, sy);\n" +
         "  if (timer) { clearTimeout(timer); }\n" +
         "  timer = setTimeout(function () {\n" +
@@ -157,9 +175,16 @@ public final class BrowserTouch {
         "  if (!moved && (Math.abs(lx - sx) > slop || Math.abs(ly - sy) > slop)) {\n" +
         "    moved = true;\n" +
         "    if (timer) { clearTimeout(timer); timer = null; }\n" +
-        "    if (!longFired) { dragging = true; sink(2, sx, sy); }\n" +
+        "    if (!longFired && !turning) { dragging = true; sink(2, sx, sy); }\n" +
         "  }\n" +
-        "  sink(dragging ? 6 : 1, lx, ly);\n" +
+        "  if (moved && turning) {\n" +
+        // The same running total the two-finger turn writes, which GameShell folds into the
+        // deltas a middle-button drag would have produced.
+        "    sink(7, lx - px, ly - py);\n" +
+        "  } else {\n" +
+        "    sink(dragging ? 6 : 1, lx, ly);\n" +
+        "  }\n" +
+        "  px = lx; py = ly;\n" +
         "  e.preventDefault();\n" +
         "}, { passive: false });\n" +
         "function end(e) {\n" +
@@ -174,11 +199,11 @@ public final class BrowserTouch {
         "  active = false;\n" +
         "  if (timer) { clearTimeout(timer); timer = null; }\n" +
         "  if (dragging) { sink(3, lx, ly); }\n" +
-        "  else if (!longFired) { sink(2, sx, sy); sink(3, sx, sy); }\n" +
+        "  else if (!longFired && !(turning && moved)) { sink(2, sx, sy); sink(3, sx, sy); }\n" +
         "  if (e.cancelable) { e.preventDefault(); }\n" +
         "}\n" +
         "c.addEventListener('touchend', end, { passive: false });\n" +
         "c.addEventListener('touchcancel', end, { passive: false });")
-    private static native void wire(HTMLCanvasElement c, Sink sink, int longMs, int slop, int scale,
-            int step);
+    private static native void wire(HTMLCanvasElement c, Sink sink, Ask onScene, int longMs, int slop,
+            int scale, int step);
 }
