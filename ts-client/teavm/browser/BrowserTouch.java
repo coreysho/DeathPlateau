@@ -40,7 +40,10 @@ public final class BrowserTouch {
     private static final int SLOP_PX = 12;
 
     private static final int MOVE = 1, PRESS = 2, RELEASE = 3, PRESS_RIGHT = 4, RELEASE_RIGHT = 5,
-            DRAG = 6, CAMERA = 7;
+            DRAG = 6, CAMERA = 7, ZOOM = 8;
+
+    /** How far the fingers must spread or close, in game pixels, for one notch of the wheel. */
+    private static final int ZOOM_STEP = 30;
 
     private BrowserTouch() { }
 
@@ -68,10 +71,16 @@ public final class BrowserTouch {
                         jagex2.client.BrowserInput.cameraDragX += x;
                         jagex2.client.BrowserInput.cameraDragY += y;
                         break;
+                    // A pinch is the wheel. The client zooms on wheel notches over the viewport
+                    // (Client.cameraZoomOffset, clamped either side), so the fingers spreading
+                    // sends the notch a wheel sends when it is pushed away: zoom in.
+                    case ZOOM:
+                        Events.mouseWheel(component, 0, 0, x);
+                        break;
                     default: break;
                 }
             }
-        }, LONG_PRESS_MS, SLOP_PX, scale);
+        }, LONG_PRESS_MS, SLOP_PX, scale, ZOOM_STEP);
     }
 
     /**
@@ -80,13 +89,17 @@ public final class BrowserTouch {
      * makes, and the same bug if it is left out: every touch lands short of where it was aimed,
      * worse the further from the top left.
      */
-    @JSBody(params = { "c", "sink", "longMs", "slop", "scale" }, script =
+    @JSBody(params = { "c", "sink", "longMs", "slop", "scale", "step" }, script =
         "var active = false, sx = 0, sy = 0, lx = 0, ly = 0;\n" +
         "var moved = false, dragging = false, longFired = false, timer = null;\n" +
-        "var two = false, mx = 0, my = 0;\n" +
+        "var two = false, mx = 0, my = 0, pd = 0, zoomAcc = 0, mode = '';\n" +
         "function mid(ts) {\n" +
         "  var a = at(ts[0]), b = at(ts[1]);\n" +
         "  return [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];\n" +
+        "}\n" +
+        "function spread(ts) {\n" +
+        "  var a = at(ts[0]), b = at(ts[1]);\n" +
+        "  return Math.sqrt((a[0] - b[0]) * (a[0] - b[0]) + (a[1] - b[1]) * (a[1] - b[1]));\n" +
         "}\n" +
         "function at(t) {\n" +
         "  var r = c.getBoundingClientRect();\n" +
@@ -101,6 +114,10 @@ public final class BrowserTouch {
         "    if (dragging) { sink(3, lx, ly); }\n" +
         "    active = false; dragging = false; two = true;\n" +
         "    var m = mid(e.touches); mx = m[0]; my = m[1];\n" +
+        "    pd = spread(e.touches); zoomAcc = 0; mode = '';\n" +
+        // The client only zooms while the pointer is over the game view, so put it between the
+        // fingers before any notch is sent.
+        "    sink(1, mx, my);\n" +
         "    e.preventDefault(); return;\n" +
         "  }\n" +
         "  if (e.touches.length !== 1 || two) { return; }\n" +
@@ -116,9 +133,23 @@ public final class BrowserTouch {
         "}, { passive: false });\n" +
         "c.addEventListener('touchmove', function (e) {\n" +
         "  if (two && e.touches.length === 2) {\n" +
-        "    var m = mid(e.touches);\n" +
-        "    sink(7, m[0] - mx, m[1] - my);\n" +
-        "    mx = m[0]; my = m[1];\n" +
+        "    var m = mid(e.touches), d = spread(e.touches);\n" +
+        // One gesture, one meaning: whichever the fingers did more of in the first few pixels is
+        // what they are doing until they lift. Turning while pinching otherwise swings the camera
+        // every time someone zooms with a slightly uneven grip.
+        "    if (mode === '') {\n" +
+        "      var byZoom = Math.abs(d - pd);\n" +
+        "      var byTurn = Math.abs(m[0] - mx) + Math.abs(m[1] - my);\n" +
+        "      if (byZoom > 8 || byTurn > 8) { mode = byZoom > byTurn ? 'zoom' : 'turn'; }\n" +
+        "    }\n" +
+        "    if (mode === 'turn') {\n" +
+        "      sink(7, m[0] - mx, m[1] - my);\n" +
+        "    } else if (mode === 'zoom') {\n" +
+        "      zoomAcc += d - pd;\n" +
+        "      while (zoomAcc >= step) { zoomAcc -= step; sink(8, -1, 0); }\n" +
+        "      while (zoomAcc <= -step) { zoomAcc += step; sink(8, 1, 0); }\n" +
+        "    }\n" +
+        "    mx = m[0]; my = m[1]; pd = d;\n" +
         "    e.preventDefault(); return;\n" +
         "  }\n" +
         "  if (!active || e.touches.length !== 1) { return; }\n" +
@@ -135,7 +166,7 @@ public final class BrowserTouch {
         "  if (two) {\n" +
         // Both fingers have to leave before a tap can start again, or lifting one of them is read
         // as the start of a press that was never made.
-        "    if (e.touches.length === 0) { two = false; }\n" +
+        "    if (e.touches.length === 0) { two = false; mode = ''; }\n" +
         "    if (e.cancelable) { e.preventDefault(); }\n" +
         "    return;\n" +
         "  }\n" +
@@ -148,5 +179,6 @@ public final class BrowserTouch {
         "}\n" +
         "c.addEventListener('touchend', end, { passive: false });\n" +
         "c.addEventListener('touchcancel', end, { passive: false });")
-    private static native void wire(HTMLCanvasElement c, Sink sink, int longMs, int slop, int scale);
+    private static native void wire(HTMLCanvasElement c, Sink sink, int longMs, int slop, int scale,
+            int step);
 }
