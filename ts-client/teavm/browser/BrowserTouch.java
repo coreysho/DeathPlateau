@@ -104,6 +104,18 @@ public final class BrowserTouch {
      * worse the further from the top left.
      */
     @JSBody(params = { "c", "sink", "onScene", "longMs", "slop", "scale", "step" }, script =
+        // THE PARAMETERS, TAKEN ONCE, UNDER NAMES NOTHING ELSE USES (2026-11-17).
+        //
+        // TeaVM replaces these names with the minifier's, which is how `longMs` became `e` - the
+        // same `e` as the event argument of every handler below, which shadowed it. setTimeout
+        // was handed a TouchEvent for its delay, read it as NaN, and fired at once: every tap
+        // became a long press, so the menu opened and the click never happened. Reported from a
+        // phone as "clicking no longer clicks".
+        //
+        // Copying them here, before any handler exists, is what makes that impossible rather
+        // than unlikely. The handlers take `ev` for the same reason.
+        "var el = c, emit = sink, askScene = onScene;\n" +
+        "var holdMs = longMs, slopPx = slop, perGamePixel = scale, zoomStep = step;\n" +
         "var active = false, sx = 0, sy = 0, lx = 0, ly = 0, px = 0, py = 0;\n" +
         "var moved = false, dragging = false, longFired = false, timer = null;\n" +
         "var two = false, mx = 0, my = 0, pd = 0, zoomAcc = 0, mode = '';\n" +
@@ -117,41 +129,41 @@ public final class BrowserTouch {
         "  return Math.sqrt((a[0] - b[0]) * (a[0] - b[0]) + (a[1] - b[1]) * (a[1] - b[1]));\n" +
         "}\n" +
         "function at(t) {\n" +
-        "  var r = c.getBoundingClientRect();\n" +
-        "  return [Math.round((t.clientX - r.left) * (c.width / r.width) / scale),\n" +
-        "          Math.round((t.clientY - r.top) * (c.height / r.height) / scale)];\n" +
+        "  var r = el.getBoundingClientRect();\n" +
+        "  return [Math.round((t.clientX - r.left) * (el.width / r.width) / perGamePixel),\n" +
+        "          Math.round((t.clientY - r.top) * (el.height / r.height) / perGamePixel)];\n" +
         "}\n" +
-        "c.addEventListener('touchstart', function (e) {\n" +
+        "el.addEventListener('touchstart', function (ev) {\n" +
         // A second finger ends whatever the first was doing: no tap, no menu, no drag - the
         // gesture is now a camera turn, and the single-finger state machine stays out of it.
-        "  if (e.touches.length === 2) {\n" +
+        "  if (ev.touches.length === 2) {\n" +
         "    if (timer) { clearTimeout(timer); timer = null; }\n" +
-        "    if (dragging) { sink(3, lx, ly); }\n" +
+        "    if (dragging) { emit(3, lx, ly); }\n" +
         "    active = false; dragging = false; two = true;\n" +
-        "    var m = mid(e.touches); mx = m[0]; my = m[1];\n" +
-        "    pd = spread(e.touches); zoomAcc = 0; mode = '';\n" +
+        "    var m = mid(ev.touches); mx = m[0]; my = m[1];\n" +
+        "    pd = spread(ev.touches); zoomAcc = 0; mode = '';\n" +
         // The client only zooms while the pointer is over the game view, so put it between the
         // fingers before any notch is sent.
-        "    sink(1, mx, my);\n" +
-        "    e.preventDefault(); return;\n" +
+        "    emit(1, mx, my);\n" +
+        "    ev.preventDefault(); return;\n" +
         "  }\n" +
-        "  if (e.touches.length !== 1 || two) { return; }\n" +
-        "  var p = at(e.touches[0]);\n" +
+        "  if (ev.touches.length !== 1 || two) { return; }\n" +
+        "  var p = at(ev.touches[0]);\n" +
         "  sx = lx = px = p[0]; sy = ly = py = p[1];\n" +
         "  active = true; moved = false; dragging = false; longFired = false;\n" +
         // Decided where the finger lands, not where it ends up: a drag that began on the scene
         // keeps turning the camera even once it has wandered over the chat box.
-        "  turning = !!onScene(sx, sy);\n" +
-        "  sink(1, sx, sy);\n" +
+        "  turning = !!askScene(sx, sy);\n" +
+        "  emit(1, sx, sy);\n" +
         "  if (timer) { clearTimeout(timer); }\n" +
         "  timer = setTimeout(function () {\n" +
-        "    if (active && !moved) { longFired = true; sink(4, sx, sy); sink(5, sx, sy); }\n" +
-        "  }, longMs);\n" +
-        "  e.preventDefault();\n" +
+        "    if (active && !moved) { longFired = true; emit(4, sx, sy); emit(5, sx, sy); }\n" +
+        "  }, holdMs);\n" +
+        "  ev.preventDefault();\n" +
         "}, { passive: false });\n" +
-        "c.addEventListener('touchmove', function (e) {\n" +
-        "  if (two && e.touches.length === 2) {\n" +
-        "    var m = mid(e.touches), d = spread(e.touches);\n" +
+        "el.addEventListener('touchmove', function (ev) {\n" +
+        "  if (two && ev.touches.length === 2) {\n" +
+        "    var m = mid(ev.touches), d = spread(ev.touches);\n" +
         // One gesture, one meaning: whichever the fingers did more of in the first few pixels is
         // what they are doing until they lift. Turning while pinching otherwise swings the camera
         // every time someone zooms with a slightly uneven grip.
@@ -161,49 +173,49 @@ public final class BrowserTouch {
         "      if (byZoom > 8 || byTurn > 8) { mode = byZoom > byTurn ? 'zoom' : 'turn'; }\n" +
         "    }\n" +
         "    if (mode === 'turn') {\n" +
-        "      sink(7, m[0] - mx, m[1] - my);\n" +
+        "      emit(7, m[0] - mx, m[1] - my);\n" +
         "    } else if (mode === 'zoom') {\n" +
         "      zoomAcc += d - pd;\n" +
-        "      while (zoomAcc >= step) { zoomAcc -= step; sink(8, -1, 0); }\n" +
-        "      while (zoomAcc <= -step) { zoomAcc += step; sink(8, 1, 0); }\n" +
+        "      while (zoomAcc >= zoomStep) { zoomAcc -= zoomStep; emit(8, -1, 0); }\n" +
+        "      while (zoomAcc <= -zoomStep) { zoomAcc += zoomStep; emit(8, 1, 0); }\n" +
         "    }\n" +
         "    mx = m[0]; my = m[1]; pd = d;\n" +
-        "    e.preventDefault(); return;\n" +
+        "    ev.preventDefault(); return;\n" +
         "  }\n" +
-        "  if (!active || e.touches.length !== 1) { return; }\n" +
-        "  var p = at(e.touches[0]); lx = p[0]; ly = p[1];\n" +
-        "  if (!moved && (Math.abs(lx - sx) > slop || Math.abs(ly - sy) > slop)) {\n" +
+        "  if (!active || ev.touches.length !== 1) { return; }\n" +
+        "  var p = at(ev.touches[0]); lx = p[0]; ly = p[1];\n" +
+        "  if (!moved && (Math.abs(lx - sx) > slopPx || Math.abs(ly - sy) > slopPx)) {\n" +
         "    moved = true;\n" +
         "    if (timer) { clearTimeout(timer); timer = null; }\n" +
-        "    if (!longFired && !turning) { dragging = true; sink(2, sx, sy); }\n" +
+        "    if (!longFired && !turning) { dragging = true; emit(2, sx, sy); }\n" +
         "  }\n" +
         "  if (moved && turning) {\n" +
         // The same running total the two-finger turn writes, which GameShell folds into the
         // deltas a middle-button drag would have produced.
-        "    sink(7, lx - px, ly - py);\n" +
+        "    emit(7, lx - px, ly - py);\n" +
         "  } else {\n" +
-        "    sink(dragging ? 6 : 1, lx, ly);\n" +
+        "    emit(dragging ? 6 : 1, lx, ly);\n" +
         "  }\n" +
         "  px = lx; py = ly;\n" +
-        "  e.preventDefault();\n" +
+        "  ev.preventDefault();\n" +
         "}, { passive: false });\n" +
-        "function end(e) {\n" +
+        "function end(ev) {\n" +
         "  if (two) {\n" +
         // Both fingers have to leave before a tap can start again, or lifting one of them is read
         // as the start of a press that was never made.
-        "    if (e.touches.length === 0) { two = false; mode = ''; }\n" +
-        "    if (e.cancelable) { e.preventDefault(); }\n" +
+        "    if (ev.touches.length === 0) { two = false; mode = ''; }\n" +
+        "    if (ev.cancelable) { ev.preventDefault(); }\n" +
         "    return;\n" +
         "  }\n" +
         "  if (!active) { return; }\n" +
         "  active = false;\n" +
         "  if (timer) { clearTimeout(timer); timer = null; }\n" +
-        "  if (dragging) { sink(3, lx, ly); }\n" +
-        "  else if (!longFired && !(turning && moved)) { sink(2, sx, sy); sink(3, sx, sy); }\n" +
-        "  if (e.cancelable) { e.preventDefault(); }\n" +
+        "  if (dragging) { emit(3, lx, ly); }\n" +
+        "  else if (!longFired && !(turning && moved)) { emit(2, sx, sy); emit(3, sx, sy); }\n" +
+        "  if (ev.cancelable) { ev.preventDefault(); }\n" +
         "}\n" +
-        "c.addEventListener('touchend', end, { passive: false });\n" +
-        "c.addEventListener('touchcancel', end, { passive: false });")
+        "el.addEventListener('touchend', end, { passive: false });\n" +
+        "el.addEventListener('touchcancel', end, { passive: false });")
     private static native void wire(HTMLCanvasElement c, Sink sink, Ask onScene, int longMs, int slop,
             int scale, int step);
 }

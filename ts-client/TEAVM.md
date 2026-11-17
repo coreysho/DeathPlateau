@@ -233,6 +233,14 @@ fields and the client polls them. The AWT here is this build's own shim, so an e
 JavaScript is as real as any other. The camera is the exception - it still goes through
 BrowserInput's running totals, because GameShell already folds those into its middle-drag.
 
+### Testing touch needs a finger, not an instant
+
+A tap in Playwright sends touchstart and touchend in the same tick. A thumb holds for about a
+tenth of a second, and the difference is not cosmetic: when the long-press timer was accidentally
+given a delay of NaN it fired immediately, so every real tap became a right-click menu and no
+click was ever sent - while every synthetic tap still passed, because the press happened after
+the tap had already ended. Any test of this path has to hold the touch down for ~90ms.
+
 ## Sound
 
 The client mixes all of its own audio and then asks `javax.sound.sampled` for somewhere to put it,

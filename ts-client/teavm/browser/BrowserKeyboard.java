@@ -45,6 +45,10 @@ public final class BrowserKeyboard {
     }
 
     @JSBody(params = "keys", script =
+        // Taken once, under a name of our own: TeaVM replaces the parameter's name with the
+        // minifier's, and a handler argument below that happened to match it would shadow it
+        // silently. That is exactly how the touch bridge lost every tap - see BrowserTouch.
+        "var send = keys;\n" +
         "var input = document.getElementById('kbin');\n" +
         "if (!input) { return; }\n" +
         "var btn = document.getElementById('kb');\n" +
@@ -59,12 +63,12 @@ public final class BrowserKeyboard {
         "  input.addEventListener('blur', function () { btn.classList.remove('on'); });\n" +
         "}\n" +
         "input.addEventListener('keydown', function (e) {\n" +
-        "  if (e.key === 'Backspace') { keys(8, 8); e.preventDefault(); }\n" +
-        "  else if (e.key === 'Enter') { keys(10, 10); e.preventDefault(); }\n" +
-        "  else if (e.key === 'ArrowUp') { keys(38, 0); e.preventDefault(); }\n" +
-        "  else if (e.key === 'ArrowDown') { keys(40, 0); e.preventDefault(); }\n" +
-        "  else if (e.key === 'ArrowLeft') { keys(37, 0); e.preventDefault(); }\n" +
-        "  else if (e.key === 'ArrowRight') { keys(39, 0); e.preventDefault(); }\n" +
+        "  if (e.key === 'Backspace') { send(8, 8); e.preventDefault(); }\n" +
+        "  else if (e.key === 'Enter') { send(10, 10); e.preventDefault(); }\n" +
+        "  else if (e.key === 'ArrowUp') { send(38, 0); e.preventDefault(); }\n" +
+        "  else if (e.key === 'ArrowDown') { send(40, 0); e.preventDefault(); }\n" +
+        "  else if (e.key === 'ArrowLeft') { send(37, 0); e.preventDefault(); }\n" +
+        "  else if (e.key === 'ArrowRight') { send(39, 0); e.preventDefault(); }\n" +
         "});\n" +
         "input.addEventListener('input', function (e) {\n" +
         "  var text = e.data != null ? e.data : input.value;\n" +
@@ -72,7 +76,7 @@ public final class BrowserKeyboard {
         "    for (var i = 0; i < text.length; i++) {\n" +
         "      var ch = text.charCodeAt(i);\n" +
         "      var up = String.fromCharCode(ch).toUpperCase().charCodeAt(0);\n" +
-        "      keys(up, ch);\n" +
+        "      send(up, ch);\n" +
         "    }\n" +
         "  }\n" +
         "  input.value = '';\n" +
