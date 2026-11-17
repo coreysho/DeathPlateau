@@ -7,6 +7,9 @@
     <maven.compiler.target>8</maven.compiler.target>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <teavm.version>0.16.0</teavm.version>
+    <!-- Minified by default: it is four fifths of the bundle on a phone's connection.
+         Build with -Dteavm.minify=false to get readable names in a stack trace. -->
+    <teavm.minify>true</teavm.minify>
   </properties>
   <dependencies>
     <dependency>
@@ -30,7 +33,7 @@
             <targetDirectory>${project.build.directory}/js</targetDirectory>
             <targetFileName>client.js</targetFileName>
             <optimizationLevel>ADVANCED</optimizationLevel>
-            <minifying>false</minifying>
+            <minifying>${teavm.minify}</minifying>
             </configuration>
         </execution></executions>
       </plugin>

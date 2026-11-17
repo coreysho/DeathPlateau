@@ -19,9 +19,12 @@ public class Main {
     private static final int HEIGHT = 503;
 
     public static void main(String[] args) {
+        // The page's own scheme, not a fixed one: served over https the cache has to be fetched
+        // over https and the socket has to be wss, or the browser blocks both as mixed content.
         String host = origin();
-        System.setProperty("lostcity.weburl", "http://" + host);
-        System.setProperty("lostcity.ws", "ws://" + host + "/");
+        boolean secure = "https:".equals(scheme());
+        System.setProperty("lostcity.weburl", (secure ? "https://" : "http://") + host);
+        System.setProperty("lostcity.ws", (secure ? "wss://" : "ws://") + host + "/");
         System.out.println("browser shell " + WIDTH + "x" + HEIGHT + ", server " + host);
 
         BrowserShell.install(WIDTH, HEIGHT);
@@ -33,9 +36,15 @@ public class Main {
         jagex2.client.Client app = new jagex2.client.Client();
         app.initApplication(HEIGHT, WIDTH);
         BrowserShell.bind(app.getBaseComponent());
+        // A phone has no mouse and no keys: both are made out of what it does have.
+        browser.BrowserTouch.install(BrowserShell.canvas(), app.getBaseComponent());
+        browser.BrowserKeyboard.install(app.getBaseComponent());
         System.out.println("client started");
     }
 
     @org.teavm.jso.JSBody(params = {}, script = "return location.host;")
     private static native String origin();
+
+    @org.teavm.jso.JSBody(params = {}, script = "return location.protocol;")
+    private static native String scheme();
 }
