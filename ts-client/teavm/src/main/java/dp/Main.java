@@ -39,6 +39,7 @@ public class Main {
         // A phone has no mouse and no keys: both are made out of what it does have.
         browser.BrowserTouch.install(BrowserShell.canvas(), app.getBaseComponent());
         browser.BrowserKeyboard.install(app.getBaseComponent());
+        browser.BrowserAudio.install();
         System.out.println("client started");
     }
 
