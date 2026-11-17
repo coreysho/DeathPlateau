@@ -44,7 +44,7 @@
   // A page that scrolls under the finger is a game that cannot be dragged.
   document.addEventListener('touchmove', function (e) { if (e.cancelable) e.preventDefault(); }, { passive: false });
 </script>
-<script src="client.js"></script>
+<script src="client.js?v=20261117-0349"></script>
 <script>
   say('client.js loaded, starting main()');
   try { main([], function () { say('main() returned'); }); }

@@ -48,7 +48,11 @@ and `https` cache fetches by itself.
 After `setup.sh` and `mvn -B package`:
 
 ```
-cp target/js/client.js index.html dist/
+cp target/js/client.js dist/
+sed -E 's|client\.js(\?v=[0-9-]+)?|client.js?v='"$(date -u +%Y%m%d-%H%M)"'|' index.html > dist/index.html
 ```
+
+The version on the script URL is what makes a browser fetch a new client instead of serving the
+one it already has. The page is tiny and the script is not, so stamping the page is enough.
 
 `install.sh` prefers a local build when there is one and falls back to `dist/`.

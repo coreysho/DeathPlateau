@@ -114,16 +114,20 @@ public final class BrowserShell {
         canvas.addEventListener("keydown", new EventListener<KeyboardEvent>() {
             @Override public void handleEvent(KeyboardEvent e) {
                 char ch = charOf(e);
-                Events.keyPressed(component, e.getKeyCode(), ch);
+                Events.keyPressed(component, code(e), ch);
                 if (ch != 0) {
                     Events.keyTyped(component, ch);
                 }
-                e.preventDefault();
+                // Swallowed, so the page does not scroll and Tab does not walk the focus ring -
+                // except for the browser's own: a player who cannot press Ctrl+R or F5 is stuck.
+                if (!e.isCtrlKey() && !e.isMetaKey() && !isBrowserKey(e)) {
+                    e.preventDefault();
+                }
             }
         });
         canvas.addEventListener("keyup", new EventListener<KeyboardEvent>() {
             @Override public void handleEvent(KeyboardEvent e) {
-                Events.keyReleased(component, e.getKeyCode(), charOf(e));
+                Events.keyReleased(component, code(e), charOf(e));
             }
         });
         canvas.addEventListener("contextmenu", new EventListener<Event>() {
@@ -136,6 +140,105 @@ public final class BrowserShell {
             @Override public void handleEvent(Event e) { Events.focus(component, false); }
         });
         canvas.focus();
+    }
+
+    /**
+     * THE BROWSER'S KEY CODES ARE NOT AWT'S (2026-11-17).
+     *
+     * GameShell.keyPressed switches on AWT constants, and a DOM keydown carries DOM ones. They
+     * agree about letters, digits, Backspace, Tab, Escape, the modifiers, the arrows, Home/End,
+     * the page keys and F1-F12 - which is most of the keyboard, and is exactly why this went
+     * unnoticed: typing worked.
+     *
+     * They disagree about two. ENTER is 10 in AWT and 13 in the DOM, and DELETE is 127 against
+     * 46. So Enter fell through every branch, its character was dropped by the `ch < 30` guard
+     * above them, and nothing happened: no login, no chat line sent, on a keyboard that was
+     * otherwise working perfectly. Reported from a desktop, 2026-11-17.
+     *
+     * Read from the key's NAME rather than its code, because that is the part of a keydown with
+     * one meaning: keyCode is deprecated, and numpad Enter and the main one differ in `code` but
+     * not in `key`.
+     */
+    private static int code(KeyboardEvent e) {
+        String key = e.getKey();
+        if (key != null) {
+            if ("Enter".equals(key)) {
+                return 10;
+            }
+            if ("Delete".equals(key)) {
+                return 127;
+            }
+            if ("Backspace".equals(key)) {
+                return 8;
+            }
+            if ("Tab".equals(key)) {
+                return 9;
+            }
+            if ("Escape".equals(key)) {
+                return 27;
+            }
+            if ("Shift".equals(key)) {
+                return 16;
+            }
+            if ("Control".equals(key)) {
+                return 17;
+            }
+            if ("Alt".equals(key)) {
+                return 18;
+            }
+            if ("ArrowLeft".equals(key)) {
+                return 37;
+            }
+            if ("ArrowUp".equals(key)) {
+                return 38;
+            }
+            if ("ArrowRight".equals(key)) {
+                return 39;
+            }
+            if ("ArrowDown".equals(key)) {
+                return 40;
+            }
+            if ("Home".equals(key)) {
+                return 36;
+            }
+            if ("End".equals(key)) {
+                return 35;
+            }
+            if ("PageUp".equals(key)) {
+                return 33;
+            }
+            if ("PageDown".equals(key)) {
+                return 34;
+            }
+            if (key.length() > 1 && key.charAt(0) == 'F') {
+                int n = number(key.substring(1));
+                if (n >= 1 && n <= 12) {
+                    return 111 + n;
+                }
+            }
+        }
+        return e.getKeyCode();
+    }
+
+    /** F5 reloads, F11 goes full screen, F12 opens the tools: the page does not get to keep those. */
+    private static boolean isBrowserKey(KeyboardEvent e) {
+        String key = e.getKey();
+        return "F5".equals(key) || "F11".equals(key) || "F12".equals(key);
+    }
+
+    private static int number(String s) {
+        int n = 0;
+        if (s.length() == 0) {
+            return -1;
+        }
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (c < '0' || c > '9') {
+                return -1;
+            }
+            n = n * 10 + (c - '0');
+        }
+        return n;
     }
 
     private static char charOf(KeyboardEvent e) {
