@@ -275,8 +275,14 @@ that will not decrypt are three separate refusals in `World.onClientData`.
 | | this | CheerpJ |
 | --- | --- | --- |
 | download | 1.3 MB, **0.35 MB gzipped** | 18.9 MB runtime + the jar |
-| title screen | **7.4s** (desktop, local) | ~30 minutes on a phone |
-| drawing | ~98 blits a second with a full scene | - |
+| title screen | **7.4s** | ~30 minutes on a phone |
+| title screen, processor throttled 4x | **32s** | - |
+| drawing, a full scene | ~98 blits a second | - |
+| drawing, processor throttled 4x | 64 blits a second | - |
+
+Throttling the processor to a quarter speed is Chromium's stand-in for a mid-range phone, and it
+is the row that matters: half a minute to the title screen where CheerpJ took half an hour, and
+the game still drawing fast enough to play.
 
 Four and a half minutes of walking the world from a phone profile: 41 actions, **0 errors**, heap
 flat at 228 MB, still drawing at 98 blits a second at the end, with new map squares streaming in
