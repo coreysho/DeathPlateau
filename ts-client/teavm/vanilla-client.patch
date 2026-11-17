@@ -1,6 +1,6 @@
 diff -ruN a/jagex2/client/BrowserInput.java b/jagex2/client/BrowserInput.java
---- a/jagex2/client/BrowserInput.java	2026-11-17 04:15:30.544349818 +0000
-+++ b/jagex2/client/BrowserInput.java	2026-11-17 04:15:30.557710005 +0000
+--- a/jagex2/client/BrowserInput.java	2026-11-17 04:43:31.693351561 +0000
++++ b/jagex2/client/BrowserInput.java	2026-11-17 04:43:31.707185058 +0000
 @@ -130,7 +130,7 @@
  		}
  	}
@@ -24,9 +24,35 @@ diff -ruN a/jagex2/client/BrowserInput.java b/jagex2/client/BrowserInput.java
  	public static int takeKey() {
  		if (noNative) {
 diff -ruN a/jagex2/client/Client.java b/jagex2/client/Client.java
---- a/jagex2/client/Client.java	2026-11-17 04:15:30.544391706 +0000
-+++ b/jagex2/client/Client.java	2026-11-17 04:15:30.579156403 +0000
-@@ -3964,7 +3964,7 @@
+--- a/jagex2/client/Client.java	2026-11-17 04:43:31.693389797 +0000
++++ b/jagex2/client/Client.java	2026-11-17 04:43:31.727765374 +0000
+@@ -2940,12 +2940,17 @@
+ 	public void saveMidi(boolean arg0, byte[] arg1) {
+ 		if (this.midiActive) {
+ 			signlink.midifade = arg0 ? 1 : 0;
++			// A page has no file to write the song to and no synthesiser to read it back with, so
++			// the bytes go straight to one made of Web Audio. signlink's own machinery - write a
++			// jingle to disk, have a thread notice it - does nothing here. See browser/BrowserMusic.
++			browser.BrowserMusic.play(arg1, arg0);
+ 			signlink.midisave(arg1, arg1.length);
+ 		}
+ 	}
+ 
+ 	@ObfuscatedName("client.g(Z)V")
+ 	public void stopMidi() {
++		browser.BrowserMusic.stop();
+ 		signlink.midiplay = false;
+ 		signlink.midifade = 0;
+ 		signlink.midi = "stop";
+@@ -2953,6 +2958,7 @@
+ 
+ 	@ObfuscatedName("client.a(ZBI)V")
+ 	public void setMidiVolume(boolean midiActive, int arg2) {
++		browser.BrowserMusic.volume(arg2);
+ 		signlink.midivol = arg2;
+ 		if (midiActive) {
+ 			signlink.midi = "voladjust";
+@@ -3964,7 +3970,7 @@
  	@ObfuscatedName("client.G(I)V")
  	public void drawError() {
  		Graphics var2 = this.getBaseComponent().getGraphics();
@@ -35,7 +61,7 @@ diff -ruN a/jagex2/client/Client.java b/jagex2/client/Client.java
  		// the whole window, not just the fixed frame: an error page in a resizable window would
  		// otherwise leave the title art showing around its edges
  		var2.fillRect(0, 0, Math.max(765, this.layout.width), Math.max(503, this.layout.height));
-@@ -3972,14 +3972,14 @@
+@@ -3972,14 +3978,14 @@
  		if (this.errorLoading) {
  			this.flameActive = false;
  			var2.setFont(new Font("Helvetica", 1, 16));
@@ -53,7 +79,7 @@ diff -ruN a/jagex2/client/Client.java b/jagex2/client/Client.java
  			var2.setFont(new Font("Helvetica", 1, 12));
  			var2.drawString("1: Try closing ALL open web-browser windows, and reloading", 30, var7);
  			int var8 = var7 + 30;
-@@ -3994,21 +3994,21 @@
+@@ -3994,21 +4000,21 @@
  		if (this.errorHost) {
  			this.flameActive = false;
  			var2.setFont(new Font("Helvetica", 1, 20));
@@ -79,7 +105,7 @@ diff -ruN a/jagex2/client/Client.java b/jagex2/client/Client.java
  			var2.setFont(new Font("Helvetica", 1, 12));
  			var2.drawString("1: Try closing ALL open web-browser windows, and reloading", 30, var12);
  			int var14 = var12 + 30;
-@@ -16297,7 +16297,7 @@
+@@ -16297,7 +16303,7 @@
  			return false;
  		}
  		try {
@@ -88,7 +114,7 @@ diff -ruN a/jagex2/client/Client.java b/jagex2/client/Client.java
  			java.io.File userHome = new java.io.File(System.getProperty("user.home"));
  			java.io.File home = new java.io.File(userHome, ".deathplateau");
  			java.io.File parent = jar.isFile() ? jar.getCanonicalFile().getParentFile() : null;
-@@ -16322,7 +16322,7 @@
+@@ -16322,7 +16328,7 @@
  			// From a COPY of this jar: on Windows a running jar is locked, and the launcher has to
  			// replace client.jar - so it must not be running out of it.
  			java.io.File copy = new java.io.File(home, "launcher-run.jar");
@@ -97,7 +123,7 @@ diff -ruN a/jagex2/client/Client.java b/jagex2/client/Client.java
  			cmd.add("-D" + UPDATE_ATTEMPT + "=1"); // the launcher passes every -Dlostcity.* on to the client
  			cmd.add("-cp");
  			cmd.add(copy.getAbsolutePath());
-@@ -16342,7 +16342,7 @@
+@@ -16342,7 +16348,7 @@
  					e.printStackTrace();
  					return;
  				}
@@ -106,7 +132,7 @@ diff -ruN a/jagex2/client/Client.java b/jagex2/client/Client.java
  			}, "update-relaunch");
  			t.setDaemon(false);
  			t.start();
-@@ -17336,6 +17336,24 @@
+@@ -17336,6 +17342,24 @@
  		return this.layout.resizable;
  	}
  
@@ -131,7 +157,7 @@ diff -ruN a/jagex2/client/Client.java b/jagex2/client/Client.java
  	public int displayMode() {
  		return this.layout.mode;
  	}
-@@ -17410,7 +17428,7 @@
+@@ -17410,7 +17434,7 @@
  			if (was.resizable && !next.resizable) {
  				// until the window has shrunk back to 765x503, nothing of the resizable screen is left
  				// showing around the fixed one
@@ -140,7 +166,7 @@ diff -ruN a/jagex2/client/Client.java b/jagex2/client/Client.java
  				g.fillRect(0, 0, was.width, was.height);
  			}
  		}
-@@ -17601,7 +17619,7 @@
+@@ -17601,7 +17625,7 @@
  	private void fillTitleSurround(java.awt.Graphics g, int w, int h) {
  		PixMap blur = this.titleBlur;
  		if (blur == null || this.ingame) {
@@ -150,8 +176,8 @@ diff -ruN a/jagex2/client/Client.java b/jagex2/client/Client.java
  			return;
  		}
 diff -ruN a/jagex2/client/GameShell.java b/jagex2/client/GameShell.java
---- a/jagex2/client/GameShell.java	2026-11-17 04:15:30.544747189 +0000
-+++ b/jagex2/client/GameShell.java	2026-11-17 04:15:30.557263121 +0000
+--- a/jagex2/client/GameShell.java	2026-11-17 04:43:31.694020889 +0000
++++ b/jagex2/client/GameShell.java	2026-11-17 04:43:31.706206422 +0000
 @@ -415,7 +415,7 @@
  		}
  
@@ -204,8 +230,8 @@ diff -ruN a/jagex2/client/GameShell.java b/jagex2/client/GameShell.java
  	}
  }
 diff -ruN a/jagex2/client/LoginProfiles.java b/jagex2/client/LoginProfiles.java
---- a/jagex2/client/LoginProfiles.java	2026-11-17 04:15:30.544834710 +0000
-+++ b/jagex2/client/LoginProfiles.java	2026-11-17 04:15:30.557346893 +0000
+--- a/jagex2/client/LoginProfiles.java	2026-11-17 04:43:31.694082023 +0000
++++ b/jagex2/client/LoginProfiles.java	2026-11-17 04:43:31.706256902 +0000
 @@ -537,10 +537,10 @@
  			if (!f.exists()) {
  				f.createNewFile();
@@ -222,8 +248,8 @@ diff -ruN a/jagex2/client/LoginProfiles.java b/jagex2/client/LoginProfiles.java
  			p.store(out, "Death Plateau saved logins. Delete this file to forget every account on this machine."
  				+ " What is stored is a token the server issued, not your password. It is obfuscated, not safe:"
 diff -ruN a/jagex2/client/worldmap/WorldMap.java b/jagex2/client/worldmap/WorldMap.java
---- a/jagex2/client/worldmap/WorldMap.java	2026-11-17 04:15:30.546640394 +0000
-+++ b/jagex2/client/worldmap/WorldMap.java	2026-11-17 04:15:30.557741549 +0000
+--- a/jagex2/client/worldmap/WorldMap.java	2026-11-17 04:43:31.695966374 +0000
++++ b/jagex2/client/worldmap/WorldMap.java	2026-11-17 04:43:31.707214283 +0000
 @@ -96,7 +96,7 @@
  	 * per failed square per open, not one a frame - and a square that is genuinely undrawable
  	 * costs one draw each time the player opens the map and goes back to being blank.
@@ -250,8 +276,8 @@ diff -ruN a/jagex2/client/worldmap/WorldMap.java b/jagex2/client/worldmap/WorldM
  	/** Wanted squares whose data has not all arrived, held back until some of it does. */
  	private final List waiting = new ArrayList();
 diff -ruN a/jagex2/io/Packet.java b/jagex2/io/Packet.java
---- a/jagex2/io/Packet.java	2026-11-17 04:15:30.547862588 +0000
-+++ b/jagex2/io/Packet.java	2026-11-17 04:15:30.558578639 +0000
+--- a/jagex2/io/Packet.java	2026-11-17 04:43:31.697225188 +0000
++++ b/jagex2/io/Packet.java	2026-11-17 04:43:31.708248847 +0000
 @@ -146,7 +146,11 @@
  
  	@ObfuscatedName("MFMVIYHT.a(Ljava/lang/String;)V")
@@ -266,8 +292,8 @@ diff -ruN a/jagex2/io/Packet.java b/jagex2/io/Packet.java
  		this.data[this.pos++] = 10;
  	}
 diff -ruN a/jagex2/io/WsSocket.java b/jagex2/io/WsSocket.java
---- a/jagex2/io/WsSocket.java	2026-11-17 04:15:30.547893031 +0000
-+++ b/jagex2/io/WsSocket.java	2026-11-17 04:15:30.558594320 +0000
+--- a/jagex2/io/WsSocket.java	2026-11-17 04:43:31.697249556 +0000
++++ b/jagex2/io/WsSocket.java	2026-11-17 04:43:31.708268189 +0000
 @@ -36,7 +36,7 @@
  public class WsSocket extends Socket {
  
@@ -311,8 +337,8 @@ diff -ruN a/jagex2/io/WsSocket.java b/jagex2/io/WsSocket.java
  		}
  		byte[] more = Base64.getDecoder().decode(b64);
 diff -ruN a/lostcity/Theme.java b/lostcity/Theme.java
---- a/lostcity/Theme.java	2026-11-17 04:15:30.550514005 +0000
-+++ b/lostcity/Theme.java	2026-11-17 04:15:30.559085311 +0000
+--- a/lostcity/Theme.java	2026-11-17 04:43:31.699442155 +0000
++++ b/lostcity/Theme.java	2026-11-17 04:43:31.708839228 +0000
 @@ -100,7 +100,7 @@
  	public static final int PANEL_HOVER_ALPHA = 30;
  

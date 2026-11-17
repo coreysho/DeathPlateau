@@ -29,5 +29,10 @@ fi
 mkdir -p "$ENGINE/public/teavm"
 cp "$SRC" "$ENGINE/public/teavm/client.js"
 cp "$HERE/index.html" "$ENGINE/public/teavm/index.html"
+# The music synthesiser, if this checkout has it. Neither file is fetched by a player unless the
+# world also has a music.sf3, which is the operator's to supply - see DEPLOY.md.
+for f in spessasynth_lib.js spessasynth_processor.min.js spessasynth_LICENSE.txt; do
+    [ -f "$HERE/dist/$f" ] && cp "$HERE/dist/$f" "$ENGINE/public/teavm/$f"
+done
 echo "installed $(stat -c%s "$ENGINE/public/teavm/client.js") bytes to $ENGINE/public/teavm/"
 echo "play at http://<world>/teavm/"

@@ -31,6 +31,32 @@ there is nothing to do. It is only a private test world with its own `npm run rs
 Both mismatches are refused the same way, with login code 6, which the client shows as "RuneScape
 has been updated! Please reload this page". It is not a cache and reloading cannot fix it.
 
+## Music
+
+Silent unless the world has a soundfont, and nothing for it is downloaded until then.
+
+The client fetches its songs itself and hands each one over as a MIDI file; a desktop plays that
+with the soundbank every JVM ships, and a browser has neither a synthesiser nor a bank. The
+synthesiser comes with this client (spessasynth, Apache 2.0, ~1.3MB across two files, which
+`install.sh` copies). The bank does not, because it is megabytes and the licence is a choice:
+
+```
+cd /path/to/public/teavm
+curl -sSL -o music.sf3 https://unpkg.com/@librescore/sf3@0.8.0/TimGM6mb.sf3.wasm        # 3.9 MB, GPL-2
+# or, better quality:
+curl -sSL -o music.sf3 https://unpkg.com/@librescore/sf3@0.8.0/FluidR3Mono_GM.sf3.wasm  # 14.5 MB
+```
+
+Those are General MIDI banks packaged by LibreScore; the licence of each is in that package and
+should be served or credited alongside. Name the file `music.sf3` and that is the whole install.
+
+**What a player pays.** Nothing, until a song plays. The page asks for `music.sf3` when the first
+one arrives: no file, one line in the console and the game is silent, with the synthesiser never
+fetched. With a file, that player downloads the bank and the synthesiser once and the music plays
+from then on - the title theme, then whatever the area sends.
+
+Removing `music.sf3` turns music off again for everyone, with nothing else to change.
+
 ## Behind a proxy or a tunnel
 
 The client opens its WebSocket back to whatever host served the page, so **serve `/teavm/` from
