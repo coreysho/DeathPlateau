@@ -9,15 +9,21 @@
      them to whatever screen this is, letterboxed. Touch and mouse coordinates are divided by that
      stretch on the way in - see BrowserTouch.wire and BrowserShell.x(). */
   #wrap { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
-  #gameCanvas { display: block; image-rendering: pixelated; touch-action: none;
+  /* The canvas fills the window, keeping the client's shape. On a phone it holds 765x503 and is
+     drawn pixel-for-pixel; on a monitor BrowserShell has already doubled it to 1530x1006, and
+     the browser SHRINKS that to fit - which is smooth work, where blowing the original up by a
+     fraction is what looked grainy. Hence the two rendering modes. */
+  #gameCanvas { display: block; touch-action: none; image-rendering: pixelated;
                 max-width: 100%; max-height: 100%; width: auto; height: auto;
                 aspect-ratio: 765 / 503; outline: none; }
-  /* FIXED HEIGHT, not max-height: this box grows as the client logs, and a growing box above the
-     canvas moves the canvas down the page - which moves every click the player makes with it. */
-  #log { position: fixed; left: 0; top: 0; right: 0; height: 3em; padding: 6px; z-index: 2;
-         color: #7fe07f; white-space: pre-wrap; overflow: auto; pointer-events: none; }
-  /* A phone has the screen the game wants: the dev log is desktop-only. */
-  @media (pointer: coarse), (max-width: 900px) { #log { display: none; } }
+  @media (pointer: fine) { #gameCanvas { image-rendering: auto; } }
+  /* The client's console, for when something has to be read off a player's screen. It sits over
+     the game, so it is off unless the page was opened with ?debug - every line still goes to the
+     browser's own console either way. */
+  #log { display: none; position: fixed; left: 0; top: 0; right: 0; max-height: 40vh; padding: 6px;
+         z-index: 2; color: #7fe07f; background: #000a; white-space: pre-wrap; overflow: auto;
+         pointer-events: none; }
+  #log.on { display: block; }
   /* Out of sight, but a REAL input: a phone raises its keyboard for one of these and for nothing
      else. It must stay focusable, so it cannot be display:none or visibility:hidden. */
   #kbin { position: fixed; left: -9999px; top: 0; width: 1px; height: 1px; opacity: 0; }
@@ -41,10 +47,12 @@
   console.error = function () { say('ERR ' + [].join.call(arguments, ' ')); realErr.apply(console, arguments); };
   window.addEventListener('error', function (e) { say('PAGE ERROR: ' + (e.message || e.type)); });
   window.addEventListener('unhandledrejection', function (e) { say('REJECTION: ' + e.reason); });
+  if (location.search.indexOf('debug') !== -1) { log.classList.add('on'); }
   // A page that scrolls under the finger is a game that cannot be dragged.
   document.addEventListener('touchmove', function (e) { if (e.cancelable) e.preventDefault(); }, { passive: false });
+
 </script>
-<script src="client.js?v=20261117-0349"></script>
+<script src="client.js?v=20261117-0401"></script>
 <script>
   say('client.js loaded, starting main()');
   try { main([], function () { say('main() returned'); }); }

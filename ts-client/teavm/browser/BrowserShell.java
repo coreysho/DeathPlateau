@@ -29,6 +29,31 @@ public final class BrowserShell {
     private static ImageData scratch;
     private static int scratchW, scratchH;
 
+    /**
+     * HOW BIG EACH GAME PIXEL IS IN THE CANVAS (2026-11-17).
+     *
+     * The client draws 765x503 and cannot be asked for more. A page then has to stretch that to
+     * the window, and stretching by a fraction is what makes it look grainy: at 1.49 some game
+     * pixels land on two screen pixels and their neighbours land on one, so straight edges come
+     * out with a tooth in them. Reported from a desktop.
+     *
+     * So on a monitor the frame is pixel-doubled into a canvas twice the size - whole numbers,
+     * every pixel the same - and the browser scales THAT to the window. Shrinking a doubled
+     * image is smooth work; blowing up the original is not. The game stays as big as it was and
+     * stops shimmering.
+     *
+     * A phone keeps 1, because it pays for this twice: the extra copy every frame, and a screen
+     * dense enough that the stretch was never visible on it anyway.
+     */
+    private static int scale = 1;
+
+    /** Where the client's own pixels are drawn before the doubling. Null when scale is 1. */
+    private static HTMLCanvasElement buffer;
+    private static CanvasRenderingContext2D bufferCtx;
+
+    /** Canvas pixels per game pixel, for everything that has to turn a click back into one. */
+    public static int scale() { return scale; }
+
     private BrowserShell() { }
 
     public static HTMLCanvasElement canvas() { return canvas; }
@@ -41,10 +66,20 @@ public final class BrowserShell {
             canvas.setAttribute("id", "gameCanvas");
             doc.getBody().appendChild(canvas);
         }
-        canvas.setWidth(width);
-        canvas.setHeight(height);
+        scale = wantsDoubling() ? 2 : 1;
+        canvas.setWidth(width * scale);
+        canvas.setHeight(height * scale);
         canvas.setAttribute("tabindex", "0");
         ctx = (CanvasRenderingContext2D) canvas.getContext("2d");
+        if (scale != 1) {
+            // Off, so the doubling stays square-edged. The smoothing that makes this look right
+            // is the browser's, when it fits this canvas to the window.
+            noSmoothing(ctx);
+            buffer = (HTMLCanvasElement) doc.createElement("canvas");
+            buffer.setWidth(width);
+            buffer.setHeight(height);
+            bufferCtx = (CanvasRenderingContext2D) buffer.getContext("2d");
+        }
 
         // Where PixMap's pixels end up. The client hands over ARGB ints; a canvas wants RGBA
         // bytes, so the only work per frame is the channel shuffle.
@@ -68,7 +103,14 @@ public final class BrowserShell {
                     out.set(o + 2, argb & 0xff);
                     out.set(o + 3, 255);
                 }
-                ctx.putImageData(scratch, x, y);
+                if (scale == 1) {
+                    ctx.putImageData(scratch, x, y);
+                } else {
+                    // Only the rectangle that changed is doubled, not the whole frame: the client
+                    // blits the viewport and the sidebar separately and most frames touch one.
+                    bufferCtx.putImageData(scratch, x, y);
+                    blowUp(ctx, buffer, x, y, w, h, scale);
+                }
             }
         });
     }
@@ -255,12 +297,15 @@ public final class BrowserShell {
         return 0;
     }
 
+    // Into the client's own pixels: out of CSS pixels by the stretch, then out of canvas pixels
+    // by the doubling. Miss the second step and every click lands at twice its distance from the
+    // top left corner.
     private static int x(MouseEvent e) {
-        return (int) Math.round(offsetX(e) * (canvas.getWidth() / (double) clientWidth(canvas)));
+        return (int) Math.round(offsetX(e) * (canvas.getWidth() / (double) clientWidth(canvas)) / scale);
     }
 
     private static int y(MouseEvent e) {
-        return (int) Math.round(offsetY(e) * (canvas.getHeight() / (double) clientHeight(canvas)));
+        return (int) Math.round(offsetY(e) * (canvas.getHeight() / (double) clientHeight(canvas)) / scale);
     }
 
     /** AWT button numbering: 1 left, 2 middle, 3 right. */
@@ -268,6 +313,19 @@ public final class BrowserShell {
         int b = e.getButton();
         return b == 2 ? 3 : b == 1 ? 2 : 1;
     }
+
+    /** A mouse means a monitor, where there is processor to spare and the stretch shows. */
+    @JSBody(params = {}, script =
+        "return !!(window.matchMedia && window.matchMedia('(pointer: fine)').matches);")
+    private static native boolean wantsDoubling();
+
+    @JSBody(params = "c", script = "c.imageSmoothingEnabled = false;")
+    private static native void noSmoothing(CanvasRenderingContext2D c);
+
+    @JSBody(params = { "c", "src", "x", "y", "w", "h", "s" },
+        script = "c.drawImage(src, x, y, w, h, x * s, y * s, w * s, h * s);")
+    private static native void blowUp(CanvasRenderingContext2D c, HTMLCanvasElement src,
+            int x, int y, int w, int h, int s);
 
     @JSBody(params = "e", script = "return e.offsetX;")
     private static native double offsetX(MouseEvent e);

@@ -50,6 +50,7 @@ public final class BrowserTouch {
     }
 
     public static void install(HTMLCanvasElement canvas, final java.awt.Component component) {
+        final int scale = BrowserShell.scale();
         wire(canvas, new Sink() {
             @Override public void on(int kind, int x, int y) {
                 switch (kind) {
@@ -70,7 +71,7 @@ public final class BrowserTouch {
                     default: break;
                 }
             }
-        }, LONG_PRESS_MS, SLOP_PX);
+        }, LONG_PRESS_MS, SLOP_PX, scale);
     }
 
     /**
@@ -79,7 +80,7 @@ public final class BrowserTouch {
      * makes, and the same bug if it is left out: every touch lands short of where it was aimed,
      * worse the further from the top left.
      */
-    @JSBody(params = { "c", "sink", "longMs", "slop" }, script =
+    @JSBody(params = { "c", "sink", "longMs", "slop", "scale" }, script =
         "var active = false, sx = 0, sy = 0, lx = 0, ly = 0;\n" +
         "var moved = false, dragging = false, longFired = false, timer = null;\n" +
         "var two = false, mx = 0, my = 0;\n" +
@@ -89,8 +90,8 @@ public final class BrowserTouch {
         "}\n" +
         "function at(t) {\n" +
         "  var r = c.getBoundingClientRect();\n" +
-        "  return [Math.round((t.clientX - r.left) * (c.width / r.width)),\n" +
-        "          Math.round((t.clientY - r.top) * (c.height / r.height))];\n" +
+        "  return [Math.round((t.clientX - r.left) * (c.width / r.width) / scale),\n" +
+        "          Math.round((t.clientY - r.top) * (c.height / r.height) / scale)];\n" +
         "}\n" +
         "c.addEventListener('touchstart', function (e) {\n" +
         // A second finger ends whatever the first was doing: no tap, no menu, no drag - the
@@ -147,5 +148,5 @@ public final class BrowserTouch {
         "}\n" +
         "c.addEventListener('touchend', end, { passive: false });\n" +
         "c.addEventListener('touchcancel', end, { passive: false });")
-    private static native void wire(HTMLCanvasElement c, Sink sink, int longMs, int slop);
+    private static native void wire(HTMLCanvasElement c, Sink sink, int longMs, int slop, int scale);
 }

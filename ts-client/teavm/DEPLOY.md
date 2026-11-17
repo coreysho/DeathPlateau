@@ -49,8 +49,10 @@ After `setup.sh` and `mvn -B package`:
 
 ```
 cp target/js/client.js dist/
-sed -E 's|client\.js(\?v=[0-9-]+)?|client.js?v='"$(date -u +%Y%m%d-%H%M)"'|' index.html > dist/index.html
+sed -E "s|<script src=\"client\.js(\?v=[0-9-]+)?\">|<script src=\"client.js?v=$(date -u +%Y%m%d-%H%M)\">|" index.html > dist/index.html
 ```
+
+(The script TAG only - the page says "client.js" in a couple of log lines too.)
 
 The version on the script URL is what makes a browser fetch a new client instead of serving the
 one it already has. The page is tiny and the script is not, so stamping the page is enough.
