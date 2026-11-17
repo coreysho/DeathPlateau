@@ -77,13 +77,52 @@ AWT base (canvas for the drawing surface, DOM events for the six listener interf
 `InetAddress`, and the desktop plugin UI left out of the build. That is the same shim ts377's
 author wrote - but against our code, so nothing has to be ported into it afterwards.
 
-## Not yet known
+## The AWT shim
 
-- Output size and startup time for the full client. The 53 KB above is the protocol core only, and
-  size is the whole reason this project exists - CheerpJ's 18.9 MB runtime is what made the phone
-  take thirty minutes.
-- Whether TeaVM's rendering performance holds up. The spike compiled no drawing code.
-- Whether the sound path (`javax.sound.sampled`, one file) needs a Web Audio shim or can be left
-  out at first.
+`teavm/awtshim/` is 31 classes, 12 KB compiled, and it clears the entire AWT blocker list. With it
+on TeaVM's classpath, `GameShell extends java.applet.Applet` and all six listener interfaces link.
 
-Those are the next three measurements, and the first one decides whether this beats CheerpJ at all.
+It has to be built with **JDK 8**: javac 9+ refuses `package java.awt;` with "package exists in
+another module: java.desktop", while JDK 8 has no module system and allows it. This only affects
+building the shim. The client compiles with any modern JDK, because javac resolves AWT from the
+platform while TeaVM resolves it from its own classpath - which is where the jar goes.
+
+## What still blocks a full link
+
+Three places, and all three are platform, not game:
+
+    jagex2/client/ViewBox.java     extends javax.swing.JFrame - the desktop window
+    jagex2/graphics/PixMap.java    java.awt.image producer/consumer - the drawing surface
+    sign/MidiPlayer.java           javax.sound.midi - the music sequencer
+
+Each needs a browser equivalent rather than a stub: a canvas-backed window, a canvas-backed pixel
+surface, and Web Audio. That is the shell shim, and it is the real remaining work on this route.
+
+## The size is still unknown, and it is the number that decides this
+
+Three attempts, none of them trustworthy:
+
+| what was built | classes | methods | bytes |
+|---|---|---|---|
+| protocol core, exercised from a main | 55 | 681 | 53 KB |
+| renderer + config referenced by class literal | 83 | 871 | 57 KB |
+| the same, with `classesToPreserve` over 60 game classes | 109 | 980 | 74 KB |
+
+All three understate it. TeaVM's dead-code elimination is **method-level and reachability-driven**:
+a `Class` literal keeps a class from being removed but compiles none of its methods, and
+`classesToPreserve` does the same. Only code actually called from `main` is compiled - and `main`
+here is a probe, not the client.
+
+Building from the real entry point emits nothing at all: TeaVM reports "Output file built with
+errors" and writes no file, and `stopOnErrors=false` does not change that - it controls whether the
+*maven build* fails, not whether output is written.
+
+**So there is no honest full-client size yet, and there will not be one until the three classes
+above have browser equivalents and the client links cleanly.** Everything else about this route
+looks right; this is the measurement that decides whether it beats CheerpJ, and it is still
+outstanding.
+
+## Also not yet known
+
+- Rendering performance. No drawing code has been compiled or run.
+- Whether the sound path can simply be left out of a first build.
