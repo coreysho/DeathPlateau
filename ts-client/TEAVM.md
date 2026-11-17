@@ -101,34 +101,55 @@ shim. Measured, that patch is 16 `Color.black`/`white`/`yellow` constants, 3 `Sy
 2 `setReadable` calls, 2 `newKeySet` calls and one `getRGB`. All of it in loading-screen drawing,
 window teardown and the desktop launcher - none in the game.
 
-## Where the link stands
+## It links, and here is the number
 
-Errors fell 80 -> 45 -> 26 across the rounds, and what is left is **entirely the desktop plugin
-UI**: `Box`, `BoxLayout`, `JScrollPane`, `JButton`, `JComboBox`, `JColorChooser`, `Timer`,
-`DocumentListener` and the rest, reached through `Sidebar`, `HubPanel`, `PluginListPanel`,
-`ConfigPanel` and `MapWindow`.
+**The vanilla client compiles to JavaScript: 731 classes, 6,530 methods.**
 
-Shimming the whole of Swing to satisfy code a browser build will never run is the wrong move. The
-right one is to leave those files out and stub what the game actually calls into them, which is a
-short list:
+    unminified   4.93 MB raw    0.60 MB gzipped
+    minified     1.22 MB raw    0.34 MB gzipped
 
-    PluginManager   11 references from Client   (plus its PanelRow inner class)
-    ViewBox          6                          (the desktop window)
-    MapWindow        3
-    Sidebar          3
-    Launcher         2
-    Theme           35 - keep it, it is only colour constants
+CheerpJ's runtime, the thing this replaces, is **18.9 MB** - and that is before the client itself.
+What a browser downloads goes from 18.9 MB to **0.34 MB**, about fifty-five times less.
 
-That is five small stubs and a set of deletions, and it is the next step.
+That was the measurement the whole route hung on, and it is decisive. It does not say the client
+*runs* - nothing has been executed yet - but it settles whether the approach is worth running.
 
-## The size is still not measured
+## What "vanilla only" meant
 
-Still true, and still the number that decides this route. TeaVM writes output only on a clean link,
-so until those five stubs exist there is no bundle to weigh. Every figure measured so far (53 KB,
-57 KB, 74 KB) came from a probe `main` and understates the real thing by an unknown factor,
-because TeaVM's dead-code elimination is method-level and reachability-driven.
+Corey's call, and it cut the work in half: no plugin panel and no plugins until the vanilla client
+is up. The whole `jagex2/client/plugin` tree goes, along with `MapWindow` (a second desktop
+window) and the launcher's Swing chrome. `vanilla/` holds small stubs for the types the client
+still names - `PluginManager` answers "nothing is running" to every hook, which is exactly what
+the real one does with no plugin loaded, so the client takes its own path in every case.
 
-## Also not yet known
+That also removed most of the awkward dependencies at a stroke: `URLClassLoader`, `ProcessBuilder`
+and the plugin hub's file moves were all plugin machinery.
 
-- Rendering performance. No drawing code has been run.
-- Whether the sound path can be left out of a first build entirely.
+## The three pieces
+
+    awtshim/            91 classes. java.awt, applet, swing, sound, crypto, imageio and the odd
+                        java.net/java.util.concurrent gap. Built with JDK 8 - javac 9+ refuses
+                        `package java.awt;`
+    vanilla/            the stubs that replace the plugin and desktop tree
+    vanilla-client.patch  what a shim cannot reach: TeaVM ships its own java.awt.Color, System,
+                        File and ConcurrentHashMap, and its versions lack `Color.black`,
+                        `System.exit`, `File.setWritable` and `newKeySet`. Also the four WsSocket
+                        and three BrowserInput natives, which are CheerpJ's bridge and become
+                        @JSBody in a TeaVM build
+
+`setup.sh` does all of it from a clean checkout.
+
+The `PixMap` trick is the part worth keeping: in AWT it pushes pixels through an
+`ImageProducer`/`ImageConsumer` handshake, and in a browser that `int[]` *is* canvas `ImageData`.
+The shim implements the handshake, so **`PixMap` itself needs no changes** - `Image` is the
+consumer, keeps the pixels, and `Graphics.drawImage` hands them to a `Blitter` the browser shell
+sets.
+
+## What is still unknown
+
+- **It has not been run.** Linking is not working. The next step is a browser shell: a canvas, the
+  `Blitter`, DOM events into `GameShell`'s six listener interfaces, and `@JSBody` WebSocket methods
+  for `WsSocket`.
+- Rendering performance. The 10-13 ms per frame measured on ts377 says what a software rasteriser
+  costs in JavaScript, but TeaVM's output is a different compiler's and the number will differ.
+- Sound is stubbed, not implemented.

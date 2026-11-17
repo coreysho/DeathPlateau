@@ -6,5 +6,6 @@ public class Cipher {
     public void init(int mode, java.security.Key key) { }
     public void init(int mode, java.security.Key key, java.security.spec.AlgorithmParameterSpec spec) { }
     public byte[] doFinal(byte[] in) { return new byte[0]; }
+    public byte[] doFinal(byte[] in, int off, int len) { return new byte[0]; }
     public byte[] getIV() { return new byte[0]; }
 }

@@ -24,6 +24,7 @@ public class JFrame extends java.awt.Container {
     public void addWindowListener(WindowListener l) { }
     public void pack() { }
     public void toFront() { }
+    public void dispose() { }
     public void paint(java.awt.Graphics g) { }
     public Insets getInsets() { return new Insets(0, 0, 0, 0); }
     public Dimension getMinimumSize() { return new Dimension(0, 0); }

@@ -1,5 +1,5 @@
 package javax.swing;
-public class JLabel extends java.awt.Container {
+public class JLabel extends JComponent {
     public JLabel() { }
     public JLabel(String text) { }
     public JLabel(Icon icon) { }

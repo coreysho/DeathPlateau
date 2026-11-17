@@ -1,5 +1,5 @@
 package javax.swing;
-public class JPanel extends java.awt.Container {
+public class JPanel extends JComponent {
     public JPanel() { }
     public JPanel(java.awt.LayoutManager layout) { }
     public JPanel(Object layout) { }

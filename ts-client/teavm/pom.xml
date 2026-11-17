@@ -15,7 +15,7 @@
     </dependency>
     <dependency>
       <groupId>dp</groupId><artifactId>awtshim</artifactId><version>1.0</version>
-      <scope>system</scope><systemPath>/tmp/claude-0/awtshim/awtshim.jar</systemPath>
+      <scope>system</scope><systemPath>${project.basedir}/awtshim/awtshim.jar</systemPath>
     </dependency>
   </dependencies>
   <build>
@@ -30,7 +30,7 @@
             <targetDirectory>${project.build.directory}/js</targetDirectory>
             <targetFileName>client.js</targetFileName>
             <optimizationLevel>ADVANCED</optimizationLevel>
-            <minifying>false</minifying>
+            <minifying>true</minifying>
             </configuration>
         </execution></executions>
       </plugin>

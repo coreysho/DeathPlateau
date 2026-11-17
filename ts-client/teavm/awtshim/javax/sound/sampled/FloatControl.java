@@ -1,6 +1,6 @@
 package javax.sound.sampled;
-public class FloatControl {
-    public static class Type {
+public class FloatControl extends Control {
+    public static class Type extends Control.Type {
         public static final Type MASTER_GAIN = new Type();
     }
     public void setValue(float v) { }

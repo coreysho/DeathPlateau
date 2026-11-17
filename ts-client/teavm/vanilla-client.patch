@@ -1,0 +1,246 @@
+--- a/lostcity/Theme.java	2026-11-17 01:26:58.016978449 +0000
++++ b/lostcity/Theme.java	2026-11-17 00:57:20.823993078 +0000
+@@ -100,7 +100,7 @@
+ 	public static final int PANEL_HOVER_ALPHA = 30;
+ 
+ 	private static int rgb(Color colour) {
+-		return colour.getRGB() & 0xFFFFFF;
++		return ((colour.getRed() << 16) | (colour.getGreen() << 8) | colour.getBlue());
+ 	}
+ 
+ 	private Theme() {
+--- a/jagex2/client/LoginProfiles.java	2026-11-17 01:26:57.831823232 +0000
++++ b/jagex2/client/LoginProfiles.java	2026-11-17 01:19:30.703933756 +0000
+@@ -537,10 +537,10 @@
+ 			if (!f.exists()) {
+ 				f.createNewFile();
+ 			}
+-			f.setReadable(false, false);
+-			f.setWritable(false, false);
+-			f.setReadable(true, true);
+-			f.setWritable(true, true);
++			/* setReadable: no file permissions in a page */
++			/* no file permissions in a page */
++			/* setReadable: no file permissions in a page */
++			/* no file permissions in a page */
+ 			out = new FileOutputStream(f);
+ 			p.store(out, "Death Plateau saved logins. Delete this file to forget every account on this machine."
+ 				+ " What is stored is a token the server issued, not your password. It is obfuscated, not safe:"
+--- a/jagex2/client/GameShell.java	2026-11-17 01:26:57.827224886 +0000
++++ b/jagex2/client/GameShell.java	2026-11-17 00:56:34.853753974 +0000
+@@ -415,7 +415,7 @@
+ 		}
+ 
+ 		try {
+-			System.exit(0);
++			/* System.exit: nothing to exit in a page */
+ 		} catch (Throwable ignore) {
+ 		}
+ 	}
+@@ -948,15 +948,15 @@
+ 			}
+ 			int w = Math.max(765, this.canvasWidth);
+ 			int h = Math.max(503, this.canvasHeight);
+-			g.setColor(Color.black);
++			g.setColor(new Color(0, 0, 0));
+ 			g.fillRect(0, 0, w, h);
+ 
+ 			g.setFont(new Font("Helvetica", Font.BOLD, 16));
+-			g.setColor(Color.yellow);
++			g.setColor(new Color(255, 255, 0));
+ 			g.drawString(Branding.SERVER_NAME + " has stopped.", 30, 40);
+ 
+ 			g.setFont(new Font("Helvetica", Font.PLAIN, 13));
+-			g.setColor(Color.white);
++			g.setColor(new Color(255, 255, 255));
+ 			g.drawString("It is not loading and it is not lagging - waiting will not help.", 30, 80);
+ 			g.drawString("Close this window and start the launcher again; nothing has been lost.", 30, 105);
+ 			g.drawString("What went wrong was written down in client.log, in your .deathplateau folder.", 30, 145);
+@@ -995,7 +995,7 @@
+ 		FontMetrics plainMetrics = this.getBaseComponent().getFontMetrics(plain);
+ 
+ 		if (this.redrawScreen) {
+-			this.graphics.setColor(Color.black);
++			this.graphics.setColor(new Color(0, 0, 0));
+ 			this.graphics.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
+ 			this.redrawScreen = false;
+ 		}
+@@ -1007,11 +1007,11 @@
+ 		this.graphics.drawRect(this.canvasWidth / 2 - 152, y, 304, 34);
+ 		this.graphics.fillRect(this.canvasWidth / 2 - 150, y + 2, percent * 3, 30);
+ 
+-		this.graphics.setColor(Color.black);
++		this.graphics.setColor(new Color(0, 0, 0));
+ 		this.graphics.fillRect(percent * 3 + (this.canvasWidth / 2 - 150), y + 2, 300 - percent * 3, 30);
+ 
+ 		this.graphics.setFont(bold);
+-		this.graphics.setColor(Color.white);
++		this.graphics.setColor(new Color(255, 255, 255));
+ 		this.graphics.drawString(message, (this.canvasWidth - boldMetrics.stringWidth(message)) / 2, y + 22);
+ 	}
+ }
+--- a/jagex2/client/BrowserInput.java	2026-11-17 01:26:57.836005850 +0000
++++ b/jagex2/client/BrowserInput.java	2026-11-17 01:25:18.597852293 +0000
+@@ -130,7 +130,7 @@
+ 		}
+ 	}
+ 
+-	private static native void browserReady();
++	private static void browserReady() { /* TeaVM build: input arrives from DOM events, not this bridge */ }
+ 
+ 	// ------------------------------------------------------------------ asking, not being told
+ 
+@@ -153,10 +153,10 @@
+ 	private static boolean noNative;
+ 
+ 	/** The next key the page has for us in the client's key space, or -1. */
+-	private static native int nextKey();
++	private static int nextKey() { return -1; }
+ 
+ 	/** The next long press, as x in the high half and y in the low, or -1. */
+-	private static native int nextTap();
++	private static int nextTap() { return -1; }
+ 
+ 	public static int takeKey() {
+ 		if (noNative) {
+--- a/jagex2/client/Client.java	2026-11-17 01:26:57.822048506 +0000
++++ b/jagex2/client/Client.java	2026-11-17 01:19:30.732824343 +0000
+@@ -3964,7 +3964,7 @@
+ 	@ObfuscatedName("client.G(I)V")
+ 	public void drawError() {
+ 		Graphics var2 = this.getBaseComponent().getGraphics();
+-		var2.setColor(Color.black);
++		var2.setColor(new Color(0, 0, 0));
+ 		// the whole window, not just the fixed frame: an error page in a resizable window would
+ 		// otherwise leave the title art showing around its edges
+ 		var2.fillRect(0, 0, Math.max(765, this.layout.width), Math.max(503, this.layout.height));
+@@ -3972,14 +3972,14 @@
+ 		if (this.errorLoading) {
+ 			this.flameActive = false;
+ 			var2.setFont(new Font("Helvetica", 1, 16));
+-			var2.setColor(Color.yellow);
++			var2.setColor(new Color(255, 255, 0));
+ 			byte var4 = 35;
+ 			var2.drawString("Sorry, an error has occured whilst loading " + SERVER_NAME, 30, var4);
+ 			int var6 = var4 + 50;
+-			var2.setColor(Color.white);
++			var2.setColor(new Color(255, 255, 255));
+ 			var2.drawString("To fix this try the following (in order):", 30, var6);
+ 			int var7 = var6 + 50;
+-			var2.setColor(Color.white);
++			var2.setColor(new Color(255, 255, 255));
+ 			var2.setFont(new Font("Helvetica", 1, 12));
+ 			var2.drawString("1: Try closing ALL open web-browser windows, and reloading", 30, var7);
+ 			int var8 = var7 + 30;
+@@ -3994,21 +3994,21 @@
+ 		if (this.errorHost) {
+ 			this.flameActive = false;
+ 			var2.setFont(new Font("Helvetica", 1, 20));
+-			var2.setColor(Color.white);
++			var2.setColor(new Color(255, 255, 255));
+ 			var2.drawString("Error - unable to load game!", 50, 50);
+ 			var2.drawString("To play " + SERVER_NAME + " make sure you play from", 50, 100);
+ 			var2.drawString("the official " + SERVER_NAME + " launcher", 50, 150);
+ 		}
+ 		if (this.errorStarted) {
+ 			this.flameActive = false;
+-			var2.setColor(Color.yellow);
++			var2.setColor(new Color(255, 255, 0));
+ 			byte var5 = 35;
+ 			var2.drawString("Error a copy of " + SERVER_NAME + " already appears to be loaded", 30, var5);
+ 			int var10 = var5 + 50;
+-			var2.setColor(Color.white);
++			var2.setColor(new Color(255, 255, 255));
+ 			var2.drawString("To fix this try the following (in order):", 30, var10);
+ 			int var12 = var10 + 50;
+-			var2.setColor(Color.white);
++			var2.setColor(new Color(255, 255, 255));
+ 			var2.setFont(new Font("Helvetica", 1, 12));
+ 			var2.drawString("1: Try closing ALL open web-browser windows, and reloading", 30, var12);
+ 			int var14 = var12 + 30;
+@@ -16297,7 +16297,7 @@
+ 			return false;
+ 		}
+ 		try {
+-			java.io.File jar = new java.io.File(Client.class.getProtectionDomain().getCodeSource().getLocation().toURI());
++			java.io.File jar = null; // a page has no jar to copy
+ 			java.io.File userHome = new java.io.File(System.getProperty("user.home"));
+ 			java.io.File home = new java.io.File(userHome, ".deathplateau");
+ 			java.io.File parent = jar.isFile() ? jar.getCanonicalFile().getParentFile() : null;
+@@ -16322,7 +16322,7 @@
+ 			// From a COPY of this jar: on Windows a running jar is locked, and the launcher has to
+ 			// replace client.jar - so it must not be running out of it.
+ 			java.io.File copy = new java.io.File(home, "launcher-run.jar");
+-			java.nio.file.Files.copy(jar.toPath(), copy.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
++			/* no filesystem copy in a page */
+ 			cmd.add("-D" + UPDATE_ATTEMPT + "=1"); // the launcher passes every -Dlostcity.* on to the client
+ 			cmd.add("-cp");
+ 			cmd.add(copy.getAbsolutePath());
+@@ -16342,7 +16342,7 @@
+ 					e.printStackTrace();
+ 					return;
+ 				}
+-				System.exit(0);
++				/* System.exit: nothing to exit in a page */
+ 			}, "update-relaunch");
+ 			t.setDaemon(false);
+ 			t.start();
+@@ -17410,7 +17410,7 @@
+ 			if (was.resizable && !next.resizable) {
+ 				// until the window has shrunk back to 765x503, nothing of the resizable screen is left
+ 				// showing around the fixed one
+-				g.setColor(java.awt.Color.black);
++				g.setColor(new java.awt.Color(0, 0, 0));
+ 				g.fillRect(0, 0, was.width, was.height);
+ 			}
+ 		}
+@@ -17601,7 +17601,7 @@
+ 	private void fillTitleSurround(java.awt.Graphics g, int w, int h) {
+ 		PixMap blur = this.titleBlur;
+ 		if (blur == null || this.ingame) {
+-			g.setColor(java.awt.Color.black);
++			g.setColor(new java.awt.Color(0, 0, 0));
+ 			g.fillRect(0, 0, w, h);
+ 			return;
+ 		}
+--- a/jagex2/io/WsSocket.java	2026-11-17 01:26:58.011848076 +0000
++++ b/jagex2/io/WsSocket.java	2026-11-17 01:25:58.418644597 +0000
+@@ -36,7 +36,7 @@
+ public class WsSocket extends Socket {
+ 
+ 	/** Opens a WebSocket and returns a handle, or a negative number if it could not connect. */
+-	public static native int wsOpen(String url);
++	public static int wsOpen(String url) { return -1; } // TeaVM build: @JSBody opens the WebSocket
+ 
+ 	/**
+ 	 * Up to max bytes as base64. "" means nothing has arrived yet; null means the socket is gone.
+@@ -44,11 +44,11 @@
+ 	 * and because the native is async on the JavaScript side the browser keeps running meanwhile,
+ 	 * which is what makes a blocking read possible here at all.
+ 	 */
+-	public static native String wsRead(int handle, int max, int waitMillis);
++	public static String wsRead(int handle, int max, int waitMillis) { return null; }
+ 
+-	public static native void wsWrite(int handle, String base64);
++	public static void wsWrite(int handle, String base64) { }
+ 
+-	public static native void wsClose(int handle);
++	public static void wsClose(int handle) { }
+ 
+ 	// HOW MUCH TO TAKE AT ONCE. Every one of these calls crosses into JavaScript and back, which is
+ 	// the expensive part - not the bytes - so the bigger the gulp the better. OnDemand consumes the
+--- a/jagex2/io/Packet.java	2026-11-17 01:26:58.003989534 +0000
++++ b/jagex2/io/Packet.java	2026-11-17 01:19:30.699966613 +0000
+@@ -146,7 +146,11 @@
+ 
+ 	@ObfuscatedName("MFMVIYHT.a(Ljava/lang/String;)V")
+ 	public void pjstr(String arg0) {
+-		arg0.getBytes(0, arg0.length(), this.data, this.pos);
++		// TeaVM has no String.getBytes(int,int,byte[],int) - the deprecated low-byte copy.
++		// Written out, same semantics.
++		for (int i = 0; i < arg0.length(); i++) {
++			this.data[this.pos + i] = (byte) arg0.charAt(i);
++		}
+ 		this.pos += arg0.length();
+ 		this.data[this.pos++] = 10;
+ 	}
