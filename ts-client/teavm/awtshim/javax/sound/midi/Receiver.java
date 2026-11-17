@@ -1,5 +1,5 @@
 package javax.sound.midi;
 public interface Receiver {
-    void send(ShortMessage message, long timeStamp);
+    void send(MidiMessage message, long timeStamp);
     void close();
 }

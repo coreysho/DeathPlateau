@@ -13,6 +13,10 @@
       <groupId>org.teavm</groupId><artifactId>teavm-classlib</artifactId>
       <version>${teavm.version}</version><scope>provided</scope>
     </dependency>
+    <dependency>
+      <groupId>dp</groupId><artifactId>awtshim</artifactId><version>1.0</version>
+      <scope>system</scope><systemPath>/tmp/claude-0/awtshim/awtshim.jar</systemPath>
+    </dependency>
   </dependencies>
   <build>
     <plugins>
@@ -22,12 +26,12 @@
         <executions><execution>
           <id>js</id><phase>package</phase><goals><goal>compile</goal></goals>
           <configuration>
-            <mainClass>dp.Main</mainClass>
+            <mainClass>jagex2.client.Client</mainClass>
             <targetDirectory>${project.build.directory}/js</targetDirectory>
             <targetFileName>client.js</targetFileName>
             <optimizationLevel>ADVANCED</optimizationLevel>
             <minifying>false</minifying>
-          </configuration>
+            </configuration>
         </execution></executions>
       </plugin>
     </plugins>

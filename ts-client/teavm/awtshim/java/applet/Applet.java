@@ -8,4 +8,5 @@ public class Applet extends java.awt.Component {
     public String getParameter(String name) { return null; }
     public java.net.URL getDocumentBase() { return null; }
     public java.net.URL getCodeBase() { return null; }
+    public AppletContext getAppletContext() { return null; }
 }

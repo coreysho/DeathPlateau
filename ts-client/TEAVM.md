@@ -79,50 +79,56 @@ author wrote - but against our code, so nothing has to be ported into it afterwa
 
 ## The AWT shim
 
-`teavm/awtshim/` is 31 classes, 12 KB compiled, and it clears the entire AWT blocker list. With it
-on TeaVM's classpath, `GameShell extends java.applet.Applet` and all six listener interfaces link.
+`teavm/awtshim/` is 72 source files, 76 classes compiled. It must be built with **JDK 8**: javac 9+
+refuses `package java.awt;` with "package exists in another module: java.desktop". That affects
+only the shim - the client compiles against the platform AWT, while TeaVM links against this jar.
 
-It has to be built with **JDK 8**: javac 9+ refuses `package java.awt;` with "package exists in
-another module: java.desktop", while JDK 8 has no module system and allows it. This only affects
-building the shim. The client compiles with any modern JDK, because javac resolves AWT from the
-platform while TeaVM resolves it from its own classpath - which is where the jar goes.
+The interesting part is `PixMap`. In AWT it pushes pixels through an `ImageProducer`/`ImageConsumer`
+handshake into an opaque `Image`; in a browser that whole dance is unnecessary, because the `int[]`
+it holds *is* canvas `ImageData`. The shim implements the handshake so **`PixMap` needs no changes
+at all**: `Image` is itself the consumer, keeps the pixels, and `Graphics.drawImage` hands them to
+a `Blitter` the browser shell sets. One hook, and every pixel the client draws has somewhere to go.
 
-## What still blocks a full link
+## Three classes TeaVM owns, which a shim cannot reach
 
-Three places, and all three are platform, not game:
+TeaVM ships its own `java.awt.Color`, `Dimension` and `Point` (`TColor`, `TDimension`, `TPoint` in
+`teavm-classlib`), and they win over anything on the classpath. `TColor` has `BLACK` but not
+`black`, and no `getRGB()`. Same story for `System.exit`, `File.setReadable` and
+`ConcurrentHashMap.newKeySet`.
 
-    jagex2/client/ViewBox.java     extends javax.swing.JFrame - the desktop window
-    jagex2/graphics/PixMap.java    java.awt.image producer/consumer - the drawing surface
-    sign/MidiPlayer.java           javax.sound.midi - the music sequencer
+So a browser build is **not purely additive**: it needs a small patch to our source as well as the
+shim. Measured, that patch is 16 `Color.black`/`white`/`yellow` constants, 3 `System.exit` calls,
+2 `setReadable` calls, 2 `newKeySet` calls and one `getRGB`. All of it in loading-screen drawing,
+window teardown and the desktop launcher - none in the game.
 
-Each needs a browser equivalent rather than a stub: a canvas-backed window, a canvas-backed pixel
-surface, and Web Audio. That is the shell shim, and it is the real remaining work on this route.
+## Where the link stands
 
-## The size is still unknown, and it is the number that decides this
+Errors fell 80 -> 45 -> 26 across the rounds, and what is left is **entirely the desktop plugin
+UI**: `Box`, `BoxLayout`, `JScrollPane`, `JButton`, `JComboBox`, `JColorChooser`, `Timer`,
+`DocumentListener` and the rest, reached through `Sidebar`, `HubPanel`, `PluginListPanel`,
+`ConfigPanel` and `MapWindow`.
 
-Three attempts, none of them trustworthy:
+Shimming the whole of Swing to satisfy code a browser build will never run is the wrong move. The
+right one is to leave those files out and stub what the game actually calls into them, which is a
+short list:
 
-| what was built | classes | methods | bytes |
-|---|---|---|---|
-| protocol core, exercised from a main | 55 | 681 | 53 KB |
-| renderer + config referenced by class literal | 83 | 871 | 57 KB |
-| the same, with `classesToPreserve` over 60 game classes | 109 | 980 | 74 KB |
+    PluginManager   11 references from Client   (plus its PanelRow inner class)
+    ViewBox          6                          (the desktop window)
+    MapWindow        3
+    Sidebar          3
+    Launcher         2
+    Theme           35 - keep it, it is only colour constants
 
-All three understate it. TeaVM's dead-code elimination is **method-level and reachability-driven**:
-a `Class` literal keeps a class from being removed but compiles none of its methods, and
-`classesToPreserve` does the same. Only code actually called from `main` is compiled - and `main`
-here is a probe, not the client.
+That is five small stubs and a set of deletions, and it is the next step.
 
-Building from the real entry point emits nothing at all: TeaVM reports "Output file built with
-errors" and writes no file, and `stopOnErrors=false` does not change that - it controls whether the
-*maven build* fails, not whether output is written.
+## The size is still not measured
 
-**So there is no honest full-client size yet, and there will not be one until the three classes
-above have browser equivalents and the client links cleanly.** Everything else about this route
-looks right; this is the measurement that decides whether it beats CheerpJ, and it is still
-outstanding.
+Still true, and still the number that decides this route. TeaVM writes output only on a clean link,
+so until those five stubs exist there is no bundle to weigh. Every figure measured so far (53 KB,
+57 KB, 74 KB) came from a probe `main` and understates the real thing by an unknown factor,
+because TeaVM's dead-code elimination is method-level and reachability-driven.
 
 ## Also not yet known
 
-- Rendering performance. No drawing code has been compiled or run.
-- Whether the sound path can simply be left out of a first build.
+- Rendering performance. No drawing code has been run.
+- Whether the sound path can be left out of a first build entirely.

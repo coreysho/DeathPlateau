@@ -7,9 +7,15 @@ public class Component {
     public Dimension getPreferredSize() { return getSize(); }
     public void setMinimumSize(Dimension d) { }
     public void setMaximumSize(Dimension d) { }
+    public void setLayout(LayoutManager l) { }
     public void setLayout(Object l) { }
-    public void setVisible(boolean b) { }
+    public void setVisible(boolean b) { visible = b; }
+    public boolean isVisible() { return visible; }
+    public boolean isResizable() { return true; }
+    private boolean visible = true;
     public Dimension getSize() { return new Dimension(width, height); }
+    public int getWidth() { return width; }
+    public int getHeight() { return height; }
     public Dimension size() { return getSize(); }
     public Graphics getGraphics() { return new Graphics(); }
     public void requestFocus() { }
@@ -21,6 +27,17 @@ public class Component {
     public void addFocusListener(java.awt.event.FocusListener l) { }
     public void setBackground(Color c) { }
     public void repaint() { }
-    public Image createImage(int w, int h) { return new Image(); }
+    public Image createImage(int w, int h) {
+        Image img = new Image();
+        img.setDimensions(w, h);
+        return img;
+    }
+
+    /** PixMap passes itself in as the producer; the Image registers as its consumer. */
+    public Image createImage(java.awt.image.ImageProducer producer) { return new Image(producer); }
+
+    public boolean prepareImage(Image img, java.awt.image.ImageObserver o) { return true; }
+
+    public FontMetrics getFontMetrics(Font f) { return new FontMetrics(); }
     public java.awt.Toolkit getToolkit() { return new Toolkit(); }
 }
