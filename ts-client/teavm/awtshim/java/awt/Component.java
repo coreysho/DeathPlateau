@@ -20,13 +20,28 @@ public class Component {
     public Graphics getGraphics() { return new Graphics(); }
     public void requestFocus() { }
     public void setFocusTraversalKeysEnabled(boolean b) { }
-    public void addMouseListener(java.awt.event.MouseListener l) { }
-    public void addMouseMotionListener(java.awt.event.MouseMotionListener l) { }
-    public void addMouseWheelListener(java.awt.event.MouseWheelListener l) { }
-    public void addKeyListener(java.awt.event.KeyListener l) { }
-    public void addFocusListener(java.awt.event.FocusListener l) { }
+    // The listeners are KEPT, not dropped: the browser shell has no other way to reach the
+    // client's own handlers. GameShell registers itself here during run(), exactly as it does on
+    // the desktop, and the shell then feeds DOM events straight into these.
+    public final java.util.List<java.awt.event.MouseListener> mouseListeners =
+        new java.util.ArrayList<java.awt.event.MouseListener>();
+    public final java.util.List<java.awt.event.MouseMotionListener> mouseMotionListeners =
+        new java.util.ArrayList<java.awt.event.MouseMotionListener>();
+    public final java.util.List<java.awt.event.MouseWheelListener> mouseWheelListeners =
+        new java.util.ArrayList<java.awt.event.MouseWheelListener>();
+    public final java.util.List<java.awt.event.KeyListener> keyListeners =
+        new java.util.ArrayList<java.awt.event.KeyListener>();
+    public final java.util.List<java.awt.event.FocusListener> focusListeners =
+        new java.util.ArrayList<java.awt.event.FocusListener>();
+
+    public void addMouseListener(java.awt.event.MouseListener l) { if (l != null) mouseListeners.add(l); }
+    public void addMouseMotionListener(java.awt.event.MouseMotionListener l) { if (l != null) mouseMotionListeners.add(l); }
+    public void addMouseWheelListener(java.awt.event.MouseWheelListener l) { if (l != null) mouseWheelListeners.add(l); }
+    public void addKeyListener(java.awt.event.KeyListener l) { if (l != null) keyListeners.add(l); }
+    public void addFocusListener(java.awt.event.FocusListener l) { if (l != null) focusListeners.add(l); }
     public void setBackground(Color c) { }
     public void repaint() { }
+    public void setCursor(Cursor c) { }
     public Image createImage(int w, int h) {
         Image img = new Image();
         img.setDimensions(w, h);

@@ -1,39 +1,41 @@
 package dp;
 
-import jagex2.io.Packet;
-import jagex2.wordenc.ChatText;
+import browser.BrowserShell;
+import org.teavm.jso.browser.Window;
 
 /**
- * Exercises the parts of the real client this spike compiles, so the output has something to run
- * rather than only something to typecheck: write a packet the way the engine's protocol does, read
- * it back, and round-trip a chat line through ChatText.
+ * Browser entry point.
+ *
+ * Installs the canvas and the pixel path, points the client at the page's own origin, then starts
+ * it exactly as the desktop does - new Client(), initApplication() - and binds DOM events to the
+ * component it registered its listeners on. The client is unchanged and unaware.
+ *
+ * The host has to be set BEFORE Client is first touched: WEB_URL and WS_URL are `static final`,
+ * read from system properties when the class initialises, so a property set afterwards is too
+ * late. Same shape as the flags bug in the ts377 readout, and the same fix - do it first.
  */
 public class Main {
+    private static final int WIDTH = 765;
+    private static final int HEIGHT = 503;
+
     public static void main(String[] args) {
-        Packet buf = new Packet(new byte[64]);
-        buf.p1(42);
-        buf.p2(1337);
-        buf.p4(123456789);
-        buf.p1_alt1(7);
-        int written = buf.pos;
+        String host = origin();
+        System.setProperty("lostcity.weburl", "http://" + host);
+        System.setProperty("lostcity.ws", "ws://" + host + "/");
+        System.out.println("browser shell " + WIDTH + "x" + HEIGHT + ", server " + host);
 
-        buf.pos = 0;
-        int a = buf.g1();
-        int b = buf.g2();
-        int c = buf.g4();
-        int d = buf.g1_alt1();
-
-        String line = ChatText.format("  hello   WORLD 123  ");
-        Packet chat = new Packet(new byte[96]);
-        ChatText.pack(line, chat);
-        int packed = chat.pos;
-        chat.pos = 0;
-        String back = ChatText.unpack(chat, packed);
-
-        System.out.println("wrote " + written + " bytes");
-        System.out.println("g1=" + a + " g2=" + b + " g4=" + c + " g1_alt1=" + d);
-        System.out.println("format=[" + line + "] packed=" + packed + " unpack=[" + back + "]");
-        System.out.println(a == 42 && b == 1337 && c == 123456789 && d == 7 && back.equals(line)
-            ? "CORE OK" : "CORE MISMATCH");
+        BrowserShell.install(WIDTH, HEIGHT);
+        start();
     }
+
+    /** Separate so Client is not resolved until the properties above are set. */
+    private static void start() {
+        jagex2.client.Client app = new jagex2.client.Client();
+        app.initApplication(HEIGHT, WIDTH);
+        BrowserShell.bind(app.getBaseComponent());
+        System.out.println("client started");
+    }
+
+    @org.teavm.jso.JSBody(params = {}, script = "return location.host;")
+    private static native String origin();
 }

@@ -9,5 +9,10 @@ public class MouseEvent {
     public int getModifiers() { return modifiers; }
     public boolean isMetaDown() { return button == BUTTON3; }
     public boolean isAltDown() { return false; }
+    public java.awt.Component getComponent() { return null; }
+    public java.awt.Point getPoint() { return new java.awt.Point(x, y); }
+    public java.awt.Point getLocationOnScreen() { return new java.awt.Point(x, y); }
+    public int getXOnScreen() { return x; }
+    public int getYOnScreen() { return y; }
     public void consume() { }
 }

@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>DeathPlateau - TeaVM</title>
+<style>
+  html, body { margin: 0; background: #000; color: #9a9a9a; font: 12px ui-monospace, monospace; }
+  #gameCanvas { display: block; image-rendering: pixelated; }
+  #log { padding: 6px; color: #7fe07f; white-space: pre-wrap; max-height: 40vh; overflow: auto; }
+</style></head>
+<body>
+<div id="log">loading client.js ...</div>
+<script>
+  var log = document.getElementById('log');
+  var lines = [];
+  function say(t) { lines.push(t); if (lines.length > 60) lines.shift(); log.textContent = lines.join('\n'); }
+  var realLog = console.log, realErr = console.error;
+  console.log = function () { say([].join.call(arguments, ' ')); realLog.apply(console, arguments); };
+  console.error = function () { say('ERR ' + [].join.call(arguments, ' ')); realErr.apply(console, arguments); };
+  window.addEventListener('error', function (e) { say('PAGE ERROR: ' + (e.message || e.type)); });
+  window.addEventListener('unhandledrejection', function (e) { say('REJECTION: ' + e.reason); });
+</script>
+<script src="client.js"></script>
+<script>
+  say('client.js loaded, starting main()');
+  try { main([], function () { say('main() returned'); }); }
+  catch (e) { say('main() threw: ' + (e && e.message ? e.message : e)); }
+</script>
+</body></html>

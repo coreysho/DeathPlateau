@@ -145,11 +145,47 @@ The shim implements the handshake, so **`PixMap` itself needs no changes** - `Im
 consumer, keeps the pixels, and `Graphics.drawImage` hands them to a `Blitter` the browser shell
 sets.
 
+## It runs in a browser, and it draws
+
+The client starts in a page and renders its own loading screen - the backdrop, the progress bar,
+"Connecting to update server" - from the same Java that runs on the desktop. `teavm-loading.png`
+is the screenshot. It reaches **60%**, which means the CRC table and all eight cache archives were
+fetched over HTTP and decoded.
+
+`browser/` is the shell that makes that possible, and it is small:
+
+**`BrowserShell`** creates the canvas, installs the pixel path and routes DOM events into the AWT
+listener interfaces GameShell already implements. Mouse coordinates are scaled into canvas space,
+because the page sizes the canvas with CSS and `offsetX` is in CSS pixels - the same off-by-the-
+stretch-ratio bug that cost a round in the ts377 client.
+
+**`BrowserSocket`** is WsSocket's four CheerpJ natives rewritten as `@JSBody`. Bytes still cross as
+base64, because that is what the client already encodes and the protocol was not worth re-cutting.
+
+**`awtbridge`** is the piece that makes the whole arrangement work, and it exists because of an
+asymmetry worth writing down: **javac resolves `java.awt.*` from the platform, TeaVM resolves it
+from the shim jar.** So the browser shell, compiled by javac, sees the REAL AWT and cannot touch
+anything the shim adds - while the shim, compiled by JDK 8 against itself, can. A package outside
+`java.*` is visible to both, so every call between them goes through `awtbridge.Events`.
+
+## Where it stops
+
+At 60%, "Connecting to update server", and it does not move.
+
+One real bug was found and fixed on the way there: `WsSocket.getInputStream().read()` is
+`while (buffered() == 0) { fill(50); }`, and on CheerpJ that wait happened inside the native while
+the browser kept running. Here the call returns at once, so the loop spun without ever yielding -
+and the WebSocket's `onmessage`, the only thing that could end the wait, never got a turn. A
+deadlock that looks exactly like a hang. `fill` now sleeps when nothing is waiting, and
+`BrowserSocket.read` returns an empty string for "nothing yet" rather than null, which WsSocket
+reads as a lost connection.
+
+That was not the cause of this stall, though: the rig logs **no WebSocket upgrade at all**, so the
+client never gets as far as opening one. Whatever blocks is earlier, in the update-server setup,
+and it wants proper investigation rather than another guess.
+
 ## What is still unknown
 
-- **It has not been run.** Linking is not working. The next step is a browser shell: a canvas, the
-  `Blitter`, DOM events into `GameShell`'s six listener interfaces, and `@JSBody` WebSocket methods
-  for `WsSocket`.
-- Rendering performance. The 10-13 ms per frame measured on ts377 says what a software rasteriser
-  costs in JavaScript, but TeaVM's output is a different compiler's and the number will differ.
+- Why the update-server step does not open its socket.
+- Rendering performance. The loading screen draws; nothing has rendered a game scene.
 - Sound is stubbed, not implemented.

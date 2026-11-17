@@ -26,11 +26,11 @@
         <executions><execution>
           <id>js</id><phase>package</phase><goals><goal>compile</goal></goals>
           <configuration>
-            <mainClass>jagex2.client.Client</mainClass>
+            <mainClass>dp.Main</mainClass>
             <targetDirectory>${project.build.directory}/js</targetDirectory>
             <targetFileName>client.js</targetFileName>
             <optimizationLevel>ADVANCED</optimizationLevel>
-            <minifying>true</minifying>
+            <minifying>false</minifying>
             </configuration>
         </execution></executions>
       </plugin>

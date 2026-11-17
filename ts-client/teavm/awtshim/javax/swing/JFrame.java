@@ -23,6 +23,12 @@ public class JFrame extends java.awt.Container {
     public java.awt.Container getContentPane() { return new java.awt.Container(); }
     public void addWindowListener(WindowListener l) { }
     public void pack() { }
+    public void setBounds(java.awt.Rectangle r) { }
+    public java.awt.Rectangle getBounds() { return new java.awt.Rectangle(0, 0, width, height); }
+    public void validate() { }
+    public java.awt.Cursor getCursor() { return java.awt.Cursor.getDefaultCursor(); }
+    public void setBounds(int x, int y, int w, int h) { }
+    public void setCursor(java.awt.Cursor c) { }
     public void toFront() { }
     public void dispose() { }
     public void paint(java.awt.Graphics g) { }

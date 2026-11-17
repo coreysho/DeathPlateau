@@ -1,4 +1,4 @@
---- a/lostcity/Theme.java	2026-11-17 01:26:58.016978449 +0000
+--- a/lostcity/Theme.java	2026-11-17 01:43:21.079974528 +0000
 +++ b/lostcity/Theme.java	2026-11-17 00:57:20.823993078 +0000
 @@ -100,7 +100,7 @@
  	public static final int PANEL_HOVER_ALPHA = 30;
@@ -9,7 +9,7 @@
  	}
  
  	private Theme() {
---- a/jagex2/client/LoginProfiles.java	2026-11-17 01:26:57.831823232 +0000
+--- a/jagex2/client/LoginProfiles.java	2026-11-17 01:43:21.060963569 +0000
 +++ b/jagex2/client/LoginProfiles.java	2026-11-17 01:19:30.703933756 +0000
 @@ -537,10 +537,10 @@
  			if (!f.exists()) {
@@ -26,7 +26,7 @@
  			out = new FileOutputStream(f);
  			p.store(out, "Death Plateau saved logins. Delete this file to forget every account on this machine."
  				+ " What is stored is a token the server issued, not your password. It is obfuscated, not safe:"
---- a/jagex2/client/GameShell.java	2026-11-17 01:26:57.827224886 +0000
+--- a/jagex2/client/GameShell.java	2026-11-17 01:43:21.056102982 +0000
 +++ b/jagex2/client/GameShell.java	2026-11-17 00:56:34.853753974 +0000
 @@ -415,7 +415,7 @@
  		}
@@ -79,7 +79,7 @@
  		this.graphics.drawString(message, (this.canvasWidth - boldMetrics.stringWidth(message)) / 2, y + 22);
  	}
  }
---- a/jagex2/client/BrowserInput.java	2026-11-17 01:26:57.836005850 +0000
+--- a/jagex2/client/BrowserInput.java	2026-11-17 01:43:21.065751947 +0000
 +++ b/jagex2/client/BrowserInput.java	2026-11-17 01:25:18.597852293 +0000
 @@ -130,7 +130,7 @@
  		}
@@ -103,7 +103,7 @@
  
  	public static int takeKey() {
  		if (noNative) {
---- a/jagex2/client/Client.java	2026-11-17 01:26:57.822048506 +0000
+--- a/jagex2/client/Client.java	2026-11-17 01:43:21.048047969 +0000
 +++ b/jagex2/client/Client.java	2026-11-17 01:19:30.732824343 +0000
 @@ -3964,7 +3964,7 @@
  	@ObfuscatedName("client.G(I)V")
@@ -203,14 +203,14 @@
  			g.fillRect(0, 0, w, h);
  			return;
  		}
---- a/jagex2/io/WsSocket.java	2026-11-17 01:26:58.011848076 +0000
-+++ b/jagex2/io/WsSocket.java	2026-11-17 01:25:58.418644597 +0000
+--- a/jagex2/io/WsSocket.java	2026-11-17 01:43:21.075296605 +0000
++++ b/jagex2/io/WsSocket.java	2026-11-17 01:41:12.455645984 +0000
 @@ -36,7 +36,7 @@
  public class WsSocket extends Socket {
  
  	/** Opens a WebSocket and returns a handle, or a negative number if it could not connect. */
 -	public static native int wsOpen(String url);
-+	public static int wsOpen(String url) { return -1; } // TeaVM build: @JSBody opens the WebSocket
++	public static int wsOpen(String url) { return browser.BrowserSocket.open(url); }
  
  	/**
  	 * Up to max bytes as base64. "" means nothing has arrived yet; null means the socket is gone.
@@ -219,17 +219,35 @@
  	 * which is what makes a blocking read possible here at all.
  	 */
 -	public static native String wsRead(int handle, int max, int waitMillis);
-+	public static String wsRead(int handle, int max, int waitMillis) { return null; }
++	public static String wsRead(int handle, int max, int waitMillis) { return browser.BrowserSocket.read(handle, max); }
  
 -	public static native void wsWrite(int handle, String base64);
-+	public static void wsWrite(int handle, String base64) { }
++	public static void wsWrite(int handle, String base64) { browser.BrowserSocket.write(handle, base64); }
  
 -	public static native void wsClose(int handle);
-+	public static void wsClose(int handle) { }
++	public static void wsClose(int handle) { browser.BrowserSocket.close(handle); }
  
  	// HOW MUCH TO TAKE AT ONCE. Every one of these calls crosses into JavaScript and back, which is
  	// the expensive part - not the bytes - so the bigger the gulp the better. OnDemand consumes the
---- a/jagex2/io/Packet.java	2026-11-17 01:26:58.003989534 +0000
+@@ -86,6 +86,17 @@
+ 			throw new IOException("connection lost");
+ 		}
+ 		if (b64.length() == 0) {
++			// NOTHING YET, SO YIELD. On CheerpJ this wait happened inside the native and the
++			// browser kept running; here the call returns at once, so without this the loop in
++			// getInputStream().read() spins forever and the WebSocket's onmessage - which is the
++			// only thing that could ever end the wait - never gets a turn. A deadlock that looks
++			// exactly like a hang at "Connecting to update server".
++			if (waitMillis > 0) {
++				try {
++					Thread.sleep(waitMillis);
++				} catch (InterruptedException ignore) {
++				}
++			}
+ 			return;
+ 		}
+ 		byte[] more = Base64.getDecoder().decode(b64);
+--- a/jagex2/io/Packet.java	2026-11-17 01:43:21.070687044 +0000
 +++ b/jagex2/io/Packet.java	2026-11-17 01:19:30.699966613 +0000
 @@ -146,7 +146,11 @@
  

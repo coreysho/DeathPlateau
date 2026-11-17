@@ -27,6 +27,7 @@ rm -rf "$SRC/jagex2/client/plugin" "$SRC/jagex2/client/worldmap/MapWindow.java"
 rm -f "$SRC/lostcity/TitleBar.java" "$SRC/lostcity/Launcher.java" \
       "$SRC/lostcity/LauncherWindow.java" "$SRC/lostcity/Splash.java" "$SRC/lostcity/DiscordSignIn.java"
 cp -r "$HERE/vanilla/"* "$SRC/"
+mkdir -p "$SRC/browser" && cp "$HERE/browser/"*.java "$SRC/browser/"
 
 echo "==> applying the browser patch"
 # The parts a shim cannot reach: TeaVM ships its own java.awt.Color, System, File and
@@ -36,4 +37,6 @@ echo "==> applying the browser patch"
 echo "==> building"
 cd "$HERE" && mvn -B package
 echo
+cp "$HERE/index.html" "$HERE/target/js/index.html"
 echo "built: $HERE/target/js/client.js"
+echo "serve: that directory, with /crc* and the game WebSocket proxied to the engine"
