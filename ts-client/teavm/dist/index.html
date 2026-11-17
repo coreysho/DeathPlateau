@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<title>DeathPlateau</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #000; color: #9a9a9a;
+               font: 12px ui-monospace, monospace; overscroll-behavior: none; }
+  /* The client draws 765x503 and nothing else: the canvas keeps those pixels and CSS stretches
+     them to whatever screen this is, letterboxed. Touch and mouse coordinates are divided by that
+     stretch on the way in - see BrowserTouch.wire and BrowserShell.x(). */
+  #wrap { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
+  #gameCanvas { display: block; image-rendering: pixelated; touch-action: none;
+                max-width: 100%; max-height: 100%; width: auto; height: auto;
+                aspect-ratio: 765 / 503; outline: none; }
+  /* FIXED HEIGHT, not max-height: this box grows as the client logs, and a growing box above the
+     canvas moves the canvas down the page - which moves every click the player makes with it. */
+  #log { position: fixed; left: 0; top: 0; right: 0; height: 3em; padding: 6px; z-index: 2;
+         color: #7fe07f; white-space: pre-wrap; overflow: auto; pointer-events: none; }
+  /* A phone has the screen the game wants: the dev log is desktop-only. */
+  @media (pointer: coarse), (max-width: 900px) { #log { display: none; } }
+  /* Out of sight, but a REAL input: a phone raises its keyboard for one of these and for nothing
+     else. It must stay focusable, so it cannot be display:none or visibility:hidden. */
+  #kbin { position: fixed; left: -9999px; top: 0; width: 1px; height: 1px; opacity: 0; }
+  #kb { position: fixed; right: 10px; bottom: 10px; z-index: 3; width: 46px; height: 46px;
+        border: 1px solid #5a5048; border-radius: 8px; background: #2b2721cc; color: #c8bda8;
+        font: 20px/1 ui-monospace, monospace; display: none; }
+  #kb.on { background: #6b2b2bcc; color: #fff; }
+  @media (pointer: coarse) { #kb { display: block; } }
+</style></head>
+<body>
+<div id="wrap"><canvas id="gameCanvas" width="765" height="503"></canvas></div>
+<div id="log">loading client.js ...</div>
+<input id="kbin" type="text" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" />
+<button id="kb" title="keyboard" aria-label="keyboard">&#9000;</button>
+<script>
+  var log = document.getElementById('log');
+  var lines = [];
+  function say(t) { lines.push(t); if (lines.length > 60) lines.shift(); log.textContent = lines.join('\n'); }
+  var realLog = console.log, realErr = console.error;
+  console.log = function () { say([].join.call(arguments, ' ')); realLog.apply(console, arguments); };
+  console.error = function () { say('ERR ' + [].join.call(arguments, ' ')); realErr.apply(console, arguments); };
+  window.addEventListener('error', function (e) { say('PAGE ERROR: ' + (e.message || e.type)); });
+  window.addEventListener('unhandledrejection', function (e) { say('REJECTION: ' + e.reason); });
+  // A page that scrolls under the finger is a game that cannot be dragged.
+  document.addEventListener('touchmove', function (e) { if (e.cancelable) e.preventDefault(); }, { passive: false });
+</script>
+<script src="client.js"></script>
+<script>
+  say('client.js loaded, starting main()');
+  try { main([], function () { say('main() returned'); }); }
+  catch (e) { say('main() threw: ' + (e && e.message ? e.message : e)); }
+</script>
+</body></html>
