@@ -9,4 +9,7 @@ public class Sidebar extends java.awt.Container {
     public Sidebar() { }
     public Sidebar(Object... ignored) { }
     public void setResizeListener(Runnable r) { }
+
+    /** Vanilla has no settings card to show: the sidebar it lives on does not exist here. */
+    public void openSettings() { }
 }

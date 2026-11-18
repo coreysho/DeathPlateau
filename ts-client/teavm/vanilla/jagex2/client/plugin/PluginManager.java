@@ -69,4 +69,7 @@ public class PluginManager {
 
     public void reload() { }
     public void shutdown() { }
+
+    /** Nothing is ever being dragged, because there are no overlays to drag. */
+    public boolean draggingOverlay() { return false; }
 }
