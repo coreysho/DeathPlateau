@@ -246,6 +246,13 @@ def main():
     ap.add_argument('--only-loc', action='append', type=int, default=[], metavar='ID',
                     help='import ONLY these 474 loc ids, repeatable. With --merge this is how locs an'
                          ' earlier import dropped are added to a map that already exists.')
+    ap.add_argument('--dest-region', action='append', default=[], metavar='SRC:DEST',
+                    help='write the square read from SRC as m<DEST>.jm2 instead of m<SRC>.jm2,'
+                         ' repeatable. For a 2007 dungeon whose own square this build has'
+                         ' already given to something else: 474 keeps the Slug Menace temple in'
+                         ' m36_79, which here is Zulrah. Local coordinates are untouched - a'
+                         ' square name is only a container - so the room arrives whole at a'
+                         ' different absolute coord, which is the coord the scripts then use.')
     ap.add_argument('--merge', action='store_true',
                     help='add the placements to the existing m<region>.jm2 instead of writing a new one,'
                          ' and APPEND the configs to --out.loc instead of replacing it. The terrain is'
@@ -264,6 +271,12 @@ def main():
         i, _, n = spec.partition(':')
         if not n: raise SystemExit(f'--rename {spec}: expected ID:NAME')
         rename[int(i)] = n
+    dest = {}
+    for spec in a.dest_region:
+        s, _, d = spec.partition(':')
+        if not d: raise SystemExit(f'--dest-region {spec}: expected SRC:DEST')
+        if s not in a.region: raise SystemExit(f'--dest-region {spec}: {s} is not a --region')
+        dest[s] = d
     regions = {}
     dropped = {}
     for r in a.region:
@@ -310,22 +323,30 @@ def main():
         elif k == 'import': idmap[oid] = locids[newname[v]]
     for reg, (land, ls) in regions.items():
         locs = [(idmap[l[0]], l[1], l[2], l[3], l[4], l[5]) for l in ls if l[0] in idmap]
-        path = os.path.join(C, 'maps', f'm{reg}.jm2')
+        out = dest.get(reg, reg)
+        path = os.path.join(C, 'maps', f'm{out}.jm2')
         if not a.merge:
             if os.path.exists(path): raise SystemExit(f'{path} already exists - refusing to overwrite')
             jm2.write(path, land, locs, [], [], nl='\r\n')
+            # A NEW SQUARE IS NOWHERE UNTIL map.pack NAMES IT. The packer walks MapPack, not
+            # the maps folder, so this path used to leave the .jm2 on disk and the square out
+            # of the game, with no error anywhere to say so.
+            ids, _ = pack_append(os.path.join(C, 'pack', 'map.pack'), [f'm{out}', f'l{out}'])
+            src = '' if out == reg else f' (read from m{reg})'
+            print(f'wrote m{out}.jm2{src}: {len(locs)} locs'
+                  f' ({len(ls) - len(locs)} dropped); map.pack {ids}')
             continue
         # MERGE: the square's terrain, npcs and objs are whatever the file already says, and only
         # LOC lines are added. Re-running is safe - a placement already there is left alone - so a
         # half-finished merge can simply be run again.
         if not os.path.exists(path): raise SystemExit(f'{path} does not exist - drop --merge to write it')
         added = jm2.add_locs(path, locs)
-        print(f'm{reg}: {added} placement(s) added, {len(locs) - added} already there,'
+        print(f'm{out}: {added} placement(s) added, {len(locs) - added} already there,'
               f' every other line left byte for byte as it was')
         # a map square the build has never had needs its m/l names in the tracked map.pack, or the
         # map packer never looks at the .jm2 (it walks MapPack, not the maps folder)
-        ids, _ = pack_append(os.path.join(C, 'pack', 'map.pack'), [f'm{reg}', f'l{reg}'])
-        print(f'wrote m{reg}.jm2: {len(locs)} locs ({len(ls) - len(locs)} dropped); map.pack {ids}')
+        ids, _ = pack_append(os.path.join(C, 'pack', 'map.pack'), [f'm{out}', f'l{out}'])
+        print(f'm{out}: map.pack {ids}')
 
 if __name__ == '__main__':
     main()
