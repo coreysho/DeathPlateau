@@ -117,9 +117,12 @@ def warn_overlay(value, osrs_colour, flo_colour, flo_name, warned, level=0, roof
     if d <= MISMATCH:
         return
     warned.add(value)
+    # --overlay IS KEYED ON WHAT THE TILE STORES, which is this Old School id minus one, so the
+    # flag printed here has to be value - 1. Printing `value` sent eight flags into the void on
+    # the Witchaven graft and read as a broken option rather than a wrong number.
     print(f'# WARNING overlay {value}: Old School paints it #{a:06x}, and this build keeps '
           f'{flo_name.get(value - 1, "?")} (#{b:06x}) at that id'
-          f' - pass --overlay {value}=<floor> if that is wrong')
+          f' - pass --overlay {value - 1}=<floor> if that is wrong')
 
 
 def main():
@@ -246,7 +249,8 @@ def main():
                         land[(lv, x, z)] = t
                         tchanged += 1
         if roof_hits:
-            worst = ", ".join(f"{v} ({n} tiles, now {flo_name.get(v - 1, chr(63))})"
+            worst = ", ".join(f"{v} ({n} tiles, now {flo_name.get(v - 1, chr(63))},"
+                              f" --overlay {v - 1}=)"
                               for v, n in roof_hits.most_common(6))
             print(f"# WARNING {sum(roof_hits.values())} tile(s) ABOVE GROUND took an overlay this "
                   f"graft was not told about: {worst}. A floor a player stands on at level 1 or "
