@@ -18,7 +18,8 @@ level 3, against 528 tiles and 389 locs at level 0 that must not be touched.
 the box that falls inside it. Levels are a comma list. Everything else - the loc resolution, the
 model conversion, loc.pack and model.pack - is importosrsmap's own machinery, called here.
 """
-import argparse, os, sys
+import argparse, os, re, sys
+from collections import Counter
 
 CRLF = chr(13) + chr(10)
 
@@ -92,6 +93,80 @@ def read_osrs_overlay_colours(st):
     return out
 
 
+def read_osrs_underlay_colours(st):
+    """Every Old School UNDERLAY's colour. Group 1 of idx 2, beside the overlays in group 4."""
+    from reftable import split_group
+    ids = st.reftable(2).file_ids[1]
+    files = split_group(st.read(2, 1), len(ids))
+    out = {}
+    for fid, b in zip(ids, files):
+        p = 0
+        rgb = None
+        while p < len(b):
+            op = b[p]; p += 1
+            if op == 0: break
+            if op == 1: rgb = int.from_bytes(b[p:p + 3], 'big'); p += 3
+            elif op == 2: p += 1
+            elif op == 3: p += 2
+            elif op == 5: pass
+            elif op == 7: p += 3
+            elif op == 9: p += 2
+            else: break
+        if rgb is not None:
+            out[fid] = rgb
+    return out
+
+
+def read_flo_overlays(content):
+    """The 377 flo ids that are OVERLAYS - the ones an underlay must never be pointed at."""
+    import glob
+    cfg = {}
+    for path in glob.glob(os.path.join(content, 'scripts', '**', '*.flo'), recursive=True):
+        cur = None
+        for line in open(path, encoding='utf-8', errors='replace'):
+            m = re.match(r'^\[([a-z0-9_]+)\]', line.strip())
+            if m:
+                cur = m.group(1); cfg[cur] = {}
+            elif cur and '=' in line:
+                k, v = line.strip().split('=', 1); cfg[cur][k] = v
+    out = set()
+    for l in open(os.path.join(content, 'pack', 'flo.pack')):
+        if '=' in l:
+            i, nm = l.strip().split('=', 1)
+            if (cfg.get(nm) or {}).get('overlay') == 'yes':
+                out.add(int(i))
+    return out
+
+
+def warn_underlay(value, osrs_colour, flo_colour, flo_overlay, flo_name, warned, hits):
+    """An underlay passed through unmapped.
+
+    THE FATAL CASE IS NOT A COLOUR, it is a kind. Underlays and overlays share one table here, so
+    an Old School underlay landing on a 377 OVERLAY draws nothing whatsoever - that is black
+    ground, not a wrong shade, and no colour test would have called it out because the overlay's
+    own colour can be anything. It is reported first and separately for that reason.
+    """
+    hits[value] += 1
+    if value in warned:
+        return
+    warned.add(value)
+    if value in flo_overlay:
+        print(f'# WARNING underlay {value}: this build keeps {flo_name.get(value, "?")} at that id'
+              f' and it is an OVERLAY - an overlay in the underlay table DRAWS NOTHING, so those'
+              f' tiles will be black. Pass --underlay {value}=<floor>.')
+        return
+    a = osrs_colour.get(value)
+    b = flo_colour.get(value)
+    if a is None or b is None:
+        return
+    d = sum(abs(((a >> s) & 255) - ((b >> s) & 255)) for s in (16, 8, 0))
+    if d <= MISMATCH:
+        return
+    print(f'# WARNING underlay {value}: Old School paints it #{a:06x}, and this build keeps '
+          f'{flo_name.get(value, "?")} (#{b:06x}) at that id'
+          f' - pass --underlay {value}=<floor> if that is wrong')
+
+
 def warn_overlay(value, osrs_colour, flo_colour, flo_name, warned, level=0, roof_hits=None):
     """An overlay passed through unmapped.
 
@@ -139,6 +214,10 @@ def main():
                     help='map an Old School overlay id onto a 377 floor BY NAME, for the tiles '
                          'this graft writes. Repeatable. Every course needs its own: the deck of '
                          'a slate town and the deck of a desert town are not the same floor.')
+    ap.add_argument('--underlay', action='append', default=[], metavar='OSRS=FLONAME',
+                    help='map an Old School UNDERLAY id onto a 377 floor BY NAME. Unlike --overlay '
+                         'this one is keyed on the id exactly as the warning prints it: a tile '
+                         'stores an underlay raw and an overlay plus one.')
     ap.add_argument('--locs-only', action='store_true',
                     help='graft the locs but leave the terrain alone - for a ground-level obstacle '
                          'whose tile belongs to the 2006 town under it, like a rough wall')
@@ -194,11 +273,22 @@ def main():
         if dst not in flo:
             raise SystemExit(f'--overlay {r}: {dst} is not in pack/flo.pack')
         overlay_remap[int(osrs_ov)] = flo[dst] + 1
+    underlay_remap = {}
+    for r in a.underlay:
+        osrs_un, _, dst = r.partition('=')
+        if dst not in flo:
+            raise SystemExit(f'--underlay {r}: {dst} is not in pack/flo.pack')
+        # AN UNDERLAY IS STORED RAW, with no plus one - which is why --underlay and --overlay are
+        # keyed differently and the help for each says so.
+        underlay_remap[int(osrs_un)] = flo[dst]
+    flo_overlay = read_flo_overlays(a.content)
+    osrs_under = read_osrs_underlay_colours(st)
+    warned_un = set()
+    under_hits = Counter()
     flo_colour = read_flo_colours(a.content)
     osrs_colour = read_osrs_overlay_colours(st)
     flo_name = {v: k for k, v in flo.items()}
     warned = set()
-    from collections import Counter
     roof_hits = Counter()      # unmapped overlays written above ground - see warn_overlay
 
     texnames = {}
@@ -245,9 +335,20 @@ def main():
                         # drew nothing at all and they appeared to walk on the roof edge over air.
                         t['ov'] = t['ov'] + 1
                         warn_overlay(t['ov'], osrs_colour, flo_colour, flo_name, warned, lv, roof_hits)
+                    if t['un'] in underlay_remap:
+                        t['un'] = underlay_remap[t['un']]
+                    elif t['un']:
+                        warn_underlay(t['un'], osrs_under, flo_colour, flo_overlay, flo_name,
+                                      warned_un, under_hits)
                     if land.get((lv, x, z)) != t:
                         land[(lv, x, z)] = t
                         tchanged += 1
+        if under_hits:
+            worst = ", ".join(f"{v} ({n} tiles, now {flo_name.get(v, chr(63))}"
+                              f"{', AN OVERLAY' if v in flo_overlay else ''})"
+                              for v, n in under_hits.most_common(6))
+            print(f'# WARNING {sum(under_hits.values())} tile(s) took an UNDERLAY this graft was '
+                  f'not told about: {worst}. An underlay on an overlay id draws nothing at all.')
         if roof_hits:
             worst = ", ".join(f"{v} ({n} tiles, now {flo_name.get(v - 1, chr(63))},"
                               f" --overlay {v - 1}=)"
