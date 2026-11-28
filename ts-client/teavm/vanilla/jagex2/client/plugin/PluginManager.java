@@ -54,6 +54,11 @@ public class PluginManager {
     public void onChatMessage(String sender, String message, int type) { }
     public void onStatChanged(int skill, int level, int experience, int gained) { }
     public void onMenuBuilt(int size) { }
+    // The loot tracker and the hiscores' Lookup (client API 14). No plugins here, so no rows on a
+    // player's menu, nobody to tell about a click, and a loot line is hidden by Client itself.
+    public List<String> playerMenuOptions() { return new ArrayList<String>(); }
+    public void onPlayerMenuOption(String option, String playerName) { }
+    public boolean onGameMessage(String text) { return false; }
     public boolean onMenuOptionClicked(String option, int action, int paramA, int paramB, int paramC,
         jagex2.client.plugin.event.MenuOptionClicked.Target target) { return false; }
     public boolean onViewportClick(int x, int y) { return false; }
